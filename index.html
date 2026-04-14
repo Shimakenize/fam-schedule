@@ -259,7 +259,7 @@
     function readIdentityIdsPref() {
       if (!window.__SHOW_IDENTITY_UI__) return false;
       try {
-        return localStorage.getItem('regalia_show_identity_ids') === '1';
+        return localStorage.getItem('app_show_identity_ids') === '1';
       } catch (e) {
         return false;
       }
@@ -268,8 +268,8 @@
     function writeIdentityIdsPref(on) {
       if (!window.__SHOW_IDENTITY_UI__) return;
       try {
-        if (on) localStorage.setItem('regalia_show_identity_ids', '1');
-        else localStorage.removeItem('regalia_show_identity_ids');
+        if (on) localStorage.setItem('app_show_identity_ids', '1');
+        else localStorage.removeItem('app_show_identity_ids');
       } catch (e) { /* ignore */ }
     }
 
