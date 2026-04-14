@@ -150,7 +150,6 @@
 <body>
   <div id="auth-gate" class="auth-banner" style="display:none;"></div>
   <header class="app-header">
-    <img class="app-header-icon" id="headerLogo" src="/assets/logo" alt="スケジュール" width="36" height="36" />
     <div class="header-main">
       <div class="header-title-line" id="headerTitleLine">スケジュール <span class="ver" id="verInline"></span></div>
       <div class="header-right">
@@ -225,15 +224,12 @@
       window.__ALLOWED_GROUP_IDS__ = c.allowed_group_ids || [];
     }
 
-    (function applyVersionLabel() {
+    function applyVersionLabel() {
       var ver = String(window.__APP_VERSION__ || '').trim();
-      var verText = ver ? ('(v' + ver + ')') : '(v?)';
+      var verText = ver ? ('(v' + ver + ')') : '';
       document.getElementById('verInline').textContent = verText;
-      document.title = 'スケジュール ' + verText;
-      var b = (window.__API_BASE__ || '').replace(/\/$/, '');
-      var logo = document.getElementById('headerLogo');
-      if (logo && b) logo.src = b + '/assets/logo';
-    })();
+      document.title = 'スケジュール' + (verText ? ' ' + verText : '');
+    }
 
     var idToken = '';
     var lineUserId = '';
@@ -590,6 +586,10 @@
       var s = String(rawTs || '').trim();
       if (!s) return '';
       var norm = s.replace(' ', 'T');
+      // マイクロ秒除去: .782259 → .782
+      norm = norm.replace(/(\.\d{3})\d+/, '$1');
+      // +00 / +09 → +00:00 / +09:00
+      norm = norm.replace(/([+-]\d{2})$/, '$1:00');
       if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(norm)) norm += 'Z';
       var d = new Date(norm);
       if (isNaN(d.getTime())) return s;
@@ -1728,6 +1728,7 @@
       wireTabs();
       try {
         await fetchConfig();
+        applyVersionLabel();
         await ensureLiff();
         ensureGroupContext();
         document.getElementById('loading').textContent = '';
