@@ -148,6 +148,7 @@
   </style>
 </head>
 <body>
+  <div id="dev-banner" style="display:none;background:#854d0e;color:#fef9c3;padding:5px 16px;font-size:0.78rem;text-align:center;letter-spacing:0.03em;">🔧 Claude Dev Mode — 本番環境 読み取り専用</div>
   <div id="auth-gate" class="auth-banner" style="display:none;"></div>
   <header class="app-header">
     <div class="header-main">
@@ -231,6 +232,8 @@
       document.title = 'スケジュール' + (verText ? ' ' + verText : '');
     }
 
+    var DEV_TOKEN = new URLSearchParams(location.search).get('dev') || '';
+    var IS_DEV_BYPASS = DEV_TOKEN.length > 0;
     var idToken = '';
     var lineUserId = '';
     var liffGroupId = '';
@@ -400,6 +403,9 @@
           return fetch(window.__API_BASE__ || '', o);
         } catch (e) { /* ignore */ }
       }
+      if (IS_DEV_BYPASS) {
+        return fetch(apiUrl(path) + '&dev_token=' + encodeURIComponent(DEV_TOKEN) + '&userId=dev-claude', o);
+      }
       return fetch(apiUrl(path) + '&userId=' + encodeURIComponent(lineUserId || ''), o);
     }
 
@@ -434,6 +440,11 @@
     function dbg(msg) {}
 
     async function ensureLiff() {
+      if (IS_DEV_BYPASS) {
+        lineUserId = 'dev-claude';
+        idToken = '';
+        return;
+      }
       var liffId = (window.__LIFF_ID__ || '').trim();
       if (!liffId) {
         document.getElementById('auth-gate').style.display = 'block';
@@ -1720,6 +1731,11 @@
       bindIdentityIdsToggle();
       fillYearMonth();
       wireTabs();
+      if (IS_DEV_BYPASS) {
+        var banner = document.getElementById('dev-banner');
+        if (banner) banner.style.display = 'block';
+        fetchWithAuth('api/admin/dev-access-notify', { method: 'GET' }).catch(function() {});
+      }
       try {
         await fetchConfig();
         applyVersionLabel();
