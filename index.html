@@ -612,7 +612,6 @@
       if (!s) return 'match';
       var low = s.toLowerCase();
       if (low === 'tr') return 'TR';
-      if (low === 'trg') return 'TRG';
       if (low === 'adhoc') return 'adhoc';
       if (low === '塾' || low === 'juku') return '塾';
       if (low === '私用' || low === 'shiyou' || low === 'private') return '私用';
@@ -845,7 +844,6 @@
       var sk = _filterKind === 'match' ? ' selected' : '';
       var sa = _filterKind === 'adhoc' ? ' selected' : '';
       var st = _filterKind === 'TR' ? ' selected' : '';
-      var stg = _filterKind === 'TRG' ? ' selected' : '';
       var sj = _filterKind === '塾' ? ' selected' : '';
       var spv = _filterKind === '私用' ? ' selected' : '';
       var sgs = _filterKind === '合宿' ? ' selected' : '';
@@ -860,7 +858,6 @@
       h += '<option value="match"' + sk + '>試合</option>';
       h += '<option value="adhoc"' + sa + '>単発</option>';
       h += '<option value="TR"' + st + '>TR</option>';
-      h += '<option value="TRG"' + stg + '>TRG</option>';
       h += '<option value="塾"' + sj + '>塾</option>';
       h += '<option value="私用"' + spv + '>私用</option>';
       h += '<option value="合宿"' + sgs + '>合宿</option>';
@@ -1123,7 +1120,6 @@
       if (voidRow) {
         if (k === 'adhoc') return '<span class="badge badge-adhoc-muted">単発</span>';
         if (k === 'TR') return '<span class="badge badge-tr-muted">TR</span>';
-        if (k === 'TRG') return '<span class="badge badge-trg-muted">TRG</span>';
         if (k === '塾') return '<span class="badge badge-juku-muted">塾</span>';
         if (k === '私用') return '<span class="badge badge-private-muted">私用</span>';
         if (k === '合宿') return '<span class="badge badge-gasshuku-muted">合宿</span>';
@@ -1131,7 +1127,6 @@
       }
       if (k === 'adhoc') return '<span class="badge badge-adhoc">単発</span>';
       if (k === 'TR') return '<span class="badge badge-tr">TR</span>';
-      if (k === 'TRG') return '<span class="badge badge-trg">TRG</span>';
       if (k === '塾') return '<span class="badge badge-juku">塾</span>';
       if (k === '私用') return '<span class="badge badge-private">私用</span>';
       if (k === '合宿') return '<span class="badge badge-gasshuku">合宿</span>';
@@ -1159,7 +1154,6 @@
         ['match', '試合'],
         ['adhoc', '単発'],
         ['TR', 'TR'],
-        ['TRG', 'TRG'],
         ['塾', '塾'],
         ['私用', '私用'],
         ['合宿', '合宿']
