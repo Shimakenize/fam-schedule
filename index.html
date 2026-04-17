@@ -56,7 +56,6 @@
     }
     .filter-strip-select { min-width: 0; max-width: 42vw; }
     .filter-strip-input { flex: 1; min-width: 120px; max-width: 240px; }
-    .schedule-range-label { font-size: 0.86rem; color: #9ccce6; flex: 1; min-width: 0; }
     .toolbar-row--schedule { align-items: center; }
     table.data-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
     .data-table th, .data-table td { border: 1px solid #233041; padding: 8px 10px; text-align: left; }
@@ -254,7 +253,7 @@
   <nav class="view-tabs" id="viewTabs" aria-label="表示切替" style="display:none;">
     <button type="button" class="view-tab active" data-view="timeline" id="tabTimeline">タイムライン</button>
     <button type="button" class="view-tab" data-view="table" id="tabTable">テーブル</button>
-    <button type="button" class="view-tab" data-view="admin" id="tabAdmin" hidden>管理メニュー</button>
+    <button type="button" class="view-tab" data-view="admin" id="tabAdmin" hidden>管理</button>
     <button type="button" class="view-tab" data-view="pending" id="tabPending" hidden>仮登録</button>
   </nav>
   <div class="filter-strip" id="filterStrip" style="display:none;" aria-label="絞り込み">
@@ -282,7 +281,6 @@
 
   <div class="toolbar-wrap" id="toolbarWrap" style="display:none;">
     <div class="toolbar-row toolbar-row--schedule">
-      <span id="scheduleRangeLabel" class="schedule-range-label"></span>
       <div class="field">
         <label>&nbsp;</label>
         <button type="button" class="btn btn-primary" id="btnWeekPrev">前の1週間を読み込み</button>
@@ -1008,14 +1006,6 @@
       return out;
     }
 
-    function updateScheduleRangeLabel() {
-      var el = document.getElementById('scheduleRangeLabel');
-      if (!el || !__cachedMonthData) return;
-      var rf = __cachedMonthData.rangeFrom || '';
-      var rt = __cachedMonthData.rangeTo || '';
-      el.textContent = rf && rt ? ('読み込み範囲: ' + rf + ' ～ ' + rt) : '';
-    }
-
     function syncFilterStripFromState() {
       var fk = document.getElementById('filterKind');
       var fc = document.getElementById('filterCategory');
@@ -1063,7 +1053,6 @@
       __cachedMonthData.rangeFrom = newFrom;
       __cachedMonthData.year = parseInt(newFrom.slice(0, 4), 10);
       __cachedMonthData.month = parseInt(newFrom.slice(5, 7), 10);
-      updateScheduleRangeLabel();
       scheduleRerender();
     }
 
@@ -1075,7 +1064,6 @@
       var chunk = await fetchEventsRange(startChunk, newTo);
       __cachedMonthData.events = mergeEventsById(__cachedMonthData.events || [], chunk.events || []);
       __cachedMonthData.rangeTo = newTo;
-      updateScheduleRangeLabel();
       scheduleRerender();
     }
 
@@ -1120,7 +1108,6 @@
     }
 
     function updateToolbarForView() {
-      updateScheduleRangeLabel();
       syncFilterStripFromState();
     }
 
@@ -1652,8 +1639,7 @@
       var fr = filterEvents(all);
       markU13RiskFlags(fr);
       var grouped = groupEventsByIsoDate(fr);
-      var hint = '<p class="sub-hint">表示中: ' + rf + ' ～ ' + rt + '</p>';
-      el.innerHTML = hint + buildTimelineForDates(dateIsos, grouped, yRef, 'tlMonthScroll');
+      el.innerHTML = buildTimelineForDates(dateIsos, grouped, yRef, 'tlMonthScroll');
       requestAnimationFrame(function() {
         requestAnimationFrame(scrollTimelineMonthToToday);
       });
