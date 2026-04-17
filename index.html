@@ -187,6 +187,7 @@
     .tl-block.row-near { background: #4a3b00; border-color: #a16207; }
     .tl-block.row-past { filter: grayscale(0.15); }
     .tl-block.row-void { text-decoration: line-through; }
+    .tl-block.tl-block--provisional { border-style: dashed; border-color: #64748b; background: #1a2a3d; }
   </style>
 </head>
 <body>
@@ -1520,16 +1521,39 @@
     function splitDayEventsForTimeline(dayEv) {
       var allDay = [];
       var timed = [];
+      var provisional = [];
       for (var i = 0; i < dayEv.length; i++) {
         var ev = dayEv[i];
         var tr = parseTimeRangeMinutes(ev);
         if (!tr) {
-          allDay.push(ev);
+          provisional.push(ev);
           continue;
         }
-        var clip = timelineClipRange(tr);
-        if (!clip) allDay.push(ev);
-        else timed.push({ ev: ev, clip: clip });
+        var ds = Math.max(tr.start, TL_START_MIN);
+        var de = Math.min(tr.end, TL_END_MIN);
+        if (de <= ds) {
+          if (tr.end > tr.start) {
+            provisional.push(ev);
+          } else {
+            var p0 = Math.min(Math.max(tr.start, TL_START_MIN), TL_END_MIN - 30);
+            timed.push({ ev: ev, clip: { ds: p0, de: p0 + 30 }, _provisional: true });
+          }
+          continue;
+        }
+        timed.push({ ev: ev, clip: { ds: ds, de: de } });
+      }
+      provisional.sort(function(a, b) {
+        return eventDaySortKey(a) - eventDaySortKey(b) || String(a.id || '').localeCompare(String(b.id || ''));
+      });
+      var bottom = TL_END_MIN;
+      for (var k = 0; k < provisional.length; k++) {
+        var ev2 = provisional[k];
+        var de2 = bottom;
+        var ds2 = de2 - 30;
+        if (ds2 < TL_START_MIN) ds2 = TL_START_MIN;
+        if (de2 <= ds2) de2 = Math.min(ds2 + 30, TL_END_MIN);
+        timed.push({ ev: ev2, clip: { ds: ds2, de: de2 }, _provisional: true });
+        bottom = ds2;
       }
       return { allDay: allDay, timed: timed };
     }
@@ -1580,8 +1604,12 @@
         if (ev.__riskConflict) rowCls += (rowCls ? ' ' : '') + 'row-conflict';
         else if (ev.__riskNear) rowCls += (rowCls ? ' ' : '') + 'row-near';
         var mcls = (isVoidRow(ev) || isPastEventDate(ev)) ? ' tl-block--muted' : '';
+        var prov = !!pl.item._provisional;
+        var provCls = prov ? ' tl-block--provisional' : '';
         var lab = esc(timelineEventPlainTitle(ev));
-        h += '<div class="tl-block' + (rowCls ? ' ' + rowCls : '') + mcls + '" style="top:' + topPct.toFixed(2) + '%;height:' + hPct.toFixed(2) + '%;left:' + (leftPct + 0.35).toFixed(2) + '%;width:' + (wPct - 0.7).toFixed(2) + '%" title="' + escAttr(timelineEventTitleAttr(ev)) + '">';
+        var titBase = timelineEventTitleAttr(ev);
+        var tit = escAttr(titBase + (prov ? '（時刻なし・30分仮表示）' : ''));
+        h += '<div class="tl-block' + (rowCls ? ' ' + rowCls : '') + provCls + mcls + '" style="top:' + topPct.toFixed(2) + '%;height:' + hPct.toFixed(2) + '%;left:' + (leftPct + 0.35).toFixed(2) + '%;width:' + (wPct - 0.7).toFixed(2) + '%" title="' + tit + '">';
         h += '<span class="tl-block-inner">' + lab + '</span></div>';
       }
       h += '</div>';
