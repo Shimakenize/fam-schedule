@@ -159,7 +159,7 @@
     .tl-filter-chrome { margin-bottom: 4px; }
     .tl-wrap { padding: 0 12px 16px 0; overflow-x: auto; flex: 1; min-width: 0; }
     .tl-scroll-inner { min-width: 520px; }
-    .tl-root--fixed-cols { --tl-day-col: clamp(72px, 26vw, 155px); }
+    .tl-root--fixed-cols { --tl-day-col: 100px; }
     .tl-root--fixed-cols .tl-scroll-inner { min-width: 0; width: max-content; }
     .tl-root--fixed-cols .tl-day-head,
     .tl-root--fixed-cols .tl-allday-cell,
@@ -290,7 +290,7 @@
       </div>
       <div class="field" id="weekDisplayModeWrap" style="display:none;">
         <label>表示形式</label>
-        <div class="seg-toggle" role="group" aria-label="週の表示形式">
+        <div class="seg-toggle" role="group" aria-label="表示形式">
           <button type="button" class="seg-btn active" data-mode="table">一覧表</button>
           <button type="button" class="seg-btn" data-mode="timeline">タイムライン</button>
         </div>
@@ -344,6 +344,7 @@
     var _lastLoadedYm = '';
     var _showPastEvents = {
       month: false,
+      monthTimeline: true,
       week: false,
       weekend: false,
       weekTimeline: true,
@@ -849,8 +850,9 @@
         }
         if (currentView === 'month' || currentView === 'week' || currentView === 'weekend' || currentView === 'timeline') {
           var showPast;
-          if (currentView === 'month') showPast = _showPastEvents.month;
-          else if (currentView === 'timeline') showPast = _showPastEvents.timeline;
+          if (currentView === 'month') {
+            showPast = getWeekDisplayMode() === 'timeline' ? _showPastEvents.monthTimeline : _showPastEvents.month;
+          } else if (currentView === 'timeline') showPast = _showPastEvents.timeline;
           else if (currentView === 'week') {
             showPast = getWeekDisplayMode() === 'timeline' ? _showPastEvents.weekTimeline : _showPastEvents.week;
           } else {
@@ -1164,7 +1166,9 @@
         pm.style.display = '';
         pw.style.display = 'none';
         if (pt) pt.style.display = 'none';
-        if (cm) cm.checked = _showPastEvents.month;
+        if (cm) {
+          cm.checked = getWeekDisplayMode() === 'timeline' ? _showPastEvents.monthTimeline : _showPastEvents.month;
+        }
       } else if (currentView === 'week' || currentView === 'weekend') {
         pm.style.display = 'none';
         pw.style.display = '';
@@ -1193,7 +1197,7 @@
       if (w) w.style.display = (currentView === 'week' || currentView === 'weekend') ? 'block' : 'none';
       var modeWrap = document.getElementById('weekDisplayModeWrap');
       if (modeWrap) {
-        modeWrap.style.display = (currentView === 'week' || currentView === 'weekend') ? '' : 'none';
+        modeWrap.style.display = (currentView === 'month' || currentView === 'week' || currentView === 'weekend') ? '' : 'none';
       }
       syncPastFilterToolbar();
       syncWeekDisplayModeToolbar();
@@ -1242,16 +1246,24 @@
       if (!__cachedMonthData) return;
       var el = document.getElementById('viewContent');
       if (currentView === 'month') {
-        var all = __cachedMonthData.events || [];
-        var fr = filterEvents(all);
-        markU13RiskFlags(fr);
-        fr.sort(compareEventsByDateTimeId);
-        if (!all.length) {
+        var allM = __cachedMonthData.events || [];
+        if (!allM.length) {
           el.innerHTML = '<div class="empty">この月のイベントはまだありません。「管理メニュー」タブからバンドル取込ができます。</div>';
           return;
         }
-        el.innerHTML = buildFullTable(fr, __cachedMonthData.year, all);
-        bindScheduleFilters();
+        if (getWeekDisplayMode() === 'timeline') {
+          el.innerHTML = monthTimelineMountInnerHTML(allM, true);
+          bindScheduleFilters();
+          requestAnimationFrame(function() {
+            requestAnimationFrame(scrollTimelineMonthToToday);
+          });
+        } else {
+          var fr = filterEvents(allM);
+          markU13RiskFlags(fr);
+          fr.sort(compareEventsByDateTimeId);
+          el.innerHTML = buildFullTable(fr, __cachedMonthData.year, allM);
+          bindScheduleFilters();
+        }
       } else if (currentView === 'week') {
         renderWeekViewContent();
       } else if (currentView === 'weekend') {
@@ -1812,22 +1824,27 @@
       wrap.scrollLeft = Math.max(0, Math.round(targetScroll));
     }
 
-    function renderTimelineTabContent() {
-      var el = document.getElementById('viewContent');
-      if (!__cachedMonthData) return;
-      var all = __cachedMonthData.events || [];
+    /** 読み込み済み月の全日タイムライン HTML（filterEvents は呼び出し時点の currentView に依存） */
+    function monthTimelineMountInnerHTML(all, includeFilterChrome) {
       var y = __cachedMonthData.year;
       var mo = __cachedMonthData.month;
-      if (!all.length) {
-        el.innerHTML = '<div class="empty">この月のイベントはまだありません。</div>';
-        return;
-      }
       var dateIsos = monthDateIsosForYearMonth(y, mo);
       var fr = filterEvents(all);
       markU13RiskFlags(fr);
       var grouped = groupEventsByIsoDate(fr);
       var hint = '<p class="sub-hint">表示中: ' + y + '年 ' + mo + '月（全日・横スクロール）</p>';
-      el.innerHTML = hint + buildScheduleFilterChrome(all) + buildTimelineForDates(dateIsos, grouped, y, 'tlMonthScroll');
+      return hint + (includeFilterChrome ? buildScheduleFilterChrome(all) : '') + buildTimelineForDates(dateIsos, grouped, y, 'tlMonthScroll');
+    }
+
+    function renderTimelineTabContent() {
+      var el = document.getElementById('viewContent');
+      if (!__cachedMonthData) return;
+      var all = __cachedMonthData.events || [];
+      if (!all.length) {
+        el.innerHTML = '<div class="empty">この月のイベントはまだありません。</div>';
+        return;
+      }
+      el.innerHTML = monthTimelineMountInnerHTML(all, true);
       bindScheduleFilters();
       requestAnimationFrame(function() {
         requestAnimationFrame(scrollTimelineMonthToToday);
@@ -2292,7 +2309,9 @@
     });
 
     document.getElementById('chkShowPastMonth').addEventListener('change', function() {
-      _showPastEvents.month = !!this.checked;
+      var on = !!this.checked;
+      if (getWeekDisplayMode() === 'timeline') _showPastEvents.monthTimeline = on;
+      else _showPastEvents.month = on;
       scheduleRerender();
     });
     document.getElementById('chkShowPastWeek').addEventListener('change', function() {
