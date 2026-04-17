@@ -159,6 +159,15 @@
     .tl-filter-chrome { margin-bottom: 4px; }
     .tl-wrap { padding: 0 12px 16px; overflow-x: auto; }
     .tl-scroll-inner { min-width: 520px; }
+    .tl-root--fixed-cols { --tl-day-col: clamp(72px, 26vw, 155px); }
+    .tl-root--fixed-cols .tl-scroll-inner { min-width: 0; width: max-content; }
+    .tl-root--fixed-cols .tl-day-head,
+    .tl-root--fixed-cols .tl-allday-cell,
+    .tl-root--fixed-cols .tl-day-body {
+      flex: 0 0 var(--tl-day-col);
+      min-width: var(--tl-day-col);
+    }
+    .tl-root--fixed-cols .tl-days-strip { flex: 0 0 auto; min-width: 0; }
     .tl-header-row { display: flex; align-items: stretch; border-bottom: 1px solid #233041; }
     .tl-corner { width: 48px; flex-shrink: 0; padding: 8px 4px; font-size: 0.65rem; color: #64748b; display: flex; align-items: flex-end; }
     .tl-tz { line-height: 1.2; }
@@ -214,6 +223,7 @@
     <button type="button" class="view-tab" data-view="month" id="tabMonth">Monthly view</button>
     <button type="button" class="view-tab active" data-view="week" id="tabWeek">Week view</button>
     <button type="button" class="view-tab" data-view="weekend" id="tabWeekend">Weekend view</button>
+    <button type="button" class="view-tab" data-view="timeline" id="tabTimeline">タイムライン</button>
     <button type="button" class="view-tab" data-view="admin" id="tabAdmin" hidden>管理メニュー</button>
     <button type="button" class="view-tab" data-view="pending" id="tabPending" hidden>仮登録</button>
   </nav>
@@ -250,6 +260,13 @@
         <label>&nbsp;</label>
         <label class="past-filter-label" for="chkShowPastWeek" title="開催日が今日より前の行も一覧に含めます">
           <input type="checkbox" id="chkShowPastWeek" autocomplete="off" />
+          <span>過去も表示</span>
+        </label>
+      </div>
+      <div class="field" id="pastFilterTimelineWrap" style="display:none;">
+        <label>&nbsp;</label>
+        <label class="past-filter-label" for="chkShowPastTimeline" title="開催日が今日より前のイベントもタイムラインに含めます">
+          <input type="checkbox" id="chkShowPastTimeline" autocomplete="off" />
           <span>過去も表示</span>
         </label>
       </div>
@@ -307,7 +324,7 @@
     var _selectedWeekendKey = '';
     var _titleDebounceTimer = null;
     var _lastLoadedYm = '';
-    var _showPastEvents = { month: false, week: false, weekend: false };
+    var _showPastEvents = { month: false, week: false, weekend: false, timeline: true };
     var _showIdentityIds = false;
     var _cachedHeaderWithIds = '';
     var _cachedHeaderNoIds = '';
@@ -805,11 +822,12 @@
           var blob = ((ev.league_or_competition || '') + ' ' + (ev.title || '') + ' ' + (ev.opponent || '') + ' ' + (ev.venue || '')).toLowerCase();
           if (blob.indexOf(ft) === -1) continue;
         }
-        if (currentView === 'month' || currentView === 'week' || currentView === 'weekend') {
+        if (currentView === 'month' || currentView === 'week' || currentView === 'weekend' || currentView === 'timeline') {
           var showPast =
             currentView === 'month' ? _showPastEvents.month :
             currentView === 'week' ? _showPastEvents.week :
-            _showPastEvents.weekend;
+            currentView === 'weekend' ? _showPastEvents.weekend :
+            _showPastEvents.timeline;
           if (!showPast && isPastEventDate(ev)) continue;
         }
         out.push(ev);
@@ -1109,20 +1127,30 @@
     function syncPastFilterToolbar() {
       var pm = document.getElementById('pastFilterMonthWrap');
       var pw = document.getElementById('pastFilterWeekWrap');
+      var pt = document.getElementById('pastFilterTimelineWrap');
       var cm = document.getElementById('chkShowPastMonth');
       var cw = document.getElementById('chkShowPastWeek');
+      var ct = document.getElementById('chkShowPastTimeline');
       if (!pm || !pw) return;
       if (currentView === 'month') {
         pm.style.display = '';
         pw.style.display = 'none';
+        if (pt) pt.style.display = 'none';
         if (cm) cm.checked = _showPastEvents.month;
       } else if (currentView === 'week' || currentView === 'weekend') {
         pm.style.display = 'none';
         pw.style.display = '';
+        if (pt) pt.style.display = 'none';
         if (cw) cw.checked = currentView === 'week' ? _showPastEvents.week : _showPastEvents.weekend;
+      } else if (currentView === 'timeline') {
+        pm.style.display = 'none';
+        pw.style.display = 'none';
+        if (pt) pt.style.display = '';
+        if (ct) ct.checked = _showPastEvents.timeline;
       } else {
         pm.style.display = 'none';
         pw.style.display = 'none';
+        if (pt) pt.style.display = 'none';
       }
     }
 
@@ -1193,6 +1221,8 @@
         renderWeekViewContent();
       } else if (currentView === 'weekend') {
         renderWeekendViewContent();
+      } else if (currentView === 'timeline') {
+        renderTimelineTabContent();
       }
     }
 
@@ -1684,11 +1714,12 @@
         '<tbody style="display:none"><tr><td colspan="7"></td></tr></tbody></table></div>';
     }
 
-    function buildTimelineForDates(dateIsos, grouped, selectedYear) {
+    function buildTimelineForDates(dateIsos, grouped, selectedYear, scrollWrapId) {
       var todayIso = todayIsoJst();
       var tw = computeTimelineViewWindow(dateIsos, grouped);
       var slotPx = tw.slotPx || 40;
-      var h = '<div class="tl-wrap"><div class="tl-scroll-inner">';
+      var wrapId = scrollWrapId ? ' id="' + escAttr(String(scrollWrapId)) + '"' : '';
+      var h = '<div class="tl-root tl-root--fixed-cols"><div class="tl-wrap"' + wrapId + '><div class="tl-scroll-inner">';
       h += '<div class="tl-header-row"><div class="tl-corner"><span class="tl-tz">JST</span></div>';
       for (var c = 0; c < dateIsos.length; c++) {
         var isoDate = dateIsos[c];
@@ -1717,8 +1748,50 @@
         h += buildTimedBlocksLayerHtml(placements, tw.rangeStart, tw.rangeSpan);
         h += '</div>';
       }
-      h += '</div></div></div></div>';
+      h += '</div></div></div></div></div>';
       return h;
+    }
+
+    function monthDateIsosForYearMonth(year, month) {
+      var last = new Date(year, month, 0).getDate();
+      var out = [];
+      for (var d = 1; d <= last; d++) {
+        out.push(year + '-' + pad2(month) + '-' + pad2(d));
+      }
+      return out;
+    }
+
+    function scrollTimelineMonthToToday() {
+      var wrap = document.getElementById('tlMonthScroll');
+      if (!wrap) return;
+      var head = wrap.querySelector('.tl-day-head--today');
+      if (!head) return;
+      var headCenter = head.getBoundingClientRect().left + head.getBoundingClientRect().width / 2;
+      var box = wrap.getBoundingClientRect();
+      var targetScroll = wrap.scrollLeft + (headCenter - (box.left + box.width / 2));
+      wrap.scrollLeft = Math.max(0, Math.round(targetScroll));
+    }
+
+    function renderTimelineTabContent() {
+      var el = document.getElementById('viewContent');
+      if (!__cachedMonthData) return;
+      var all = __cachedMonthData.events || [];
+      var y = __cachedMonthData.year;
+      var mo = __cachedMonthData.month;
+      if (!all.length) {
+        el.innerHTML = '<div class="empty">この月のイベントはまだありません。</div>';
+        return;
+      }
+      var dateIsos = monthDateIsosForYearMonth(y, mo);
+      var fr = filterEvents(all);
+      markU13RiskFlags(fr);
+      var grouped = groupEventsByIsoDate(fr);
+      var hint = '<p class="sub-hint">表示中: ' + y + '年 ' + mo + '月（全日・横スクロール）</p>';
+      el.innerHTML = hint + buildScheduleFilterChrome(all) + buildTimelineForDates(dateIsos, grouped, y, 'tlMonthScroll');
+      bindScheduleFilters();
+      requestAnimationFrame(function() {
+        requestAnimationFrame(scrollTimelineMonthToToday);
+      });
     }
 
     function buildWeekTimelineHTML(mondayIso, weekRows, selectedYear, all) {
@@ -2148,13 +2221,16 @@
         var me = await refreshMeAndPanels();
         var wantAdmin = readUrlTab() === 'admin' && me.is_admin;
         var wantPending = readUrlTab() === 'pending' && me.is_admin;
+        var wantTimeline = readUrlTab() === 'timeline';
         if (me.access_granted) {
           if (wantPending) {
             applyView('pending');
           } else if (wantAdmin) {
             applyView('admin');
           } else {
+            if (wantTimeline) currentView = 'timeline';
             await loadMonth();
+            if (wantTimeline) setViewTabsUI();
           }
         } else {
           document.getElementById('viewContent').innerHTML =
@@ -2182,6 +2258,10 @@
     document.getElementById('chkShowPastWeek').addEventListener('change', function() {
       if (currentView === 'week') _showPastEvents.week = !!this.checked;
       else if (currentView === 'weekend') _showPastEvents.weekend = !!this.checked;
+      scheduleRerender();
+    });
+    document.getElementById('chkShowPastTimeline').addEventListener('change', function() {
+      _showPastEvents.timeline = !!this.checked;
       scheduleRerender();
     });
 
