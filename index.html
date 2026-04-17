@@ -157,7 +157,7 @@
     .seg-toggle .seg-btn:hover { color: #e5e7eb; }
     .seg-toggle .seg-btn.active { background: #1e3a5f; color: #fff; font-weight: 600; }
     .tl-filter-chrome { margin-bottom: 4px; }
-    .tl-wrap { padding: 0 12px 16px; overflow-x: auto; }
+    .tl-wrap { padding: 0 12px 16px 0; overflow-x: auto; flex: 1; min-width: 0; }
     .tl-scroll-inner { min-width: 520px; }
     .tl-root--fixed-cols { --tl-day-col: clamp(72px, 26vw, 155px); }
     .tl-root--fixed-cols .tl-scroll-inner { min-width: 0; width: max-content; }
@@ -166,16 +166,34 @@
     .tl-root--fixed-cols .tl-day-body {
       flex: 0 0 var(--tl-day-col);
       min-width: var(--tl-day-col);
+      max-width: var(--tl-day-col);
+      width: var(--tl-day-col);
+      box-sizing: border-box;
+      overflow: hidden;
     }
     .tl-root--fixed-cols .tl-days-strip { flex: 0 0 auto; min-width: 0; }
-    .tl-header-row { display: flex; align-items: stretch; border-bottom: 1px solid #233041; }
+    .tl-root--split { display: flex; flex-direction: row; align-items: stretch; padding: 0 12px 16px; }
+    .tl-left-rail {
+      flex: 0 0 48px; width: 48px; display: flex; flex-direction: column; flex-shrink: 0;
+      background: #0f1419; border-right: 1px solid #233041; z-index: 2; box-sizing: border-box;
+    }
+    .tl-left-rail .tl-corner {
+      width: 100%; min-height: 48px; box-sizing: border-box; border-bottom: 1px solid #233041;
+    }
+    .tl-left-rail-spacer {
+      flex-shrink: 0; min-height: 36px; background: #0b1220; border-bottom: 1px solid #233041; box-sizing: border-box;
+    }
+    .tl-left-rail .tl-time-ruler {
+      width: 100%; flex: 1; min-height: 640px; height: 640px; border-right: none;
+    }
+    .tl-header-row { display: flex; align-items: stretch; border-bottom: 1px solid #233041; min-height: 48px; }
     .tl-corner { width: 48px; flex-shrink: 0; padding: 8px 4px; font-size: 0.65rem; color: #64748b; display: flex; align-items: flex-end; }
     .tl-tz { line-height: 1.2; }
     .tl-day-head { flex: 1; min-width: 56px; text-align: center; padding: 8px 4px; font-size: 0.8rem; color: #9ccce6; border-left: 1px solid #233041; }
     .tl-day-head--today .tl-dom-wrap { display: inline-block; background: #2563eb; color: #fff; border-radius: 999px; padding: 2px 8px; }
     .tl-dow { color: #94a3b8; font-size: 0.72rem; }
     .tl-dom { font-weight: 700; }
-    .tl-allday-row { display: flex; border-bottom: 1px solid #233041; background: #0b1220; }
+    .tl-allday-row { display: flex; border-bottom: 1px solid #233041; background: #0b1220; min-height: 36px; }
     .tl-gutter-spacer { width: 48px; flex-shrink: 0; }
     .tl-allday-cell { flex: 1; min-width: 56px; border-left: 1px solid #233041; padding: 4px; min-height: 28px; display: flex; flex-wrap: wrap; gap: 4px; align-content: flex-start; }
     .tl-chip { font-size: 0.65rem; padding: 3px 6px; border-radius: 6px; background: #1e3a5f; color: #bfdbfe; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -324,7 +342,14 @@
     var _selectedWeekendKey = '';
     var _titleDebounceTimer = null;
     var _lastLoadedYm = '';
-    var _showPastEvents = { month: false, week: false, weekend: false, timeline: true };
+    var _showPastEvents = {
+      month: false,
+      week: false,
+      weekend: false,
+      weekTimeline: true,
+      weekendTimeline: true,
+      timeline: true
+    };
     var _showIdentityIds = false;
     var _cachedHeaderWithIds = '';
     var _cachedHeaderNoIds = '';
@@ -823,11 +848,14 @@
           if (blob.indexOf(ft) === -1) continue;
         }
         if (currentView === 'month' || currentView === 'week' || currentView === 'weekend' || currentView === 'timeline') {
-          var showPast =
-            currentView === 'month' ? _showPastEvents.month :
-            currentView === 'week' ? _showPastEvents.week :
-            currentView === 'weekend' ? _showPastEvents.weekend :
-            _showPastEvents.timeline;
+          var showPast;
+          if (currentView === 'month') showPast = _showPastEvents.month;
+          else if (currentView === 'timeline') showPast = _showPastEvents.timeline;
+          else if (currentView === 'week') {
+            showPast = getWeekDisplayMode() === 'timeline' ? _showPastEvents.weekTimeline : _showPastEvents.week;
+          } else {
+            showPast = getWeekDisplayMode() === 'timeline' ? _showPastEvents.weekendTimeline : _showPastEvents.weekend;
+          }
           if (!showPast && isPastEventDate(ev)) continue;
         }
         out.push(ev);
@@ -1141,7 +1169,13 @@
         pm.style.display = 'none';
         pw.style.display = '';
         if (pt) pt.style.display = 'none';
-        if (cw) cw.checked = currentView === 'week' ? _showPastEvents.week : _showPastEvents.weekend;
+        if (cw) {
+          if (currentView === 'week') {
+            cw.checked = getWeekDisplayMode() === 'timeline' ? _showPastEvents.weekTimeline : _showPastEvents.week;
+          } else {
+            cw.checked = getWeekDisplayMode() === 'timeline' ? _showPastEvents.weekendTimeline : _showPastEvents.weekend;
+          }
+        }
       } else if (currentView === 'timeline') {
         pm.style.display = 'none';
         pw.style.display = 'none';
@@ -1197,6 +1231,7 @@
           var mode = btn.getAttribute('data-mode') || 'table';
           setWeekDisplayMode(mode);
           syncWeekDisplayModeToolbar();
+          syncPastFilterToolbar();
           scheduleRerender();
         });
       });
@@ -1719,8 +1754,13 @@
       var tw = computeTimelineViewWindow(dateIsos, grouped);
       var slotPx = tw.slotPx || 40;
       var wrapId = scrollWrapId ? ' id="' + escAttr(String(scrollWrapId)) + '"' : '';
-      var h = '<div class="tl-root tl-root--fixed-cols"><div class="tl-wrap"' + wrapId + '><div class="tl-scroll-inner">';
-      h += '<div class="tl-header-row"><div class="tl-corner"><span class="tl-tz">JST</span></div>';
+      var h = '<div class="tl-root tl-root--fixed-cols tl-root--split">';
+      h += '<div class="tl-left-rail"><div class="tl-corner"><span class="tl-tz">JST</span></div>';
+      h += '<div class="tl-left-rail-spacer"></div>';
+      h += buildTimeRulerHTML(tw.rangeStart, tw.rangeEnd);
+      h += '</div>';
+      h += '<div class="tl-wrap"' + wrapId + '><div class="tl-scroll-inner">';
+      h += '<div class="tl-header-row">';
       for (var c = 0; c < dateIsos.length; c++) {
         var isoDate = dateIsos[c];
         var d = parseLocalDate(isoDate);
@@ -1730,7 +1770,7 @@
         h += '<div class="tl-day-head' + (isToday ? ' tl-day-head--today' : '') + '"><span class="tl-dow">' + esc(wd) + '</span> <span class="tl-dom-wrap"><span class="tl-dom">' + esc(dom) + '</span></span></div>';
       }
       h += '</div>';
-      h += '<div class="tl-allday-row"><div class="tl-gutter-spacer"></div>';
+      h += '<div class="tl-allday-row">';
       for (var c2 = 0; c2 < dateIsos.length; c2++) {
         var iso2 = dateIsos[c2];
         var dayEv = grouped[iso2] || [];
@@ -1738,7 +1778,7 @@
         h += '<div class="tl-allday-cell">' + buildAllDayChipsFromList(sp.allDay) + '</div>';
       }
       h += '</div>';
-      h += '<div class="tl-main-row">' + buildTimeRulerHTML(tw.rangeStart, tw.rangeEnd) + '<div class="tl-days-strip">';
+      h += '<div class="tl-main-row"><div class="tl-days-strip">';
       for (var c3 = 0; c3 < dateIsos.length; c3++) {
         var iso3 = dateIsos[c3];
         var dayEv3 = grouped[iso3] || [];
@@ -2256,8 +2296,14 @@
       scheduleRerender();
     });
     document.getElementById('chkShowPastWeek').addEventListener('change', function() {
-      if (currentView === 'week') _showPastEvents.week = !!this.checked;
-      else if (currentView === 'weekend') _showPastEvents.weekend = !!this.checked;
+      var on = !!this.checked;
+      if (currentView === 'week') {
+        if (getWeekDisplayMode() === 'timeline') _showPastEvents.weekTimeline = on;
+        else _showPastEvents.week = on;
+      } else if (currentView === 'weekend') {
+        if (getWeekDisplayMode() === 'timeline') _showPastEvents.weekendTimeline = on;
+        else _showPastEvents.weekend = on;
+      }
       scheduleRerender();
     });
     document.getElementById('chkShowPastTimeline').addEventListener('change', function() {
