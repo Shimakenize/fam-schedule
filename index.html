@@ -176,7 +176,7 @@
     .tl-hlab { position: absolute; left: 0; right: 2px; text-align: right; font-size: 0.68rem; color: #64748b; transform: translateY(-50%); }
     .tl-days-strip { display: flex; flex: 1; min-width: 0; }
     .tl-day-body { flex: 1; min-width: 56px; height: 640px; position: relative; border-left: 1px solid #233041;
-      background: repeating-linear-gradient(to bottom, #0f1419 0, #0f1419 39px, #1a2332 39px, #1a2332 40px); }
+      background: repeating-linear-gradient(to bottom, #0f1419 0, #0f1419 calc(var(--tl-slot, 40px) - 1px), #1a2332 calc(var(--tl-slot, 40px) - 1px), #1a2332 var(--tl-slot, 40px)); }
     .tl-blocks-layer { position: absolute; inset: 0; pointer-events: none; }
     .tl-block { position: absolute; pointer-events: auto; box-sizing: border-box; padding: 2px 4px; border-radius: 6px;
       background: #1e3a5f; color: #e5e7eb; font-size: 0.62rem; line-height: 1.25; overflow: hidden; border: 1px solid #334155;
@@ -187,7 +187,14 @@
     .tl-block.row-near { background: #4a3b00; border-color: #a16207; }
     .tl-block.row-past { filter: grayscale(0.15); }
     .tl-block.row-void { text-decoration: line-through; }
-    .tl-block.tl-block--provisional { border-style: dashed; border-color: #64748b; background: #1a2a3d; }
+    .tl-block.tl-block--provisional { border-style: dashed; border-width: 2px; border-color: rgba(226, 232, 240, 0.45); }
+    .tl-block.tl-kind-match { background: #1e3a5f; border-color: #334e6f; }
+    .tl-block.tl-kind-adhoc { background: #3d2a5c; border-color: #5b3d7a; }
+    .tl-block.tl-kind-tr { background: #14532d; border-color: #166534; }
+    .tl-block.tl-kind-juku { background: #7c2d12; border-color: #9a3412; }
+    .tl-block.tl-kind-private { background: #3f2a56; border-color: #5c3d75; }
+    .tl-block.tl-kind-gasshuku { background: #422006; border-color: #713f12; }
+    .tl-block.tl-kind-marinos { background: #003f8a; border-color: #1e40af; }
   </style>
 </head>
 <body>
@@ -308,7 +315,6 @@
     var TL_DISPLAY_MODE_KEY = 'scheduleWeekDisplayMode';
     var TL_START_MIN = 6 * 60;
     var TL_END_MIN = 22 * 60;
-    var TL_TOTAL_MIN = TL_END_MIN - TL_START_MIN;
     var __weekDisplayModeBound = false;
 
     function readIdentityIdsPref() {
@@ -1492,14 +1498,6 @@
       return g;
     }
 
-    function timelineClipRange(tr) {
-      if (!tr) return null;
-      var ds = Math.max(tr.start, TL_START_MIN);
-      var de = Math.min(tr.end, TL_END_MIN);
-      if (de <= ds) return null;
-      return { ds: ds, de: de };
-    }
-
     function timelineEventPlainTitle(ev) {
       var league = String(ev.league_or_competition || '').trim();
       var curMain = String(ev.title || ev.opponent || '').trim() || '—';
@@ -1516,6 +1514,43 @@
       var t = timelineEventPlainTitle(ev);
       if (v) return t + ' @ ' + v;
       return t;
+    }
+
+    function timelineKindClass(ev) {
+      var k = canonicalEventKind(ev.event_kind);
+      if (k === 'adhoc') return 'tl-kind-adhoc';
+      if (k === 'TR') return 'tl-kind-tr';
+      if (k === '塾') return 'tl-kind-juku';
+      if (k === '私用') return 'tl-kind-private';
+      if (k === '合宿') return 'tl-kind-gasshuku';
+      if (k === 'マリノス戦') return 'tl-kind-marinos';
+      return 'tl-kind-match';
+    }
+
+    function computeTimelineViewWindow(dateIsos, grouped) {
+      var pad = 45;
+      var abs0 = TL_START_MIN;
+      var abs1 = TL_END_MIN;
+      var gmin = null;
+      var gmax = null;
+      for (var i = 0; i < dateIsos.length; i++) {
+        var sp = splitDayEventsForTimeline(grouped[dateIsos[i]] || []);
+        for (var j = 0; j < sp.timed.length; j++) {
+          var cl = sp.timed[j].clip;
+          if (gmin === null || cl.ds < gmin) gmin = cl.ds;
+          if (gmax === null || cl.de > gmax) gmax = cl.de;
+        }
+      }
+      if (gmin === null) {
+        return { rangeStart: abs0, rangeEnd: abs1, rangeSpan: abs1 - abs0, slotPx: 40 };
+      }
+      var rangeStart = Math.max(abs0, gmin - pad);
+      var rangeEnd = Math.min(abs1, gmax + pad);
+      if (rangeEnd <= rangeStart) rangeEnd = Math.min(abs1, rangeStart + 120);
+      var rangeSpan = rangeEnd - rangeStart;
+      var slots = Math.max(1, rangeSpan / 60);
+      var slotPx = 640 / slots;
+      return { rangeStart: rangeStart, rangeEnd: rangeEnd, rangeSpan: rangeSpan, slotPx: slotPx };
     }
 
     function splitDayEventsForTimeline(dayEv) {
@@ -1585,31 +1620,31 @@
       return placements;
     }
 
-    function buildTimedBlocksLayerHtml(placements) {
+    function buildTimedBlocksLayerHtml(placements, rangeStart, rangeSpan) {
       var h = '<div class="tl-blocks-layer">';
       if (!placements.length) {
         h += '</div>';
         return h;
       }
+      var span = Math.max(1, rangeSpan);
       var maxLanes = placements[0].lanes;
       for (var p = 0; p < placements.length; p++) {
         var pl = placements[p];
         var ev = pl.item.ev;
         var clip = pl.item.clip;
-        var topPct = (clip.ds - TL_START_MIN) / TL_TOTAL_MIN * 100;
-        var hPct = Math.max((clip.de - clip.ds) / TL_TOTAL_MIN * 100, 0.9);
+        var topPct = (clip.ds - rangeStart) / span * 100;
+        var hPct = Math.max((clip.de - clip.ds) / span * 100, 0.9);
         var wPct = 100 / maxLanes;
         var leftPct = pl.lane * wPct;
         var rowCls = rowClass(ev);
-        if (ev.__riskConflict) rowCls += (rowCls ? ' ' : '') + 'row-conflict';
-        else if (ev.__riskNear) rowCls += (rowCls ? ' ' : '') + 'row-near';
         var mcls = (isVoidRow(ev) || isPastEventDate(ev)) ? ' tl-block--muted' : '';
         var prov = !!pl.item._provisional;
         var provCls = prov ? ' tl-block--provisional' : '';
+        var kcls = timelineKindClass(ev);
         var lab = esc(timelineEventPlainTitle(ev));
         var titBase = timelineEventTitleAttr(ev);
         var tit = escAttr(titBase + (prov ? '（時刻なし・30分仮表示）' : ''));
-        h += '<div class="tl-block' + (rowCls ? ' ' + rowCls : '') + provCls + mcls + '" style="top:' + topPct.toFixed(2) + '%;height:' + hPct.toFixed(2) + '%;left:' + (leftPct + 0.35).toFixed(2) + '%;width:' + (wPct - 0.7).toFixed(2) + '%" title="' + tit + '">';
+        h += '<div class="tl-block ' + kcls + (rowCls ? ' ' + rowCls : '') + provCls + mcls + '" style="top:' + topPct.toFixed(2) + '%;height:' + hPct.toFixed(2) + '%;left:' + (leftPct + 0.35).toFixed(2) + '%;width:' + (wPct - 0.7).toFixed(2) + '%" title="' + tit + '">';
         h += '<span class="tl-block-inner">' + lab + '</span></div>';
       }
       h += '</div>';
@@ -1627,13 +1662,16 @@
       return h;
     }
 
-    function buildTimeRulerHTML() {
+    function buildTimeRulerHTML(rangeStart, rangeEnd) {
       var h = '<div class="tl-time-ruler">';
-      for (var i = 0; i <= 16; i++) {
-        var hour = 6 + i;
-        if (hour > 22) break;
-        var pct = i / 16 * 100;
-        h += '<span class="tl-hlab" style="top:' + pct.toFixed(2) + '%">' + esc(pad2(hour) + ':00') + '</span>';
+      var span = Math.max(1, rangeEnd - rangeStart);
+      var h0 = Math.floor(rangeStart / 60);
+      var h1 = Math.ceil(rangeEnd / 60);
+      for (var hour = h0; hour <= h1; hour++) {
+        var tmin = hour * 60;
+        var pct = (tmin - rangeStart) / span * 100;
+        if (pct < -0.5 || pct > 100.5) continue;
+        h += '<span class="tl-hlab" style="top:' + Math.max(0, Math.min(100, pct)).toFixed(2) + '%">' + esc(pad2(hour) + ':00') + '</span>';
       }
       h += '</div>';
       return h;
@@ -1648,6 +1686,8 @@
 
     function buildTimelineForDates(dateIsos, grouped, selectedYear) {
       var todayIso = todayIsoJst();
+      var tw = computeTimelineViewWindow(dateIsos, grouped);
+      var slotPx = tw.slotPx || 40;
       var h = '<div class="tl-wrap"><div class="tl-scroll-inner">';
       h += '<div class="tl-header-row"><div class="tl-corner"><span class="tl-tz">JST</span></div>';
       for (var c = 0; c < dateIsos.length; c++) {
@@ -1667,14 +1707,14 @@
         h += '<div class="tl-allday-cell">' + buildAllDayChipsFromList(sp.allDay) + '</div>';
       }
       h += '</div>';
-      h += '<div class="tl-main-row">' + buildTimeRulerHTML() + '<div class="tl-days-strip">';
+      h += '<div class="tl-main-row">' + buildTimeRulerHTML(tw.rangeStart, tw.rangeEnd) + '<div class="tl-days-strip">';
       for (var c3 = 0; c3 < dateIsos.length; c3++) {
         var iso3 = dateIsos[c3];
         var dayEv3 = grouped[iso3] || [];
         var sp3 = splitDayEventsForTimeline(dayEv3);
         var placements = assignTimelineLanes(sp3.timed);
-        h += '<div class="tl-day-body" data-date="' + escAttr(iso3) + '">';
-        h += buildTimedBlocksLayerHtml(placements);
+        h += '<div class="tl-day-body" data-date="' + escAttr(iso3) + '" style="--tl-slot:' + slotPx.toFixed(2) + 'px">';
+        h += buildTimedBlocksLayerHtml(placements, tw.rangeStart, tw.rangeSpan);
         h += '</div>';
       }
       h += '</div></div></div></div>';
