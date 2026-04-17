@@ -35,8 +35,6 @@
     .view-tab.active { color: #fff; border-bottom-color: #2ed3c6; font-weight: 600; }
     .view-tab[hidden] { display: none !important; }
     .meta-strip { padding: 6px 16px; font-size: 0.72rem; color: #9ccce6; background: #0b1220; border-bottom: 1px solid #233041; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .toolbar-wrap { padding: 14px 16px; background: #111827; border-bottom: 1px solid #233041; }
-    .toolbar-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; }
     .field label { display: block; font-size: 0.82rem; color: #9ccce6; margin-bottom: 4px; }
     .field label.past-filter-label { display: flex; align-items: center; gap: 6px; margin-bottom: 0; cursor: pointer; min-height: 38px; }
     .field label.past-filter-label input { margin: 0; flex-shrink: 0; }
@@ -51,12 +49,27 @@
       padding: 8px 16px; background: #111827; border-bottom: 1px solid #233041;
       overflow-x: auto;
     }
+    .filter-strip-filters {
+      display: flex; flex-wrap: nowrap; align-items: center; gap: 10px;
+      flex: 1; min-width: 0;
+    }
+    .filter-strip-actions {
+      display: flex; flex-shrink: 0; align-items: center; gap: 6px;
+      margin-left: auto;
+    }
+    .filter-strip-icon-btn {
+      width: 38px; height: 38px; padding: 0; border: 1px solid #2b4258; border-radius: 8px;
+      background: #0b1220; color: #2ed3c6; font-size: 1.15rem; font-weight: 700;
+      cursor: pointer; flex-shrink: 0; line-height: 1; font-family: inherit;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .filter-strip-icon-btn:hover { background: #1e293b; border-color: #334e6f; color: #5eead4; }
+    .filter-strip-icon-btn:active { transform: scale(0.96); }
     .filter-strip select, .filter-strip input {
       padding: 6px 10px; font-size: 0.85rem; border-radius: 8px; border: 1px solid #2b4258; background: #0b1220; color: #e5e7eb;
     }
     .filter-strip-select { min-width: 0; max-width: 42vw; }
     .filter-strip-input { flex: 1; min-width: 120px; max-width: 240px; }
-    .toolbar-row--schedule { align-items: center; }
     table.data-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
     .data-table th, .data-table td { border: 1px solid #233041; padding: 8px 10px; text-align: left; }
     .data-table th { background: #0b1220; color: #9ccce6; font-weight: 600; }
@@ -141,7 +154,7 @@
     .identity-panel .value { word-break: break-all; font-family: ui-monospace, monospace; font-size: 0.82rem; }
     .btn-sm { padding: 4px 10px; font-size: 0.78rem; margin-right: 6px; }
     .btn-warn { background: #b45309; color: #fff; }
-    .toolbar-wrap.disabled { opacity: 0.45; pointer-events: none; }
+    .filter-strip.disabled { opacity: 0.45; pointer-events: none; }
     .week-block-title { font-size: 0.9rem; font-weight: 600; color: #9ccce6; margin: 16px 0 8px; padding: 0 16px; }
     .week-block-title:first-of-type { margin-top: 8px; }
     .sub-hint { font-size: 0.78rem; color: #94a3b8; margin: 4px 0 8px; padding: 0 16px; }
@@ -286,40 +299,33 @@
     <button type="button" class="view-tab" data-view="pending" id="tabPending" hidden>仮登録</button>
   </nav>
   <div class="filter-strip" id="filterStrip" style="display:none;" aria-label="絞り込み">
-    <select id="filterKind" class="filter-strip-select" title="種別">
-      <option value="" selected>種別: All</option>
-      <option value="match">試合</option>
-      <option value="adhoc">単発</option>
-      <option value="TR">TR</option>
-      <option value="塾">塾</option>
-      <option value="私用">私用</option>
-      <option value="合宿">合宿</option>
-      <option value="マリノス戦">マリノス戦</option>
-    </select>
-    <select id="filterCategory" class="filter-strip-select" title="カテゴリ">
-      <option value="u13" selected>U-13</option>
-      <option value="u14">U-14</option>
-      <option value="u15">U-15</option>
-      <option value="all">All</option>
-    </select>
-    <input type="search" id="filterLeague" class="filter-strip-input" placeholder="大会で絞り込み" autocomplete="off" />
+    <div class="filter-strip-filters">
+      <select id="filterKind" class="filter-strip-select" title="種別">
+        <option value="" selected>種別: All</option>
+        <option value="match">試合</option>
+        <option value="adhoc">単発</option>
+        <option value="TR">TR</option>
+        <option value="塾">塾</option>
+        <option value="私用">私用</option>
+        <option value="合宿">合宿</option>
+        <option value="マリノス戦">マリノス戦</option>
+      </select>
+      <select id="filterCategory" class="filter-strip-select" title="カテゴリ">
+        <option value="u13" selected>U-13</option>
+        <option value="u14">U-14</option>
+        <option value="u15">U-15</option>
+        <option value="all">All</option>
+      </select>
+      <input type="search" id="filterLeague" class="filter-strip-input" placeholder="大会で絞り込み" autocomplete="off" />
+    </div>
+    <div class="filter-strip-actions">
+      <button type="button" class="filter-strip-icon-btn" id="btnWeekPrev" title="前の1週間を読み込み" aria-label="前の1週間を読み込み">←</button>
+      <button type="button" class="filter-strip-icon-btn" id="btnWeekNext" title="次の1週間を読み込み" aria-label="次の1週間を読み込み">→</button>
+    </div>
   </div>
   <div class="meta-strip" id="metaStrip" style="display:none;"></div>
 
   <div id="accessPanel" class="access-panel" style="display:none;"></div>
-
-  <div class="toolbar-wrap" id="toolbarWrap" style="display:none;">
-    <div class="toolbar-row toolbar-row--schedule">
-      <div class="field">
-        <label>&nbsp;</label>
-        <button type="button" class="btn btn-primary" id="btnWeekPrev">前の1週間を読み込み</button>
-      </div>
-      <div class="field">
-        <label>&nbsp;</label>
-        <button type="button" class="btn btn-primary" id="btnWeekNext">次の1週間を読み込み</button>
-      </div>
-    </div>
-  </div>
 
   <div id="viewContent"><div class="empty" id="loading">読み込み中…</div></div>
 
@@ -2025,7 +2031,6 @@
       setViewTabsUI();
       var showScheduleChrome =
         view !== 'admin' && view !== 'pending' && __lastMe && __lastMe.access_granted;
-      document.getElementById('toolbarWrap').style.display = showScheduleChrome ? 'block' : 'none';
       var fsx = document.getElementById('filterStrip');
       if (fsx) fsx.style.display = showScheduleChrome ? 'flex' : 'none';
       if (view === 'admin') {
@@ -2067,12 +2072,12 @@
 
     function renderAccessPanel(me) {
       var el = document.getElementById('accessPanel');
-      var tb = document.getElementById('toolbarWrap');
+      var fsStrip = document.getElementById('filterStrip');
       var tabs = document.getElementById('viewTabs');
       var meta = document.getElementById('metaStrip');
       if (!me.require_approval || me.access_granted) {
         el.style.display = 'none';
-        tb.classList.remove('disabled');
+        if (fsStrip) fsStrip.classList.remove('disabled');
         tabs.style.display = 'flex';
         var fs = document.getElementById('filterStrip');
         if (fs) fs.style.display = 'flex';
@@ -2084,7 +2089,7 @@
       if (fsHide) fsHide.style.display = 'none';
       tabs.style.display = 'none';
       meta.style.display = 'none';
-      tb.classList.add('disabled');
+      if (fsStrip) fsStrip.classList.add('disabled');
       el.style.display = 'block';
       var st = me.db_status || 'none';
       var msg = '';
