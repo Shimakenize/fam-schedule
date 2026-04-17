@@ -149,6 +149,44 @@
     .badge-cat-muted { background: #374151 !important; color: #9ca3af !important; }
     .title-league { font-size: 0.78rem; color: #9ccce6; margin-bottom: 3px; line-height: 1.35; }
     tr.row-void .title-league { color: #6b7280; }
+    /* 週・週末: 表 / タイムライン切替 */
+    .seg-toggle { display: inline-flex; border: 1px solid #2b4258; border-radius: 8px; overflow: hidden; }
+    .seg-toggle .seg-btn {
+      background: #0b1220; color: #94a3b8; border: none; padding: 8px 12px; font-size: 0.82rem; cursor: pointer; font-family: inherit;
+    }
+    .seg-toggle .seg-btn:hover { color: #e5e7eb; }
+    .seg-toggle .seg-btn.active { background: #1e3a5f; color: #fff; font-weight: 600; }
+    .tl-filter-chrome { margin-bottom: 4px; }
+    .tl-wrap { padding: 0 12px 16px; overflow-x: auto; }
+    .tl-scroll-inner { min-width: 520px; }
+    .tl-header-row { display: flex; align-items: stretch; border-bottom: 1px solid #233041; }
+    .tl-corner { width: 48px; flex-shrink: 0; padding: 8px 4px; font-size: 0.65rem; color: #64748b; display: flex; align-items: flex-end; }
+    .tl-tz { line-height: 1.2; }
+    .tl-day-head { flex: 1; min-width: 56px; text-align: center; padding: 8px 4px; font-size: 0.8rem; color: #9ccce6; border-left: 1px solid #233041; }
+    .tl-day-head--today .tl-dom-wrap { display: inline-block; background: #2563eb; color: #fff; border-radius: 999px; padding: 2px 8px; }
+    .tl-dow { color: #94a3b8; font-size: 0.72rem; }
+    .tl-dom { font-weight: 700; }
+    .tl-allday-row { display: flex; border-bottom: 1px solid #233041; background: #0b1220; }
+    .tl-gutter-spacer { width: 48px; flex-shrink: 0; }
+    .tl-allday-cell { flex: 1; min-width: 56px; border-left: 1px solid #233041; padding: 4px; min-height: 28px; display: flex; flex-wrap: wrap; gap: 4px; align-content: flex-start; }
+    .tl-chip { font-size: 0.65rem; padding: 3px 6px; border-radius: 6px; background: #1e3a5f; color: #bfdbfe; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tl-chip--muted { opacity: 0.55; background: #374151; color: #9ca3af; }
+    .tl-main-row { display: flex; align-items: stretch; }
+    .tl-time-ruler { width: 48px; flex-shrink: 0; height: 640px; position: relative; border-right: 1px solid #233041; }
+    .tl-hlab { position: absolute; left: 0; right: 2px; text-align: right; font-size: 0.68rem; color: #64748b; transform: translateY(-50%); }
+    .tl-days-strip { display: flex; flex: 1; min-width: 0; }
+    .tl-day-body { flex: 1; min-width: 56px; height: 640px; position: relative; border-left: 1px solid #233041;
+      background: repeating-linear-gradient(to bottom, #0f1419 0, #0f1419 39px, #1a2332 39px, #1a2332 40px); }
+    .tl-blocks-layer { position: absolute; inset: 0; pointer-events: none; }
+    .tl-block { position: absolute; pointer-events: auto; box-sizing: border-box; padding: 2px 4px; border-radius: 6px;
+      background: #1e3a5f; color: #e5e7eb; font-size: 0.62rem; line-height: 1.25; overflow: hidden; border: 1px solid #334155;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.35); }
+    .tl-block-inner { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
+    .tl-block--muted { opacity: 0.55; }
+    .tl-block.row-conflict { background: #5a1d1d; border-color: #b91c1c; }
+    .tl-block.row-near { background: #4a3b00; border-color: #a16207; }
+    .tl-block.row-past { filter: grayscale(0.15); }
+    .tl-block.row-void { text-decoration: line-through; }
   </style>
 </head>
 <body>
@@ -207,6 +245,13 @@
           <span>過去も表示</span>
         </label>
       </div>
+      <div class="field" id="weekDisplayModeWrap" style="display:none;">
+        <label>表示形式</label>
+        <div class="seg-toggle" role="group" aria-label="週の表示形式">
+          <button type="button" class="seg-btn active" data-mode="table">一覧表</button>
+          <button type="button" class="seg-btn" data-mode="timeline">タイムライン</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -259,6 +304,11 @@
     var _cachedHeaderWithIds = '';
     var _cachedHeaderNoIds = '';
     var _cachedMetaText = '';
+    var TL_DISPLAY_MODE_KEY = 'scheduleWeekDisplayMode';
+    var TL_START_MIN = 6 * 60;
+    var TL_END_MIN = 22 * 60;
+    var TL_TOTAL_MIN = TL_END_MIN - TL_START_MIN;
+    var __weekDisplayModeBound = false;
 
     function readIdentityIdsPref() {
       if (!window.__SHOW_IDENTITY_UI__) return false;
@@ -1072,7 +1122,49 @@
     function updateToolbarForView() {
       var w = document.getElementById('weekSelectWrap');
       if (w) w.style.display = (currentView === 'week' || currentView === 'weekend') ? 'block' : 'none';
+      var modeWrap = document.getElementById('weekDisplayModeWrap');
+      if (modeWrap) {
+        modeWrap.style.display = (currentView === 'week' || currentView === 'weekend') ? '' : 'none';
+      }
       syncPastFilterToolbar();
+      syncWeekDisplayModeToolbar();
+      bindWeekDisplayModeOnce();
+    }
+
+    function getWeekDisplayMode() {
+      try {
+        var v = localStorage.getItem(TL_DISPLAY_MODE_KEY);
+        if (v === 'timeline') return 'timeline';
+      } catch (e) { /* ignore */ }
+      return 'table';
+    }
+
+    function setWeekDisplayMode(mode) {
+      try {
+        localStorage.setItem(TL_DISPLAY_MODE_KEY, mode === 'timeline' ? 'timeline' : 'table');
+      } catch (e) { /* ignore */ }
+    }
+
+    function syncWeekDisplayModeToolbar() {
+      var m = getWeekDisplayMode();
+      document.querySelectorAll('#weekDisplayModeWrap .seg-btn').forEach(function(btn) {
+        btn.classList.toggle('active', btn.getAttribute('data-mode') === m);
+      });
+    }
+
+    function bindWeekDisplayModeOnce() {
+      if (__weekDisplayModeBound) return;
+      var wrap = document.getElementById('weekDisplayModeWrap');
+      if (!wrap) return;
+      __weekDisplayModeBound = true;
+      wrap.querySelectorAll('.seg-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var mode = btn.getAttribute('data-mode') || 'table';
+          setWeekDisplayMode(mode);
+          syncWeekDisplayModeToolbar();
+          scheduleRerender();
+        });
+      });
     }
 
     function scheduleRerender() {
@@ -1349,6 +1441,230 @@
       return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
     }
 
+    function todayIsoJst() {
+      try {
+        var parts = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Asia/Tokyo',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        }).formatToParts(new Date());
+        var y = '', m = '', d = '';
+        for (var i = 0; i < parts.length; i++) {
+          var t = parts[i].type;
+          if (t === 'year') y = parts[i].value;
+          if (t === 'month') m = parts[i].value;
+          if (t === 'day') d = parts[i].value;
+        }
+        return y + '-' + m + '-' + d;
+      } catch (e) {
+        return '';
+      }
+    }
+
+    function weekDatesFromMonday(mondayIso) {
+      var sd = parseLocalDate(mondayIso);
+      if (!sd) return [];
+      var out = [];
+      for (var i = 0; i < 7; i++) {
+        var d = new Date(sd.getFullYear(), sd.getMonth(), sd.getDate() + i);
+        out.push(toIsoDate(d));
+      }
+      return out;
+    }
+
+    function weekendSatSunFromMonday(mondayIso) {
+      var sd = parseLocalDate(mondayIso);
+      if (!sd) return [];
+      var sat = new Date(sd.getFullYear(), sd.getMonth(), sd.getDate() + 5);
+      var sun = new Date(sd.getFullYear(), sd.getMonth(), sd.getDate() + 6);
+      return [toIsoDate(sat), toIsoDate(sun)];
+    }
+
+    function groupEventsByIsoDate(rows) {
+      var g = {};
+      for (var i = 0; i < rows.length; i++) {
+        var k = String(rows[i].event_date || '').slice(0, 10);
+        if (!g[k]) g[k] = [];
+        g[k].push(rows[i]);
+      }
+      return g;
+    }
+
+    function timelineClipRange(tr) {
+      if (!tr) return null;
+      var ds = Math.max(tr.start, TL_START_MIN);
+      var de = Math.min(tr.end, TL_END_MIN);
+      if (de <= ds) return null;
+      return { ds: ds, de: de };
+    }
+
+    function timelineEventPlainTitle(ev) {
+      var league = String(ev.league_or_competition || '').trim();
+      var curMain = String(ev.title || ev.opponent || '').trim() || '—';
+      var timeStr = String(ev.kickoff_primary || ev.time || '').trim();
+      var bits = [];
+      if (timeStr) bits.push(timeStr);
+      if (league) bits.push(league);
+      bits.push(curMain);
+      return bits.join(' · ');
+    }
+
+    function timelineEventTitleAttr(ev) {
+      var v = String(ev.venue || '').trim();
+      var t = timelineEventPlainTitle(ev);
+      if (v) return t + ' @ ' + v;
+      return t;
+    }
+
+    function splitDayEventsForTimeline(dayEv) {
+      var allDay = [];
+      var timed = [];
+      for (var i = 0; i < dayEv.length; i++) {
+        var ev = dayEv[i];
+        var tr = parseTimeRangeMinutes(ev);
+        if (!tr) {
+          allDay.push(ev);
+          continue;
+        }
+        var clip = timelineClipRange(tr);
+        if (!clip) allDay.push(ev);
+        else timed.push({ ev: ev, clip: clip });
+      }
+      return { allDay: allDay, timed: timed };
+    }
+
+    function assignTimelineLanes(timedItems) {
+      timedItems.sort(function(a, b) {
+        return a.clip.ds - b.clip.ds || a.clip.de - b.clip.de;
+      });
+      var laneEnds = [];
+      var placements = [];
+      for (var i = 0; i < timedItems.length; i++) {
+        var it = timedItems[i];
+        var lane = -1;
+        for (var L = 0; L < laneEnds.length; L++) {
+          if (laneEnds[L] <= it.clip.ds) {
+            lane = L;
+            laneEnds[L] = it.clip.de;
+            break;
+          }
+        }
+        if (lane < 0) {
+          lane = laneEnds.length;
+          laneEnds.push(it.clip.de);
+        }
+        placements.push({ item: it, lane: lane });
+      }
+      var maxLanes = Math.max(1, laneEnds.length);
+      for (var j = 0; j < placements.length; j++) placements[j].lanes = maxLanes;
+      return placements;
+    }
+
+    function buildTimedBlocksLayerHtml(placements) {
+      var h = '<div class="tl-blocks-layer">';
+      if (!placements.length) {
+        h += '</div>';
+        return h;
+      }
+      var maxLanes = placements[0].lanes;
+      for (var p = 0; p < placements.length; p++) {
+        var pl = placements[p];
+        var ev = pl.item.ev;
+        var clip = pl.item.clip;
+        var topPct = (clip.ds - TL_START_MIN) / TL_TOTAL_MIN * 100;
+        var hPct = Math.max((clip.de - clip.ds) / TL_TOTAL_MIN * 100, 0.9);
+        var wPct = 100 / maxLanes;
+        var leftPct = pl.lane * wPct;
+        var rowCls = rowClass(ev);
+        if (ev.__riskConflict) rowCls += (rowCls ? ' ' : '') + 'row-conflict';
+        else if (ev.__riskNear) rowCls += (rowCls ? ' ' : '') + 'row-near';
+        var mcls = (isVoidRow(ev) || isPastEventDate(ev)) ? ' tl-block--muted' : '';
+        var lab = esc(timelineEventPlainTitle(ev));
+        h += '<div class="tl-block' + (rowCls ? ' ' + rowCls : '') + mcls + '" style="top:' + topPct.toFixed(2) + '%;height:' + hPct.toFixed(2) + '%;left:' + (leftPct + 0.35).toFixed(2) + '%;width:' + (wPct - 0.7).toFixed(2) + '%" title="' + escAttr(timelineEventTitleAttr(ev)) + '">';
+        h += '<span class="tl-block-inner">' + lab + '</span></div>';
+      }
+      h += '</div>';
+      return h;
+    }
+
+    function buildAllDayChipsFromList(events) {
+      if (!events.length) return '';
+      var h = '';
+      for (var i = 0; i < events.length; i++) {
+        var ev = events[i];
+        var m = (isVoidRow(ev) || isPastEventDate(ev)) ? ' tl-chip--muted' : '';
+        h += '<div class="tl-chip' + m + '" title="' + escAttr(timelineEventTitleAttr(ev)) + '">' + esc(timelineEventPlainTitle(ev)) + '</div>';
+      }
+      return h;
+    }
+
+    function buildTimeRulerHTML() {
+      var h = '<div class="tl-time-ruler">';
+      for (var i = 0; i <= 16; i++) {
+        var hour = 6 + i;
+        if (hour > 22) break;
+        var pct = i / 16 * 100;
+        h += '<span class="tl-hlab" style="top:' + pct.toFixed(2) + '%">' + esc(pad2(hour) + ':00') + '</span>';
+      }
+      h += '</div>';
+      return h;
+    }
+
+    function buildScheduleFilterChrome(allEventsForCat) {
+      var catOpts = buildCategoryFilterInner(allEventsForCat || []);
+      return '<div class="table-wrap tl-filter-chrome"><table class="data-table">' +
+        buildTableThead(catOpts) +
+        '<tbody style="display:none"><tr><td colspan="7"></td></tr></tbody></table></div>';
+    }
+
+    function buildTimelineForDates(dateIsos, grouped, selectedYear) {
+      var todayIso = todayIsoJst();
+      var h = '<div class="tl-wrap"><div class="tl-scroll-inner">';
+      h += '<div class="tl-header-row"><div class="tl-corner"><span class="tl-tz">JST</span></div>';
+      for (var c = 0; c < dateIsos.length; c++) {
+        var isoDate = dateIsos[c];
+        var d = parseLocalDate(isoDate);
+        var wd = d ? WEEKDAY_JA[d.getDay()] : '';
+        var dom = d ? String(d.getDate()) : '';
+        var isToday = todayIso && isoDate === todayIso;
+        h += '<div class="tl-day-head' + (isToday ? ' tl-day-head--today' : '') + '"><span class="tl-dow">' + esc(wd) + '</span> <span class="tl-dom-wrap"><span class="tl-dom">' + esc(dom) + '</span></span></div>';
+      }
+      h += '</div>';
+      h += '<div class="tl-allday-row"><div class="tl-gutter-spacer"></div>';
+      for (var c2 = 0; c2 < dateIsos.length; c2++) {
+        var iso2 = dateIsos[c2];
+        var dayEv = grouped[iso2] || [];
+        var sp = splitDayEventsForTimeline(dayEv);
+        h += '<div class="tl-allday-cell">' + buildAllDayChipsFromList(sp.allDay) + '</div>';
+      }
+      h += '</div>';
+      h += '<div class="tl-main-row">' + buildTimeRulerHTML() + '<div class="tl-days-strip">';
+      for (var c3 = 0; c3 < dateIsos.length; c3++) {
+        var iso3 = dateIsos[c3];
+        var dayEv3 = grouped[iso3] || [];
+        var sp3 = splitDayEventsForTimeline(dayEv3);
+        var placements = assignTimelineLanes(sp3.timed);
+        h += '<div class="tl-day-body" data-date="' + escAttr(iso3) + '">';
+        h += buildTimedBlocksLayerHtml(placements);
+        h += '</div>';
+      }
+      h += '</div></div></div></div>';
+      return h;
+    }
+
+    function buildWeekTimelineHTML(mondayIso, weekRows, selectedYear, all) {
+      var dates = weekDatesFromMonday(mondayIso);
+      var grouped = groupEventsByIsoDate(weekRows);
+      return buildTimelineForDates(dates, grouped, selectedYear);
+    }
+
+    function buildWeekendTimelineHTML(mondayIso, weekendRows, selectedYear, all) {
+      var dates = weekendSatSunFromMonday(mondayIso);
+      var grouped = groupEventsByIsoDate(weekendRows);
+      return buildTimelineForDates(dates, grouped, selectedYear);
+    }
+
     function renderWeekViewContent() {
       var el = document.getElementById('viewContent');
       if (!__cachedMonthData) return;
@@ -1387,7 +1703,11 @@
         el.innerHTML = html;
         return;
       }
-      el.innerHTML = html + buildFullTable(weekRows, y, all);
+      if (getWeekDisplayMode() === 'timeline') {
+        el.innerHTML = html + buildScheduleFilterChrome(all) + buildWeekTimelineHTML(wk, weekRows, y, all);
+      } else {
+        el.innerHTML = html + buildFullTable(weekRows, y, all);
+      }
       bindScheduleFilters();
     }
 
@@ -1432,7 +1752,11 @@
         el.innerHTML = html;
         return;
       }
-      el.innerHTML = html + buildFullTable(filtered, y, all);
+      if (getWeekDisplayMode() === 'timeline') {
+        el.innerHTML = html + buildScheduleFilterChrome(all) + buildWeekendTimelineHTML(wk, filtered, y, all);
+      } else {
+        el.innerHTML = html + buildFullTable(filtered, y, all);
+      }
       bindScheduleFilters();
     }
 
