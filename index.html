@@ -235,6 +235,35 @@
     .tl-block.tl-kind-private { background: #3f2a56; border-color: #5c3d75; }
     .tl-block.tl-kind-gasshuku { background: #422006; border-color: #713f12; }
     .tl-block.tl-kind-marinos { background: #003f8a; border-color: #1e40af; }
+    .tl-block, .tl-chip { cursor: pointer; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
+    .tl-detail-backdrop {
+      position: fixed; inset: 0; z-index: 9998; background: rgba(0, 0, 0, 0.55);
+      display: flex; align-items: flex-end; justify-content: center; padding: 0;
+    }
+    .tl-detail-backdrop[hidden] { display: none !important; }
+    .tl-detail-sheet {
+      position: relative; background: #0f172a; color: #e5e7eb; border: 1px solid #334155;
+      border-radius: 16px 16px 0 0; max-height: 78vh; overflow-y: auto; width: 100%; max-width: 520px;
+      padding: 18px 18px 22px; box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.45);
+    }
+    @media (min-width: 560px) {
+      .tl-detail-backdrop { align-items: center; padding: 20px; }
+      .tl-detail-sheet { border-radius: 16px; max-height: 85vh; }
+    }
+    .tl-detail-close {
+      position: absolute; top: 10px; right: 10px; width: 36px; height: 36px; border: none; border-radius: 10px;
+      background: #1e293b; color: #e2e8f0; font-size: 1.35rem; line-height: 1; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; font-family: inherit;
+    }
+    .tl-detail-close:hover { background: #334155; }
+    .tl-detail-title { font-size: 1.05rem; font-weight: 700; margin: 0 40px 10px 0; line-height: 1.35; }
+    .tl-detail-lead { margin: 0 0 14px; font-size: 0.92rem; line-height: 1.5; color: #cbd5e1; word-break: break-word; }
+    .tl-detail-dl { margin: 0; padding: 0; }
+    .tl-detail-pair { display: grid; grid-template-columns: 5.8em 1fr; gap: 6px 12px; padding: 8px 0; border-bottom: 1px solid #233041; font-size: 0.88rem; }
+    .tl-detail-pair:last-child { border-bottom: none; }
+    .tl-detail-dt { color: #94a3b8; font-size: 0.78rem; margin: 0; }
+    .tl-detail-dd { margin: 0; word-break: break-word; line-height: 1.45; color: #e5e7eb; }
+    .tl-detail-fallback { margin: 0; font-size: 0.92rem; line-height: 1.55; word-break: break-word; color: #cbd5e1; }
   </style>
 </head>
 <body>
@@ -293,6 +322,14 @@
   </div>
 
   <div id="viewContent"><div class="empty" id="loading">読み込み中…</div></div>
+
+  <div id="tlDetailBackdrop" class="tl-detail-backdrop" hidden role="dialog" aria-modal="true" aria-labelledby="tlDetailTitle">
+    <div class="tl-detail-sheet" id="tlDetailSheet">
+      <button type="button" class="tl-detail-close" id="tlDetailClose" aria-label="閉じる">×</button>
+      <h2 class="tl-detail-title" id="tlDetailTitle">予定の詳細</h2>
+      <div id="tlDetailBody"></div>
+    </div>
+  </div>
 
   <script>
     window.__CONFIG_URL__ = 'https://script.google.com/macros/s/AKfycbyL5cGZoR5DIh8yFlehAUrmNqVPagfjOFxImRInQOXxSfys0Z3zXgIqATpPG5ahH2jd/exec';
@@ -1409,6 +1446,166 @@
       return t;
     }
 
+    function findCachedEventById(id) {
+      if (id == null || String(id) === '') return null;
+      var rows = (__cachedMonthData && __cachedMonthData.events) ? __cachedMonthData.events : [];
+      var sid = String(id);
+      for (var i = 0; i < rows.length; i++) {
+        if (String(rows[i].id || '') === sid) return rows[i];
+      }
+      return null;
+    }
+
+    function timelineDetailTimeLine(ev) {
+      var a = String(ev.kickoff_primary || ev.time || '').trim();
+      var b = String(ev.kickoff_secondary || '').trim();
+      if (a && b) return a + ' / ' + b;
+      return a || b || '';
+    }
+
+    function timelineDetailStatusPlain(ev) {
+      var sh = String(ev.status_history || '').trim();
+      if (sh) return sh;
+      var ds = String(ev.display_status || '');
+      if (!ds || ds === 'active') {
+        var u = formatDateTimeJst(ev.updated_at);
+        return u ? (u + ' に更新') : '—';
+      }
+      return ds;
+    }
+
+    function tlDetailPair(label, textVal) {
+      var v = String(textVal || '').trim();
+      if (!v) return '';
+      return '<div class="tl-detail-pair"><span class="tl-detail-dt">' + esc(label) + '</span><span class="tl-detail-dd">' + esc(v) + '</span></div>';
+    }
+
+    function buildTimelineDetailBodyHTML(ev, yRef) {
+      var h = '';
+      h += tlDetailPair('日付', formatDateWithWeekday(ev.event_date, yRef));
+      h += tlDetailPair('種別', canonicalEventKind(ev.event_kind));
+      h += tlDetailPair('カテゴリ', ev.category_code);
+      h += tlDetailPair('大会', ev.league_or_competition);
+      h += tlDetailPair('タイトル', ev.title);
+      h += tlDetailPair('対戦', ev.opponent);
+      h += tlDetailPair('時間', timelineDetailTimeLine(ev));
+      h += tlDetailPair('会場', ev.venue);
+      h += tlDetailPair('メモ', ev.notes);
+      if (String(ev.approval_status || '').trim() === 'pending') {
+        h += tlDetailPair('承認', '仮登録（本登録待ち）');
+      }
+      h += tlDetailPair('状態', timelineDetailStatusPlain(ev));
+      if (!h) return '<p class="tl-detail-fallback">（詳細項目がありません）</p>';
+      return '<div class="tl-detail-dl">' + h + '</div>';
+    }
+
+    function onTlDetailKeydown(e) {
+      if (e.key === 'Escape') closeTimelineDetailPopup();
+    }
+
+    function closeTimelineDetailPopup() {
+      var b = document.getElementById('tlDetailBackdrop');
+      if (b && !b.hidden) {
+        b.hidden = true;
+        b.setAttribute('aria-hidden', 'true');
+        document.removeEventListener('keydown', onTlDetailKeydown);
+      }
+    }
+
+    function showTimelineDetailFromElement(el) {
+      var id = el.getAttribute('data-tl-ev-id');
+      var ev = findCachedEventById(id);
+      var yRef = displayYearFromRange();
+      var body = document.getElementById('tlDetailBody');
+      var titleEl = document.getElementById('tlDetailTitle');
+      if (!body || !titleEl) return;
+      if (ev) {
+        titleEl.textContent = '予定の詳細';
+        body.innerHTML = '<p class="tl-detail-lead">' + esc(timelineEventPlainTitle(ev)) + '</p>' + buildTimelineDetailBodyHTML(ev, yRef);
+      } else {
+        titleEl.textContent = '予定';
+        var inner = el.querySelector('.tl-block-inner');
+        var t = (inner && inner.textContent) ? inner.textContent.trim() : (el.textContent || '').trim();
+        body.innerHTML = '<p class="tl-detail-fallback">' + esc(t || '（内容を取得できませんでした）') + '</p>';
+      }
+      var b = document.getElementById('tlDetailBackdrop');
+      if (!b) return;
+      b.hidden = false;
+      b.setAttribute('aria-hidden', 'false');
+      document.addEventListener('keydown', onTlDetailKeydown);
+    }
+
+    var __tlLP = { timer: null, pid: null, x: 0, y: 0, el: null };
+    var TL_LP_MS = 520;
+    var TL_LP_MOVE2 = 144;
+
+    function __clearTlLongPress() {
+      if (__tlLP.timer) {
+        clearTimeout(__tlLP.timer);
+        __tlLP.timer = null;
+      }
+      __tlLP.pid = null;
+      __tlLP.el = null;
+    }
+
+    function __onTlPointerDown(e) {
+      if (currentView !== 'timeline') return;
+      var t = e.target && e.target.closest && e.target.closest('.tl-block, .tl-chip');
+      if (!t || !document.getElementById('viewContent').contains(t)) return;
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      __clearTlLongPress();
+      __tlLP.pid = e.pointerId;
+      __tlLP.el = t;
+      __tlLP.x = e.clientX;
+      __tlLP.y = e.clientY;
+      var selfEl = t;
+      __tlLP.timer = setTimeout(function() {
+        __tlLP.timer = null;
+        __tlLP.pid = null;
+        __tlLP.el = null;
+        try {
+          if (navigator.vibrate) navigator.vibrate(10);
+        } catch (err) {}
+        showTimelineDetailFromElement(selfEl);
+      }, TL_LP_MS);
+    }
+
+    function __onTlPointerMove(e) {
+      if (__tlLP.pid !== e.pointerId || !__tlLP.el) return;
+      var dx = e.clientX - __tlLP.x;
+      var dy = e.clientY - __tlLP.y;
+      if (dx * dx + dy * dy > TL_LP_MOVE2) __clearTlLongPress();
+    }
+
+    function __onTlPointerUp(e) {
+      if (__tlLP.pid === e.pointerId) __clearTlLongPress();
+    }
+
+    function __onTlContextMenu(e) {
+      if (currentView !== 'timeline') return;
+      var t = e.target && e.target.closest && e.target.closest('.tl-block, .tl-chip');
+      if (t && document.getElementById('viewContent').contains(t)) e.preventDefault();
+    }
+
+    function bindTimelineLongPress() {
+      var backdrop = document.getElementById('tlDetailBackdrop');
+      var closeBtn = document.getElementById('tlDetailClose');
+      if (backdrop && closeBtn && !backdrop.dataset.tlBound) {
+        backdrop.dataset.tlBound = '1';
+        backdrop.addEventListener('click', function(e) {
+          if (e.target === backdrop) closeTimelineDetailPopup();
+        });
+        closeBtn.addEventListener('click', function() {
+          closeTimelineDetailPopup();
+        });
+      }
+      document.addEventListener('pointerdown', __onTlPointerDown, true);
+      document.addEventListener('pointermove', __onTlPointerMove, true);
+      document.addEventListener('pointerup', __onTlPointerUp, true);
+      document.addEventListener('pointercancel', __onTlPointerUp, true);
+      document.addEventListener('contextmenu', __onTlContextMenu, true);
+    }
+
     function timelineKindClass(ev) {
       var k = canonicalEventKind(ev.event_kind);
       if (k === 'adhoc') return 'tl-kind-adhoc';
@@ -1537,7 +1734,7 @@
         var lab = esc(timelineEventPlainTitle(ev));
         var titBase = timelineEventTitleAttr(ev);
         var tit = escAttr(titBase + (prov ? '（時刻なし・30分仮表示）' : ''));
-        h += '<div class="tl-block ' + kcls + (rowCls ? ' ' + rowCls : '') + provCls + mcls + '" style="top:' + topPct.toFixed(2) + '%;height:' + hPct.toFixed(2) + '%;left:' + (leftPct + 0.35).toFixed(2) + '%;width:' + (wPct - 0.7).toFixed(2) + '%" title="' + tit + '">';
+        h += '<div class="tl-block ' + kcls + (rowCls ? ' ' + rowCls : '') + provCls + mcls + '" data-tl-ev-id="' + escAttr(String(ev.id || '')) + '" style="top:' + topPct.toFixed(2) + '%;height:' + hPct.toFixed(2) + '%;left:' + (leftPct + 0.35).toFixed(2) + '%;width:' + (wPct - 0.7).toFixed(2) + '%" title="' + tit + '">';
         h += '<span class="tl-block-inner">' + lab + '</span></div>';
       }
       h += '</div>';
@@ -1550,7 +1747,7 @@
       for (var i = 0; i < events.length; i++) {
         var ev = events[i];
         var m = (isVoidRow(ev) || isPastEventDate(ev)) ? ' tl-chip--muted' : '';
-        h += '<div class="tl-chip' + m + '" title="' + escAttr(timelineEventTitleAttr(ev)) + '">' + esc(timelineEventPlainTitle(ev)) + '</div>';
+        h += '<div class="tl-chip' + m + '" data-tl-ev-id="' + escAttr(String(ev.id || '')) + '" title="' + escAttr(timelineEventTitleAttr(ev)) + '">' + esc(timelineEventPlainTitle(ev)) + '</div>';
       }
       return h;
     }
@@ -1991,6 +2188,8 @@
         alert(esc(String(e.message || e)));
       });
     });
+
+    bindTimelineLongPress();
 
     boot();
   </script>
