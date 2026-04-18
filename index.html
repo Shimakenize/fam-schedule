@@ -303,6 +303,13 @@
     .tl-action-status { font-size: 0.78rem; color: #94a3b8; margin-left: 2px; min-height: 1.2em; }
     .btn-secondary { background: #334155; color: #e5e7eb; font-weight: 600; }
     .btn-secondary:hover { filter: brightness(1.08); }
+    .ui-busy-toast {
+      position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.95); color: #e2e8f0; border: 1px solid #334155;
+      border-radius: 999px; padding: 6px 12px; font-size: 0.78rem; z-index: 10020;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+    }
+    .ui-busy-toast[hidden] { display: none !important; }
   </style>
 </head>
 <body>
@@ -346,6 +353,7 @@
     </div>
     <div class="filter-strip-actions">
       <span id="weekLoadStatus" class="filter-strip-status"></span>
+      <button type="button" class="filter-strip-icon-btn" id="btnTodayJump" title="本日へジャンプ" aria-label="本日へジャンプ">今</button>
       <button type="button" class="filter-strip-icon-btn" id="btnWeekPrev" title="前の1週間を読み込み" aria-label="前の1週間を読み込み">←</button>
       <button type="button" class="filter-strip-icon-btn" id="btnWeekNext" title="次の1週間を読み込み" aria-label="次の1週間を読み込み">→</button>
     </div>
@@ -363,6 +371,7 @@
       <div id="tlDetailBody"></div>
     </div>
   </div>
+  <div id="uiBusyToast" class="ui-busy-toast" hidden></div>
 
   <script>
     window.__CONFIG_URL__ = 'https://script.google.com/macros/s/AKfycbyL5cGZoR5DIh8yFlehAUrmNqVPagfjOFxImRInQOXxSfys0Z3zXgIqATpPG5ahH2jd/exec';
@@ -1685,9 +1694,9 @@
       if (mode === 'edit' && ev) {
         var disp = String(ev.display_status || '');
         if (disp !== 'off') {
-          offRow = '<button type="button" class="btn btn-secondary" data-tl-act="off">予定をOFF</button>';
+          offRow = '<button type="button" class="btn btn-secondary" data-tl-act="off">削除</button>';
         } else {
-          offRow = '<button type="button" class="btn btn-secondary" data-tl-act="reactivate">OFFを解除</button>';
+          offRow = '<button type="button" class="btn btn-secondary" data-tl-act="reactivate">削除を戻す</button>';
         }
       }
       return '<p class="tl-detail-lead">' + esc(lead) + '</p>' + hist +
@@ -1722,6 +1731,7 @@
     function setTlActionBusy(isBusy, text) {
       var statusEl = document.getElementById('tlActionStatus');
       if (statusEl) statusEl.textContent = isBusy ? (text || '処理中…') : '';
+      setGlobalBusyToast(isBusy, text || '処理中…');
       var box = document.getElementById('tlDetailBody');
       if (!box) return;
       box.querySelectorAll('button[data-tl-act]').forEach(function(btn) {
@@ -1736,6 +1746,35 @@
       if (nextBtn) nextBtn.disabled = !!isBusy;
       var status = document.getElementById('weekLoadStatus');
       if (status) status.textContent = isBusy ? (text || '処理中…') : '';
+      setGlobalBusyToast(isBusy, text || '処理中…');
+    }
+
+    function setGlobalBusyToast(isBusy, text) {
+      var el = document.getElementById('uiBusyToast');
+      if (!el) return;
+      if (!isBusy) {
+        el.hidden = true;
+        el.textContent = '';
+        return;
+      }
+      el.textContent = text || '処理中…';
+      el.hidden = false;
+    }
+
+    function jumpToTodayFromButton() {
+      if (currentView !== 'timeline') {
+        applyView('timeline').then(function() {
+          requestAnimationFrame(function() {
+            requestAnimationFrame(scrollTimelineMonthToToday);
+          });
+        }).catch(function(e) {
+          alert(esc(String(e.message || e)));
+        });
+        return;
+      }
+      requestAnimationFrame(function() {
+        requestAnimationFrame(scrollTimelineMonthToToday);
+      });
     }
 
     function openTimelineDetailBackdrop() {
@@ -2663,6 +2702,10 @@
       } finally {
         setWeekLoadBusy(false, '');
       }
+    });
+    document.getElementById('btnTodayJump').addEventListener('click', function() {
+      if (!__lastMe || !__lastMe.access_granted) return;
+      jumpToTodayFromButton();
     });
 
     bindTimelineLongPress();
