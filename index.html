@@ -550,7 +550,13 @@
           b.userId = lineUserId;
           b._path = path.split('?')[0];
           o = Object.assign({}, o, { body: JSON.stringify(b) });
-          return fetch(window.__API_BASE__ || '', o);
+          var postUrl;
+          if (IS_DEV_BYPASS) {
+            postUrl = apiUrl(path) + '&dev_token=' + encodeURIComponent(DEV_TOKEN) + '&userId=dev-claude';
+          } else {
+            postUrl = apiUrl(path) + '&userId=' + encodeURIComponent(lineUserId || '');
+          }
+          return fetch(postUrl, o);
         } catch (e) { /* ignore */ }
       }
       if (IS_DEV_BYPASS) {
