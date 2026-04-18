@@ -53,6 +53,14 @@
       display: flex; flex-wrap: nowrap; align-items: center; gap: 10px;
       flex: 1; min-width: 0;
     }
+    .filter-state-inline {
+      display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0;
+      color: #9ccce6; font-size: 0.74rem; white-space: nowrap;
+    }
+    .filter-state-chip {
+      display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px;
+      border: 1px solid #2b4258; background: #0b1220; color: #bfdbfe;
+    }
     .filter-strip-actions {
       display: flex; flex-shrink: 0; align-items: center; gap: 6px;
       margin-left: auto;
@@ -349,11 +357,15 @@
         <option value="u15">U-15</option>
         <option value="all">All</option>
       </select>
-      <input type="search" id="filterLeague" class="filter-strip-input" placeholder="大会で絞り込み" autocomplete="off" />
+      <input type="search" id="filterLeague" class="filter-strip-input" placeholder="大会・タイトル・対戦・メモで絞り込み" autocomplete="off" />
+      <div class="filter-state-inline" aria-live="polite">
+        <span id="filterKindState" class="filter-state-chip">種別: All</span>
+        <span id="filterCategoryState" class="filter-state-chip">カテゴリ: U-13</span>
+      </div>
     </div>
     <div class="filter-strip-actions">
       <span id="weekLoadStatus" class="filter-strip-status"></span>
-      <button type="button" class="filter-strip-icon-btn" id="btnTodayJump" title="本日へジャンプ" aria-label="本日へジャンプ">今</button>
+      <button type="button" class="filter-strip-icon-btn" id="btnTodayJump" title="本日へジャンプ" aria-label="本日へジャンプ">今日</button>
       <button type="button" class="filter-strip-icon-btn" id="btnWeekPrev" title="前の1週間を読み込み" aria-label="前の1週間を読み込み">←</button>
       <button type="button" class="filter-strip-icon-btn" id="btnWeekNext" title="次の1週間を読み込み" aria-label="次の1週間を読み込み">→</button>
     </div>
@@ -917,8 +929,13 @@
           if (!(evTier === _filterCategoryMode || evTier === 'all')) continue;
         }
         if (fl) {
-          var le = String(ev.league_or_competition || '').toLowerCase();
-          if (le.indexOf(fl) === -1) continue;
+          var hay = [
+            String(ev.league_or_competition || ''),
+            String(ev.title || ''),
+            String(ev.opponent || ''),
+            String(ev.notes || '')
+          ].join(' ').toLowerCase();
+          if (hay.indexOf(fl) === -1) continue;
         }
         out.push(ev);
       }
@@ -1113,6 +1130,24 @@
       if (fk) fk.value = _filterKind || '';
       if (fc) fc.value = _filterCategoryMode || 'u13';
       if (fl) fl.value = _filterLeague || '';
+      updateFilterStateText();
+    }
+
+    function updateFilterStateText() {
+      var fk = document.getElementById('filterKind');
+      var fc = document.getElementById('filterCategory');
+      var kindText = 'All';
+      var catText = 'U-13';
+      if (fk && fk.selectedIndex >= 0) {
+        kindText = String(fk.options[fk.selectedIndex].textContent || '').trim() || 'All';
+      }
+      if (fc && fc.selectedIndex >= 0) {
+        catText = String(fc.options[fc.selectedIndex].textContent || '').trim() || 'U-13';
+      }
+      var ks = document.getElementById('filterKindState');
+      var cs = document.getElementById('filterCategoryState');
+      if (ks) ks.textContent = '種別: ' + kindText;
+      if (cs) cs.textContent = 'カテゴリ: ' + catText;
     }
 
     function bindFilterStripOnce() {
@@ -1124,10 +1159,12 @@
       __filterStripBound = true;
       fk.addEventListener('change', function() {
         _filterKind = fk.value || '';
+        updateFilterStateText();
         scheduleRerender();
       });
       fc.addEventListener('change', function() {
         _filterCategoryMode = fc.value || 'u13';
+        updateFilterStateText();
         scheduleRerender();
       });
       fl.addEventListener('input', function() {
@@ -1715,7 +1752,7 @@
         escAttr(ev ? (ev.opponent || '') : '') + '" />' +
         '<label class="tl-edit-label">時間（開始-終了 例 10:00-11:00）</label><input class="tl-edit-field" type="text" name="kickoff_primary" required placeholder="10:00-11:00" value="' +
         escAttr(kick) + '" />' +
-        '<label class="tl-edit-label">時間2（任意）</label><input class="tl-edit-field" type="text" name="kickoff_secondary" value="' +
+        '<label class="tl-edit-label">時間2（補助用・通常は空でOK）</label><input class="tl-edit-field" type="text" name="kickoff_secondary" value="' +
         escAttr(ev ? (ev.kickoff_secondary || '') : '') + '" />' +
         '<label class="tl-edit-label">会場</label><input class="tl-edit-field" type="text" name="venue" value="' +
         escAttr(ev ? (ev.venue || '') : '') + '" />' +
