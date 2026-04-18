@@ -1613,6 +1613,10 @@
       return Math.round(rs + ratio * rsp);
     }
 
+    function roundMinutesToHalfHour(mins) {
+      return Math.round(mins / 30) * 30;
+    }
+
     function timelineMemberCanEdit(ev) {
       if (!__lastMe || !__lastMe.access_granted) return false;
       if (!ev) return false;
@@ -1639,6 +1643,20 @@
         var lab = opts[i][1];
         var sel = (cur && cur === canonicalEventKind(val)) ? ' selected' : '';
         h += '<option value="' + escAttr(val) + '"' + sel + '>' + esc(lab) + '</option>';
+      }
+      return h;
+    }
+
+    function categoryOptionsForEditor(currentCat) {
+      var cur = String(currentCat || '').trim();
+      var opts = ['U-13', 'U-14', 'U-15', 'ALL'];
+      var h = '<option value="">' + esc('カテゴリを選択') + '</option>';
+      for (var i = 0; i < opts.length; i++) {
+        var v = opts[i];
+        h += '<option value="' + escAttr(v) + '"' + (cur === v ? ' selected' : '') + '>' + esc(v) + '</option>';
+      }
+      if (cur && opts.indexOf(cur) < 0) {
+        h += '<option value="' + escAttr(cur) + '" selected>' + esc(cur) + '</option>';
       }
       return h;
     }
@@ -1672,8 +1690,8 @@
         '<label class="tl-edit-label">日付</label><input class="tl-edit-field" type="date" name="event_date" required value="' + escAttr(ds) + '" />' +
         '<label class="tl-edit-label">種別</label><select class="tl-edit-field" name="event_kind" required>' +
         kindOptionsForEditor(ev ? ev.event_kind : '') + '</select>' +
-        '<label class="tl-edit-label">カテゴリ</label><input class="tl-edit-field" type="text" name="category_code" required placeholder="例: U-13" value="' +
-        escAttr(ev ? (ev.category_code || '') : '') + '" />' +
+        '<label class="tl-edit-label">カテゴリ</label><select class="tl-edit-field" name="category_code" required>' +
+        categoryOptionsForEditor(ev ? (ev.category_code || '') : '') + '</select>' +
         '<label class="tl-edit-label">大会</label><input class="tl-edit-field" type="text" name="league_or_competition" value="' +
         escAttr(ev ? (ev.league_or_competition || '') : '') + '" />' +
         '<label class="tl-edit-label">タイトル</label><input class="tl-edit-field" type="text" name="title" value="' +
@@ -1731,7 +1749,7 @@
       if (!dateIso) return;
       var mins = pointerYToTimelineMinutes(dayBody, clientY);
       if (mins == null) return;
-      var startM = Math.max(TL_START_MIN, Math.min(TL_END_MIN - 60, mins));
+      var startM = Math.max(TL_START_MIN, Math.min(TL_END_MIN - 60, roundMinutesToHalfHour(mins)));
       var endM = Math.min(TL_END_MIN, startM + 60);
       var kick = formatMinutesHm(startM) + '-' + formatMinutesHm(endM);
       var titleEl = document.getElementById('tlDetailTitle');
@@ -1740,6 +1758,47 @@
       titleEl.textContent = '予定を追加';
       body.innerHTML = buildTimelineEditorFormHTML({ mode: 'create', ev: null, dateIso: dateIso, kickoffPrimary: kick });
       openTimelineDetailBackdrop();
+    }
+
+    function applyLocalEventPatch(eventId, patch) {
+      if (!__cachedMonthData || !__cachedMonthData.events) return;
+      var list = __cachedMonthData.events;
+      var eid = String(eventId || '');
+      for (var i = 0; i < list.length; i++) {
+        if (String(list[i].id || '') !== eid) continue;
+        var next = Object.assign({}, list[i], patch || {}, { updated_at: new Date().toISOString() });
+        list[i] = next;
+        __cachedMonthData.events = mergeEventsById(list, []);
+        scheduleRerender();
+        return;
+      }
+    }
+
+    function applyLocalEventCreate(formData, newId) {
+      if (!__cachedMonthData) return;
+      var ev = {
+        id: String(newId || ('tmp-' + Date.now())),
+        event_kind: formData.event_kind || '',
+        event_date: formData.event_date || '',
+        title: formData.title || '',
+        kickoff_primary: formData.kickoff_primary || '',
+        kickoff_secondary: formData.kickoff_secondary || '',
+        opponent: formData.opponent || '',
+        venue: formData.venue || '',
+        category_code: formData.category_code || '',
+        league_or_competition: formData.league_or_competition || '',
+        notes: formData.notes || '',
+        display_status: 'active',
+        approval_status: 'approved',
+        deleted_at: '',
+        off_at: '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        status_history: '',
+        prior_values: {}
+      };
+      __cachedMonthData.events = mergeEventsById(__cachedMonthData.events || [], [ev]);
+      scheduleRerender();
     }
 
     function buildTimelineDetailBodyHTML(ev, yRef) {
@@ -1919,6 +1978,7 @@
                       patch_json: JSON.stringify(patchObj)
                     });
                   }
+                  applyLocalEventPatch(data.event_id, patchObj);
                 } else {
                   var createBody = {
                     event_date: data.event_date,
@@ -1932,14 +1992,16 @@
                     venue: data.venue,
                     notes: data.notes
                   };
+                  var createRes = null;
                   try {
-                    await apiPostJson('/api/schedule/member-create', createBody);
+                    createRes = await apiPostJson('/api/schedule/member-create', createBody);
                   } catch (postErr2) {
-                    await apiGetWithParams('/api/schedule/member-create', createBody);
+                    createRes = await apiGetWithParams('/api/schedule/member-create', createBody);
                   }
+                  applyLocalEventCreate(createBody, createRes && createRes.event_id);
                 }
                 closeTimelineDetailPopup();
-                await refreshScheduleCacheFromServer();
+                refreshScheduleCacheFromServer().catch(function() {});
                 return;
               }
               if (act === 'off' || act === 'reactivate') {
@@ -1953,8 +2015,10 @@
                 } catch (postErr3) {
                   await apiGetWithParams('/api/schedule/member-event-action', actionBody);
                 }
+                if (act === 'off') applyLocalEventPatch(data.event_id, { display_status: 'off', off_at: new Date().toISOString() });
+                else applyLocalEventPatch(data.event_id, { display_status: 'active', off_at: '', deleted_at: '' });
                 closeTimelineDetailPopup();
-                await refreshScheduleCacheFromServer();
+                refreshScheduleCacheFromServer().catch(function() {});
                 return;
               }
             } catch (err) {
@@ -2002,9 +2066,11 @@
       }
       var rangeStart = Math.max(abs0, gmin - pad);
       var rangeEnd = Math.min(abs1, gmax + pad);
+      rangeStart = Math.floor(rangeStart / 30) * 30;
+      rangeEnd = Math.ceil(rangeEnd / 30) * 30;
       if (rangeEnd <= rangeStart) rangeEnd = Math.min(abs1, rangeStart + 120);
       var rangeSpan = rangeEnd - rangeStart;
-      var slots = Math.max(1, rangeSpan / 60);
+      var slots = Math.max(1, rangeSpan / 30);
       var slotPx = 640 / slots;
       return { rangeStart: rangeStart, rangeEnd: rangeEnd, rangeSpan: rangeSpan, slotPx: slotPx };
     }
