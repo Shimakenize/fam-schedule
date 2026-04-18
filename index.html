@@ -57,12 +57,16 @@
       display: flex; flex-shrink: 0; align-items: center; gap: 6px;
       margin-left: auto;
     }
+    .filter-strip-status {
+      min-width: 5.8em; font-size: 0.74rem; color: #94a3b8; text-align: right;
+    }
     .filter-strip-icon-btn {
       width: 38px; height: 38px; padding: 0; border: 1px solid #2b4258; border-radius: 8px;
       background: #0b1220; color: #2ed3c6; font-size: 1.15rem; font-weight: 700;
       cursor: pointer; flex-shrink: 0; line-height: 1; font-family: inherit;
       display: inline-flex; align-items: center; justify-content: center;
     }
+    .filter-strip-icon-btn:disabled { opacity: 0.55; cursor: not-allowed; }
     .filter-strip-icon-btn:hover { background: #1e293b; border-color: #334e6f; color: #5eead4; }
     .filter-strip-icon-btn:active { transform: scale(0.96); }
     .filter-strip select, .filter-strip input {
@@ -296,6 +300,7 @@
       font-size: 0.75rem; line-height: 1.45; color: #cbd5e1; white-space: pre-wrap; max-height: 120px; overflow-y: auto;
     }
     .tl-detail-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; align-items: center; }
+    .tl-action-status { font-size: 0.78rem; color: #94a3b8; margin-left: 2px; min-height: 1.2em; }
     .btn-secondary { background: #334155; color: #e5e7eb; font-weight: 600; }
     .btn-secondary:hover { filter: brightness(1.08); }
   </style>
@@ -340,6 +345,7 @@
       <input type="search" id="filterLeague" class="filter-strip-input" placeholder="大会で絞り込み" autocomplete="off" />
     </div>
     <div class="filter-strip-actions">
+      <span id="weekLoadStatus" class="filter-strip-status"></span>
       <button type="button" class="filter-strip-icon-btn" id="btnWeekPrev" title="前の1週間を読み込み" aria-label="前の1週間を読み込み">←</button>
       <button type="button" class="filter-strip-icon-btn" id="btnWeekNext" title="次の1週間を読み込み" aria-label="次の1週間を読み込み">→</button>
     </div>
@@ -1709,8 +1715,27 @@
         '</form>' +
         '<div class="tl-detail-actions">' +
         '<button type="button" class="btn btn-primary" data-tl-act="save">' + (mode === 'create' ? '追加' : '保存') + '</button>' +
-        offRow +
+        offRow + '<span id="tlActionStatus" class="tl-action-status"></span>' +
         '</div>';
+    }
+
+    function setTlActionBusy(isBusy, text) {
+      var statusEl = document.getElementById('tlActionStatus');
+      if (statusEl) statusEl.textContent = isBusy ? (text || '処理中…') : '';
+      var box = document.getElementById('tlDetailBody');
+      if (!box) return;
+      box.querySelectorAll('button[data-tl-act]').forEach(function(btn) {
+        btn.disabled = !!isBusy;
+      });
+    }
+
+    function setWeekLoadBusy(isBusy, text) {
+      var prevBtn = document.getElementById('btnWeekPrev');
+      var nextBtn = document.getElementById('btnWeekNext');
+      if (prevBtn) prevBtn.disabled = !!isBusy;
+      if (nextBtn) nextBtn.disabled = !!isBusy;
+      var status = document.getElementById('weekLoadStatus');
+      if (status) status.textContent = isBusy ? (text || '処理中…') : '';
     }
 
     function openTimelineDetailBackdrop() {
@@ -1945,9 +1970,10 @@
           if (!actBtn) return;
           e.preventDefault();
           var act = actBtn.getAttribute('data-tl-act');
-          actBtn.disabled = true;
           (async function() {
             try {
+              var busyLabel = (act === 'save') ? '保存中…' : '処理中…';
+              setTlActionBusy(true, busyLabel);
               var data = readTlDetailForm();
               if (act === 'save') {
                 if (!data) throw new Error('フォームがありません');
@@ -2024,7 +2050,7 @@
             } catch (err) {
               alert(esc(String(err.message || err)));
             } finally {
-              actBtn.disabled = false;
+              setTlActionBusy(false, '');
             }
           })();
         });
@@ -2614,17 +2640,27 @@
       }
     }
 
-    document.getElementById('btnWeekPrev').addEventListener('click', function() {
+    document.getElementById('btnWeekPrev').addEventListener('click', async function() {
       if (!__lastMe || !__lastMe.access_granted) return;
-      extendSchedulePrevWeek().catch(function(e) {
+      setWeekLoadBusy(true, '処理中…');
+      try {
+        await extendSchedulePrevWeek();
+      } catch (e) {
         alert(esc(String(e.message || e)));
-      });
+      } finally {
+        setWeekLoadBusy(false, '');
+      }
     });
-    document.getElementById('btnWeekNext').addEventListener('click', function() {
+    document.getElementById('btnWeekNext').addEventListener('click', async function() {
       if (!__lastMe || !__lastMe.access_granted) return;
-      extendScheduleNextWeek().catch(function(e) {
+      setWeekLoadBusy(true, '処理中…');
+      try {
+        await extendScheduleNextWeek();
+      } catch (e) {
         alert(esc(String(e.message || e)));
-      });
+      } finally {
+        setWeekLoadBusy(false, '');
+      }
     });
 
     bindTimelineLongPress();
