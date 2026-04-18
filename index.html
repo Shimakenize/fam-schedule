@@ -691,6 +691,17 @@
       return readApiErrorOrJson(r);
     }
 
+    async function apiGetWithParams(path, params) {
+      var usp = new URLSearchParams();
+      Object.keys(params || {}).forEach(function(k) {
+        var v = params[k];
+        if (v == null) return;
+        usp.set(k, String(v));
+      });
+      var q = usp.toString();
+      return apiGet(path + (q ? ('?' + q) : ''));
+    }
+
     function esc(s) {
       var d = document.createElement('div');
       d.textContent = s == null ? '' : String(s);
@@ -1885,23 +1896,7 @@
                 if (!data.category_code) throw new Error('カテゴリを入力してください');
                 if (!data.kickoff_primary) throw new Error('時間を入力してください');
                 if (data.event_id) {
-                  await apiPostJson('/api/schedule/member-patch', {
-                    event_id: data.event_id,
-                    patch: {
-                      event_date: data.event_date,
-                      event_kind: data.event_kind,
-                      category_code: data.category_code,
-                      league_or_competition: data.league_or_competition,
-                      title: data.title,
-                      opponent: data.opponent,
-                      kickoff_primary: data.kickoff_primary,
-                      kickoff_secondary: data.kickoff_secondary,
-                      venue: data.venue,
-                      notes: data.notes
-                    }
-                  });
-                } else {
-                  await apiPostJson('/api/schedule/member-create', {
+                  var patchObj = {
                     event_date: data.event_date,
                     event_kind: data.event_kind,
                     category_code: data.category_code,
@@ -1912,7 +1907,36 @@
                     kickoff_secondary: data.kickoff_secondary,
                     venue: data.venue,
                     notes: data.notes
-                  });
+                  };
+                  try {
+                    await apiPostJson('/api/schedule/member-patch', {
+                      event_id: data.event_id,
+                      patch: patchObj
+                    });
+                  } catch (postErr) {
+                    await apiGetWithParams('/api/schedule/member-patch', {
+                      event_id: data.event_id,
+                      patch_json: JSON.stringify(patchObj)
+                    });
+                  }
+                } else {
+                  var createBody = {
+                    event_date: data.event_date,
+                    event_kind: data.event_kind,
+                    category_code: data.category_code,
+                    league_or_competition: data.league_or_competition,
+                    title: data.title,
+                    opponent: data.opponent,
+                    kickoff_primary: data.kickoff_primary,
+                    kickoff_secondary: data.kickoff_secondary,
+                    venue: data.venue,
+                    notes: data.notes
+                  };
+                  try {
+                    await apiPostJson('/api/schedule/member-create', createBody);
+                  } catch (postErr2) {
+                    await apiGetWithParams('/api/schedule/member-create', createBody);
+                  }
                 }
                 closeTimelineDetailPopup();
                 await refreshScheduleCacheFromServer();
@@ -1920,10 +1944,15 @@
               }
               if (act === 'off' || act === 'reactivate') {
                 if (!data || !data.event_id) throw new Error('event_id がありません');
-                await apiPostJson('/api/schedule/member-event-action', {
+                var actionBody = {
                   event_id: data.event_id,
                   action: act === 'off' ? 'off' : 'reactivate'
-                });
+                };
+                try {
+                  await apiPostJson('/api/schedule/member-event-action', actionBody);
+                } catch (postErr3) {
+                  await apiGetWithParams('/api/schedule/member-event-action', actionBody);
+                }
                 closeTimelineDetailPopup();
                 await refreshScheduleCacheFromServer();
                 return;
