@@ -80,6 +80,8 @@
     .filter-strip select, .filter-strip input {
       padding: 6px 10px; font-size: 0.85rem; border-radius: 8px; border: 1px solid #2b4258; background: #0b1220; color: #e5e7eb;
     }
+    .filter-strip .cat-filter-item { display: inline-flex; align-items: center; gap: 4px; font-size: 0.78rem; color: #cbd5e1; white-space: nowrap; }
+    .filter-strip .cat-filter-item input[type="checkbox"] { accent-color: #2ed3c6; }
     .filter-strip-select { min-width: 0; max-width: 42vw; }
     .filter-strip-input { flex: 1; min-width: 120px; max-width: 240px; }
     table.data-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
@@ -351,13 +353,9 @@
         <option value="合宿">合宿</option>
         <option value="マリノス戦">マリノス戦</option>
       </select>
-      <select id="filterCategory" class="filter-strip-select" title="カテゴリ">
-        <option value="u13" selected>U-13</option>
-        <option value="u14">U-14</option>
-        <option value="u15">U-15</option>
-        <option value="all">All</option>
-      </select>
-      <input type="search" id="filterLeague" class="filter-strip-input" placeholder="大会・タイトル・対戦・メモで絞り込み" autocomplete="off" />
+      <label class="cat-filter-item"><input type="checkbox" id="filterCatU13" checked />U-13</label>
+      <label class="cat-filter-item"><input type="checkbox" id="filterCatU14" />U-14</label>
+      <label class="cat-filter-item"><input type="checkbox" id="filterCatU15" />U-15</label>
       <div class="filter-state-inline" aria-live="polite">
         <span id="filterKindState" class="filter-state-chip">種別: All</span>
         <span id="filterCategoryState" class="filter-state-chip">カテゴリ: U-13</span>
@@ -420,9 +418,7 @@
     var currentView = 'timeline';
     var WEEKDAY_JA = ['日', '月', '火', '水', '木', '金', '土'];
     var _filterKind = '';
-    var _filterCategoryMode = 'u13';
-    var _filterLeague = '';
-    var _leagueDebounceTimer = null;
+    var _filterCategoryChecks = { u13: true, u14: false, u15: false };
     var __filterStripBound = false;
     var _showIdentityIds = false;
     var _cachedHeaderWithIds = '';
@@ -918,24 +914,19 @@
 
     function filterEvents(rows) {
       var fk = _filterKind;
-      var fl = (_filterLeague || '').toLowerCase();
       var out = [];
       for (var i = 0; i < rows.length; i++) {
         var ev = rows[i];
         var kind = canonicalEventKind(ev.event_kind);
         if (fk && kind !== fk) continue;
-        if (_filterCategoryMode !== 'all') {
-          var evTier = categoryTier(String(ev.category_code || ''));
-          if (!(evTier === _filterCategoryMode || evTier === 'all')) continue;
-        }
-        if (fl) {
-          var hay = [
-            String(ev.league_or_competition || ''),
-            String(ev.title || ''),
-            String(ev.opponent || ''),
-            String(ev.notes || '')
-          ].join(' ').toLowerCase();
-          if (hay.indexOf(fl) === -1) continue;
+        var evTier = categoryTier(String(ev.category_code || ''));
+        var checks = _filterCategoryChecks || {};
+        if (evTier === 'all') {
+          if (!(checks.u13 || checks.u14 || checks.u15)) continue;
+        } else if (evTier === 'u13' || evTier === 'u14' || evTier === 'u15') {
+          if (!checks[evTier]) continue;
+        } else {
+          continue;
         }
         out.push(ev);
       }
@@ -1125,25 +1116,27 @@
 
     function syncFilterStripFromState() {
       var fk = document.getElementById('filterKind');
-      var fc = document.getElementById('filterCategory');
-      var fl = document.getElementById('filterLeague');
+      var c13 = document.getElementById('filterCatU13');
+      var c14 = document.getElementById('filterCatU14');
+      var c15 = document.getElementById('filterCatU15');
       if (fk) fk.value = _filterKind || '';
-      if (fc) fc.value = _filterCategoryMode || 'u13';
-      if (fl) fl.value = _filterLeague || '';
+      if (c13) c13.checked = !!_filterCategoryChecks.u13;
+      if (c14) c14.checked = !!_filterCategoryChecks.u14;
+      if (c15) c15.checked = !!_filterCategoryChecks.u15;
       updateFilterStateText();
     }
 
     function updateFilterStateText() {
       var fk = document.getElementById('filterKind');
-      var fc = document.getElementById('filterCategory');
       var kindText = 'All';
-      var catText = 'U-13';
+      var catParts = [];
       if (fk && fk.selectedIndex >= 0) {
         kindText = String(fk.options[fk.selectedIndex].textContent || '').trim() || 'All';
       }
-      if (fc && fc.selectedIndex >= 0) {
-        catText = String(fc.options[fc.selectedIndex].textContent || '').trim() || 'U-13';
-      }
+      if (_filterCategoryChecks.u13) catParts.push('U-13');
+      if (_filterCategoryChecks.u14) catParts.push('U-14');
+      if (_filterCategoryChecks.u15) catParts.push('U-15');
+      var catText = catParts.length ? catParts.join('/') : 'なし';
       var ks = document.getElementById('filterKindState');
       var cs = document.getElementById('filterCategoryState');
       if (ks) ks.textContent = '種別: ' + kindText;
@@ -1153,26 +1146,26 @@
     function bindFilterStripOnce() {
       if (__filterStripBound) return;
       var fk = document.getElementById('filterKind');
-      var fc = document.getElementById('filterCategory');
-      var fl = document.getElementById('filterLeague');
-      if (!fk || !fc || !fl) return;
+      var c13 = document.getElementById('filterCatU13');
+      var c14 = document.getElementById('filterCatU14');
+      var c15 = document.getElementById('filterCatU15');
+      if (!fk || !c13 || !c14 || !c15) return;
       __filterStripBound = true;
       fk.addEventListener('change', function() {
         _filterKind = fk.value || '';
         updateFilterStateText();
         scheduleRerender();
       });
-      fc.addEventListener('change', function() {
-        _filterCategoryMode = fc.value || 'u13';
-        updateFilterStateText();
-        scheduleRerender();
-      });
-      fl.addEventListener('input', function() {
-        clearTimeout(_leagueDebounceTimer);
-        _leagueDebounceTimer = setTimeout(function() {
-          _filterLeague = fl.value;
+      [c13, c14, c15].forEach(function(chk) {
+        chk.addEventListener('change', function() {
+          _filterCategoryChecks = {
+            u13: !!c13.checked,
+            u14: !!c14.checked,
+            u15: !!c15.checked
+          };
+          updateFilterStateText();
           scheduleRerender();
-        }, 220);
+        });
       });
     }
 
