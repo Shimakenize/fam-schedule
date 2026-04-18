@@ -230,7 +230,13 @@
     .tl-days-strip { display: flex; flex: 1; min-width: 0; }
     .tl-day-body { flex: 1; min-width: 56px; height: 640px; position: relative; border-left: 1px solid #233041;
       background: repeating-linear-gradient(to bottom, #0f1419 0, #0f1419 calc(var(--tl-slot, 40px) - 1px), #1a2332 calc(var(--tl-slot, 40px) - 1px), #1a2332 var(--tl-slot, 40px)); }
-    .tl-blocks-layer { position: absolute; inset: 0; pointer-events: none; }
+    .tl-blocks-layer { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+    .tl-now-marker {
+      position: absolute; left: 0; right: 0; z-index: 4; pointer-events: none;
+      height: 2px; margin-top: -1px; top: 0;
+      background: linear-gradient(90deg, rgba(248, 113, 113, 0.15) 0%, #f87171 12%, #f87171 88%, rgba(248, 113, 113, 0.15) 100%);
+      box-shadow: 0 0 6px rgba(248, 113, 113, 0.85);
+    }
     .tl-block { position: absolute; pointer-events: auto; box-sizing: border-box; padding: 2px 4px; border-radius: 6px;
       background: #1e3a5f; color: #e5e7eb; font-size: 0.62rem; line-height: 1.25; overflow: hidden; border: 1px solid #334155;
       box-shadow: 0 1px 2px rgba(0,0,0,0.35); }
@@ -382,6 +388,7 @@
     var _cachedMetaText = '';
     var TL_START_MIN = 6 * 60;
     var TL_END_MIN = 22 * 60;
+    var __tlNowInterval = null;
 
     function readIdentityIdsPref() {
       if (!window.__SHOW_IDENTITY_UI__) return false;
@@ -1424,6 +1431,73 @@
       }
     }
 
+    /** JST の「今」を 0時からの分（0–1440付近）で返す */
+    function nowMinutesJst() {
+      try {
+        var parts = new Intl.DateTimeFormat('en-GB', {
+          timeZone: 'Asia/Tokyo',
+          hour: '2-digit',
+          minute: '2-digit',
+          hourCycle: 'h23'
+        }).formatToParts(new Date());
+        var H = 0;
+        var M = 0;
+        for (var i = 0; i < parts.length; i++) {
+          if (parts[i].type === 'hour') H = parseInt(parts[i].value, 10) || 0;
+          if (parts[i].type === 'minute') M = parseInt(parts[i].value, 10) || 0;
+        }
+        return H * 60 + M;
+      } catch (e) {
+        return -1;
+      }
+    }
+
+    function clearTimelineNowLineTimer() {
+      if (__tlNowInterval) {
+        clearInterval(__tlNowInterval);
+        __tlNowInterval = null;
+      }
+    }
+
+    function buildTimelineNowMarkerHtml(isoDate, todayIso, rangeStart, rangeEnd, rangeSpan) {
+      if (!todayIso || isoDate !== todayIso) return '';
+      var nowMin = nowMinutesJst();
+      if (nowMin < 0) return '';
+      if (nowMin < rangeStart || nowMin > rangeEnd) return '';
+      var span = Math.max(1, rangeSpan);
+      var topPct = (nowMin - rangeStart) / span * 100;
+      return '<div class="tl-now-marker" style="top:' + topPct.toFixed(3) + '%" data-tl-now="1" aria-hidden="true"></div>';
+    }
+
+    function updateTimelineNowLineMarkers() {
+      if (currentView !== 'timeline') {
+        clearTimelineNowLineTimer();
+        return;
+      }
+      var root = document.querySelector('.tl-root');
+      if (!root) return;
+      var rs = parseFloat(root.getAttribute('data-tl-range-start'), 10);
+      var re = parseFloat(root.getAttribute('data-tl-range-end'), 10);
+      var rsp = parseFloat(root.getAttribute('data-tl-range-span'), 10);
+      if (isNaN(rs) || isNaN(re) || isNaN(rsp)) return;
+      root.querySelectorAll('.tl-now-marker[data-tl-now="1"]').forEach(function(n) {
+        n.remove();
+      });
+      var todayIso = todayIsoJst();
+      var bodyToday = root.querySelector('.tl-day-body[data-date="' + todayIso + '"]');
+      if (!bodyToday) return;
+      var nowMin = nowMinutesJst();
+      if (nowMin < 0 || nowMin < rs || nowMin > re) return;
+      var topPct = (nowMin - rs) / Math.max(1, rsp) * 100;
+      bodyToday.insertAdjacentHTML('beforeend',
+        '<div class="tl-now-marker" style="top:' + topPct.toFixed(3) + '%" data-tl-now="1" aria-hidden="true"></div>');
+    }
+
+    function startTimelineNowLineTimer() {
+      clearTimelineNowLineTimer();
+      __tlNowInterval = setInterval(updateTimelineNowLineMarkers, 60000);
+    }
+
     function groupEventsByIsoDate(rows) {
       var g = {};
       for (var i = 0; i < rows.length; i++) {
@@ -1778,7 +1852,7 @@
       var tw = computeTimelineViewWindow(dateIsos, grouped);
       var slotPx = tw.slotPx || 40;
       var wrapId = scrollWrapId ? ' id="' + escAttr(String(scrollWrapId)) + '"' : '';
-      var h = '<div class="tl-root tl-root--fixed-cols tl-root--split">';
+      var h = '<div class="tl-root tl-root--fixed-cols tl-root--split" data-tl-range-start="' + escAttr(String(tw.rangeStart)) + '" data-tl-range-end="' + escAttr(String(tw.rangeEnd)) + '" data-tl-range-span="' + escAttr(String(tw.rangeSpan)) + '">';
       h += '<div class="tl-left-rail"><div class="tl-corner"><span class="tl-tz">JST</span></div>';
       h += '<div class="tl-left-rail-spacer"></div>';
       h += buildTimeRulerHTML(tw.rangeStart, tw.rangeEnd);
@@ -1810,6 +1884,7 @@
         var placements = assignTimelineLanes(sp3.timed);
         h += '<div class="tl-day-body" data-date="' + escAttr(iso3) + '" style="--tl-slot:' + slotPx.toFixed(2) + 'px">';
         h += buildTimedBlocksLayerHtml(placements, tw.rangeStart, tw.rangeSpan);
+        h += buildTimelineNowMarkerHtml(iso3, todayIso, tw.rangeStart, tw.rangeEnd, tw.rangeSpan);
         h += '</div>';
       }
       h += '</div></div></div></div></div>';
@@ -1828,6 +1903,7 @@
     }
 
     function renderTimelineRangeView() {
+      clearTimelineNowLineTimer();
       var el = document.getElementById('viewContent');
       if (!__cachedMonthData || !__cachedMonthData.rangeFrom || !__cachedMonthData.rangeTo) return;
       var all = __cachedMonthData.events || [];
@@ -1844,7 +1920,11 @@
       var grouped = groupEventsByIsoDate(fr);
       el.innerHTML = buildTimelineForDates(dateIsos, grouped, yRef, 'tlMonthScroll');
       requestAnimationFrame(function() {
-        requestAnimationFrame(scrollTimelineMonthToToday);
+        requestAnimationFrame(function() {
+          scrollTimelineMonthToToday();
+          updateTimelineNowLineMarkers();
+          startTimelineNowLineTimer();
+        });
       });
     }
 
@@ -2028,6 +2108,7 @@
 
     async function applyView(view) {
       currentView = view;
+      if (view !== 'timeline') clearTimelineNowLineTimer();
       setViewTabsUI();
       var showScheduleChrome =
         view !== 'admin' && view !== 'pending' && __lastMe && __lastMe.access_granted;
