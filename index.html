@@ -2642,7 +2642,8 @@
 
     document.getElementById('btnWeekPrev').addEventListener('click', async function() {
       if (!__lastMe || !__lastMe.access_granted) return;
-      setWeekLoadBusy(true, '処理中…');
+      var edge = (__cachedMonthData && __cachedMonthData.rangeFrom) ? __cachedMonthData.rangeFrom : '';
+      setWeekLoadBusy(true, edge ? ('処理中… ' + edge + ' より前') : '処理中…');
       try {
         await extendSchedulePrevWeek();
       } catch (e) {
@@ -2653,7 +2654,8 @@
     });
     document.getElementById('btnWeekNext').addEventListener('click', async function() {
       if (!__lastMe || !__lastMe.access_granted) return;
-      setWeekLoadBusy(true, '処理中…');
+      var edge = (__cachedMonthData && __cachedMonthData.rangeTo) ? __cachedMonthData.rangeTo : '';
+      setWeekLoadBusy(true, edge ? ('処理中… ' + edge + ' より後') : '処理中…');
       try {
         await extendScheduleNextWeek();
       } catch (e) {
