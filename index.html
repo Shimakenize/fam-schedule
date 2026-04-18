@@ -283,6 +283,21 @@
     .tl-detail-dt { color: #94a3b8; font-size: 0.78rem; margin: 0; }
     .tl-detail-dd { margin: 0; word-break: break-word; line-height: 1.45; color: #e5e7eb; }
     .tl-detail-fallback { margin: 0; font-size: 0.92rem; line-height: 1.55; word-break: break-word; color: #cbd5e1; }
+    .tl-detail-form { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+    .tl-edit-label { font-size: 0.72rem; color: #94a3b8; margin-top: 4px; }
+    .tl-edit-field {
+      width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid #2b4258;
+      background: #0b1220; color: #e5e7eb; font-size: 0.88rem; box-sizing: border-box; font-family: inherit;
+    }
+    .tl-edit-history-wrap { margin: 8px 0 10px; }
+    .tl-edit-history-title { font-size: 0.72rem; color: #94a3b8; margin-bottom: 4px; }
+    .tl-edit-history {
+      margin: 0; padding: 8px 10px; background: #0b1220; border: 1px solid #233041; border-radius: 8px;
+      font-size: 0.75rem; line-height: 1.45; color: #cbd5e1; white-space: pre-wrap; max-height: 120px; overflow-y: auto;
+    }
+    .tl-detail-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; align-items: center; }
+    .btn-secondary { background: #334155; color: #e5e7eb; font-weight: 600; }
+    .btn-secondary:hover { filter: brightness(1.08); }
   </style>
 </head>
 <body>
@@ -1560,6 +1575,153 @@
       return '<div class="tl-detail-pair"><span class="tl-detail-dt">' + esc(label) + '</span><span class="tl-detail-dd">' + esc(v) + '</span></div>';
     }
 
+    function formatMinutesHm(m) {
+      m = Math.max(0, Math.min(24 * 60 - 1, Math.round(m)));
+      return pad2(Math.floor(m / 60)) + ':' + pad2(m % 60);
+    }
+
+    function pointerYToTimelineMinutes(dayBody, clientY) {
+      var root = dayBody.closest('.tl-root');
+      if (!root) return null;
+      var rs = parseFloat(root.getAttribute('data-tl-range-start'), 10);
+      var rsp = parseFloat(root.getAttribute('data-tl-range-span'), 10);
+      if (isNaN(rs) || isNaN(rsp) || rsp <= 0) return null;
+      var rect = dayBody.getBoundingClientRect();
+      if (rect.height <= 0) return null;
+      var ratio = (clientY - rect.top) / rect.height;
+      ratio = Math.max(0, Math.min(1, ratio));
+      return Math.round(rs + ratio * rsp);
+    }
+
+    function timelineMemberCanEdit(ev) {
+      if (!__lastMe || !__lastMe.access_granted) return false;
+      if (!ev) return false;
+      if (String(ev.deleted_at || '').trim()) return false;
+      if (String(ev.display_status || '') === 'removed') return false;
+      return true;
+    }
+
+    function kindOptionsForEditor(currentKind) {
+      var has = currentKind != null && String(currentKind).trim() !== '';
+      var cur = has ? canonicalEventKind(currentKind) : '';
+      var opts = [
+        ['match', '試合'],
+        ['adhoc', '単発'],
+        ['TR', 'TR'],
+        ['塾', '塾'],
+        ['私用', '私用'],
+        ['合宿', '合宿'],
+        ['マリノス戦', 'マリノス戦']
+      ];
+      var h = '<option value="">' + esc('種別を選択') + '</option>';
+      for (var i = 0; i < opts.length; i++) {
+        var val = opts[i][0];
+        var lab = opts[i][1];
+        var sel = (cur && cur === canonicalEventKind(val)) ? ' selected' : '';
+        h += '<option value="' + escAttr(val) + '"' + sel + '>' + esc(lab) + '</option>';
+      }
+      return h;
+    }
+
+    function buildTimelineEditorFormHTML(opts) {
+      var mode = opts.mode;
+      var ev = opts.ev;
+      var dateIso = opts.dateIso || '';
+      var kick0 = opts.kickoffPrimary || '';
+      var eid = ev ? String(ev.id || '') : '';
+      var ds = ev ? String(ev.event_date || '').slice(0, 10) : dateIso;
+      var kick = ev ? timelineDetailTimeLine(ev) : kick0;
+      var lead = ev ? timelineEventPlainTitle(ev) : '新しい予定';
+      var hist = '';
+      if (ev && String(ev.status_history || '').trim()) {
+        hist = '<div class="tl-edit-history-wrap"><div class="tl-edit-history-title">履歴</div><pre class="tl-edit-history">' +
+          esc(String(ev.status_history)) + '</pre></div>';
+      }
+      var offRow = '';
+      if (mode === 'edit' && ev) {
+        var disp = String(ev.display_status || '');
+        if (disp !== 'off') {
+          offRow = '<button type="button" class="btn btn-secondary" data-tl-act="off">予定をOFF</button>';
+        } else {
+          offRow = '<button type="button" class="btn btn-secondary" data-tl-act="reactivate">OFFを解除</button>';
+        }
+      }
+      return '<p class="tl-detail-lead">' + esc(lead) + '</p>' + hist +
+        '<form id="tlDetailForm" class="tl-detail-form" autocomplete="off">' +
+        (eid ? '<input type="hidden" name="event_id" value="' + escAttr(eid) + '" />' : '') +
+        '<label class="tl-edit-label">日付</label><input class="tl-edit-field" type="date" name="event_date" required value="' + escAttr(ds) + '" />' +
+        '<label class="tl-edit-label">種別</label><select class="tl-edit-field" name="event_kind" required>' +
+        kindOptionsForEditor(ev ? ev.event_kind : '') + '</select>' +
+        '<label class="tl-edit-label">カテゴリ</label><input class="tl-edit-field" type="text" name="category_code" required placeholder="例: U-13" value="' +
+        escAttr(ev ? (ev.category_code || '') : '') + '" />' +
+        '<label class="tl-edit-label">大会</label><input class="tl-edit-field" type="text" name="league_or_competition" value="' +
+        escAttr(ev ? (ev.league_or_competition || '') : '') + '" />' +
+        '<label class="tl-edit-label">タイトル</label><input class="tl-edit-field" type="text" name="title" value="' +
+        escAttr(ev ? (ev.title || '') : '') + '" />' +
+        '<label class="tl-edit-label">対戦</label><input class="tl-edit-field" type="text" name="opponent" value="' +
+        escAttr(ev ? (ev.opponent || '') : '') + '" />' +
+        '<label class="tl-edit-label">時間（開始-終了 例 10:00-11:00）</label><input class="tl-edit-field" type="text" name="kickoff_primary" required placeholder="10:00-11:00" value="' +
+        escAttr(kick) + '" />' +
+        '<label class="tl-edit-label">時間2（任意）</label><input class="tl-edit-field" type="text" name="kickoff_secondary" value="' +
+        escAttr(ev ? (ev.kickoff_secondary || '') : '') + '" />' +
+        '<label class="tl-edit-label">会場</label><input class="tl-edit-field" type="text" name="venue" value="' +
+        escAttr(ev ? (ev.venue || '') : '') + '" />' +
+        '<label class="tl-edit-label">メモ</label><input class="tl-edit-field" type="text" name="notes" value="' +
+        escAttr(ev ? (ev.notes || '') : '') + '" />' +
+        '</form>' +
+        '<div class="tl-detail-actions">' +
+        '<button type="button" class="btn btn-primary" data-tl-act="save">' + (mode === 'create' ? '追加' : '保存') + '</button>' +
+        offRow +
+        '</div>';
+    }
+
+    function openTimelineDetailBackdrop() {
+      var b = document.getElementById('tlDetailBackdrop');
+      if (!b) return;
+      b.hidden = false;
+      b.setAttribute('aria-hidden', 'false');
+      document.addEventListener('keydown', onTlDetailKeydown);
+    }
+
+    function readTlDetailForm() {
+      var f = document.getElementById('tlDetailForm');
+      if (!f) return null;
+      function get(name) {
+        var el = f.elements.namedItem(name);
+        return el ? String(el.value || '').trim() : '';
+      }
+      return {
+        event_id: get('event_id'),
+        event_date: get('event_date'),
+        event_kind: get('event_kind'),
+        category_code: get('category_code'),
+        league_or_competition: get('league_or_competition'),
+        title: get('title'),
+        opponent: get('opponent'),
+        kickoff_primary: get('kickoff_primary'),
+        kickoff_secondary: get('kickoff_secondary'),
+        venue: get('venue'),
+        notes: get('notes')
+      };
+    }
+
+    function showTimelineCreateFromSlot(dayBody, clientY) {
+      if (!__lastMe || !__lastMe.access_granted) return;
+      var dateIso = dayBody.getAttribute('data-date');
+      if (!dateIso) return;
+      var mins = pointerYToTimelineMinutes(dayBody, clientY);
+      if (mins == null) return;
+      var startM = Math.max(TL_START_MIN, Math.min(TL_END_MIN - 60, mins));
+      var endM = Math.min(TL_END_MIN, startM + 60);
+      var kick = formatMinutesHm(startM) + '-' + formatMinutesHm(endM);
+      var titleEl = document.getElementById('tlDetailTitle');
+      var body = document.getElementById('tlDetailBody');
+      if (!titleEl || !body) return;
+      titleEl.textContent = '予定を追加';
+      body.innerHTML = buildTimelineEditorFormHTML({ mode: 'create', ev: null, dateIso: dateIso, kickoffPrimary: kick });
+      openTimelineDetailBackdrop();
+    }
+
     function buildTimelineDetailBodyHTML(ev, yRef) {
       var h = '';
       h += tlDetailPair('日付', formatDateWithWeekday(ev.event_date, yRef));
@@ -1599,7 +1761,10 @@
       var body = document.getElementById('tlDetailBody');
       var titleEl = document.getElementById('tlDetailTitle');
       if (!body || !titleEl) return;
-      if (ev) {
+      if (ev && timelineMemberCanEdit(ev)) {
+        titleEl.textContent = '予定を編集';
+        body.innerHTML = buildTimelineEditorFormHTML({ mode: 'edit', ev: ev });
+      } else if (ev) {
         titleEl.textContent = '予定の詳細';
         body.innerHTML = '<p class="tl-detail-lead">' + esc(timelineEventPlainTitle(ev)) + '</p>' + buildTimelineDetailBodyHTML(ev, yRef);
       } else {
@@ -1608,11 +1773,7 @@
         var t = (inner && inner.textContent) ? inner.textContent.trim() : (el.textContent || '').trim();
         body.innerHTML = '<p class="tl-detail-fallback">' + esc(t || '（内容を取得できませんでした）') + '</p>';
       }
-      var b = document.getElementById('tlDetailBackdrop');
-      if (!b) return;
-      b.hidden = false;
-      b.setAttribute('aria-hidden', 'false');
-      document.addEventListener('keydown', onTlDetailKeydown);
+      openTimelineDetailBackdrop();
     }
 
     var __tlLP = { timer: null, pid: null, x: 0, y: 0, el: null };
@@ -1630,15 +1791,37 @@
 
     function __onTlPointerDown(e) {
       if (currentView !== 'timeline') return;
-      var t = e.target && e.target.closest && e.target.closest('.tl-block, .tl-chip');
-      if (!t || !document.getElementById('viewContent').contains(t)) return;
       if (e.pointerType === 'mouse' && e.button !== 0) return;
+      var vc = document.getElementById('viewContent');
+      var blockOrChip = e.target && e.target.closest && e.target.closest('.tl-block, .tl-chip');
+      if (blockOrChip && vc.contains(blockOrChip)) {
+        __clearTlLongPress();
+        __tlLP.pid = e.pointerId;
+        __tlLP.el = blockOrChip;
+        __tlLP.x = e.clientX;
+        __tlLP.y = e.clientY;
+        var selfEl = blockOrChip;
+        __tlLP.timer = setTimeout(function() {
+          __tlLP.timer = null;
+          __tlLP.pid = null;
+          __tlLP.el = null;
+          try {
+            if (navigator.vibrate) navigator.vibrate(10);
+          } catch (err) {}
+          showTimelineDetailFromElement(selfEl);
+        }, TL_LP_MS);
+        return;
+      }
+      var dayBody = e.target && e.target.closest && e.target.closest('.tl-day-body');
+      if (!dayBody || !vc.contains(dayBody)) return;
+      if (!__lastMe || !__lastMe.access_granted) return;
       __clearTlLongPress();
       __tlLP.pid = e.pointerId;
-      __tlLP.el = t;
+      __tlLP.el = dayBody;
       __tlLP.x = e.clientX;
       __tlLP.y = e.clientY;
-      var selfEl = t;
+      var selfBody = dayBody;
+      var startY = e.clientY;
       __tlLP.timer = setTimeout(function() {
         __tlLP.timer = null;
         __tlLP.pid = null;
@@ -1646,7 +1829,7 @@
         try {
           if (navigator.vibrate) navigator.vibrate(10);
         } catch (err) {}
-        showTimelineDetailFromElement(selfEl);
+        showTimelineCreateFromSlot(selfBody, startY);
       }, TL_LP_MS);
     }
 
@@ -1663,7 +1846,7 @@
 
     function __onTlContextMenu(e) {
       if (currentView !== 'timeline') return;
-      var t = e.target && e.target.closest && e.target.closest('.tl-block, .tl-chip');
+      var t = e.target && e.target.closest && e.target.closest('.tl-block, .tl-chip, .tl-day-body');
       if (t && document.getElementById('viewContent').contains(t)) e.preventDefault();
     }
 
@@ -1677,6 +1860,71 @@
         });
         closeBtn.addEventListener('click', function() {
           closeTimelineDetailPopup();
+        });
+        backdrop.addEventListener('click', function(e) {
+          var actBtn = e.target.closest('button[data-tl-act]');
+          if (!actBtn) return;
+          e.preventDefault();
+          var act = actBtn.getAttribute('data-tl-act');
+          actBtn.disabled = true;
+          (async function() {
+            try {
+              var data = readTlDetailForm();
+              if (act === 'save') {
+                if (!data) throw new Error('フォームがありません');
+                if (!data.event_kind) throw new Error('種別を選択してください');
+                if (!data.category_code) throw new Error('カテゴリを入力してください');
+                if (!data.kickoff_primary) throw new Error('時間を入力してください');
+                if (data.event_id) {
+                  await apiPostJson('/api/schedule/member-patch', {
+                    event_id: data.event_id,
+                    patch: {
+                      event_date: data.event_date,
+                      event_kind: data.event_kind,
+                      category_code: data.category_code,
+                      league_or_competition: data.league_or_competition,
+                      title: data.title,
+                      opponent: data.opponent,
+                      kickoff_primary: data.kickoff_primary,
+                      kickoff_secondary: data.kickoff_secondary,
+                      venue: data.venue,
+                      notes: data.notes
+                    }
+                  });
+                } else {
+                  await apiPostJson('/api/schedule/member-create', {
+                    event_date: data.event_date,
+                    event_kind: data.event_kind,
+                    category_code: data.category_code,
+                    league_or_competition: data.league_or_competition,
+                    title: data.title,
+                    opponent: data.opponent,
+                    kickoff_primary: data.kickoff_primary,
+                    kickoff_secondary: data.kickoff_secondary,
+                    venue: data.venue,
+                    notes: data.notes
+                  });
+                }
+                closeTimelineDetailPopup();
+                await refreshScheduleCacheFromServer();
+                return;
+              }
+              if (act === 'off' || act === 'reactivate') {
+                if (!data || !data.event_id) throw new Error('event_id がありません');
+                await apiPostJson('/api/schedule/member-event-action', {
+                  event_id: data.event_id,
+                  action: act === 'off' ? 'off' : 'reactivate'
+                });
+                closeTimelineDetailPopup();
+                await refreshScheduleCacheFromServer();
+                return;
+              }
+            } catch (err) {
+              alert(esc(String(err.message || err)));
+            } finally {
+              actBtn.disabled = false;
+            }
+          })();
         });
       }
       document.addEventListener('pointerdown', __onTlPointerDown, true);
