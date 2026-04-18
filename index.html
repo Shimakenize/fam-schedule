@@ -2210,6 +2210,44 @@
       return placements;
     }
 
+    /**
+     * 同時重なりの連結グループごとに lane を割り当てる。
+     * これにより、別時間帯の予定が過剰に細くなるのを防ぐ。
+     */
+    function assignTimelineLanesByGroup(timedItems) {
+      if (!timedItems || !timedItems.length) return [];
+      var sorted = timedItems.slice().sort(function(a, b) {
+        return a.clip.ds - b.clip.ds || a.clip.de - b.clip.de;
+      });
+      var groups = [];
+      var cur = [];
+      var curMaxEnd = -1;
+      for (var i = 0; i < sorted.length; i++) {
+        var it = sorted[i];
+        if (!cur.length) {
+          cur.push(it);
+          curMaxEnd = it.clip.de;
+          continue;
+        }
+        if (it.clip.ds < curMaxEnd) {
+          cur.push(it);
+          if (it.clip.de > curMaxEnd) curMaxEnd = it.clip.de;
+          continue;
+        }
+        groups.push(cur);
+        cur = [it];
+        curMaxEnd = it.clip.de;
+      }
+      if (cur.length) groups.push(cur);
+
+      var out = [];
+      for (var g = 0; g < groups.length; g++) {
+        var placed = assignTimelineLanes(groups[g]);
+        for (var p = 0; p < placed.length; p++) out.push(placed[p]);
+      }
+      return out;
+    }
+
     function buildTimedBlocksLayerHtml(placements, rangeStart, rangeSpan) {
       var h = '<div class="tl-blocks-layer">';
       if (!placements.length) {
@@ -2217,14 +2255,14 @@
         return h;
       }
       var span = Math.max(1, rangeSpan);
-      var maxLanes = placements[0].lanes;
       for (var p = 0; p < placements.length; p++) {
         var pl = placements[p];
         var ev = pl.item.ev;
         var clip = pl.item.clip;
         var topPct = (clip.ds - rangeStart) / span * 100;
         var hPct = Math.max((clip.de - clip.ds) / span * 100, 0.9);
-        var wPct = 100 / maxLanes;
+        var laneCount = Math.max(1, pl.lanes || 1);
+        var wPct = 100 / laneCount;
         var leftPct = pl.lane * wPct;
         var rowCls = rowClass(ev);
         var mcls = (isVoidRow(ev) || isPastEventDate(ev)) ? ' tl-block--muted' : '';
@@ -2301,7 +2339,7 @@
         var iso3 = dateIsos[c3];
         var dayEv3 = grouped[iso3] || [];
         var sp3 = splitDayEventsForTimeline(dayEv3);
-        var placements = assignTimelineLanes(sp3.timed);
+        var placements = assignTimelineLanesByGroup(sp3.timed);
         h += '<div class="tl-day-body" data-date="' + escAttr(iso3) + '" style="--tl-slot:' + slotPx.toFixed(2) + 'px">';
         h += buildTimedBlocksLayerHtml(placements, tw.rangeStart, tw.rangeSpan);
         h += buildTimelineNowMarkerHtml(iso3, todayIso, tw.rangeStart, tw.rangeEnd, tw.rangeSpan);
