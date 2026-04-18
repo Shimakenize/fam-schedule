@@ -53,14 +53,6 @@
       display: flex; flex-wrap: nowrap; align-items: center; gap: 10px;
       flex: 1; min-width: 0;
     }
-    .filter-state-inline {
-      display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0;
-      color: #9ccce6; font-size: 0.74rem; white-space: nowrap;
-    }
-    .filter-state-chip {
-      display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px;
-      border: 1px solid #2b4258; background: #0b1220; color: #bfdbfe;
-    }
     .filter-strip-actions {
       display: flex; flex-shrink: 0; align-items: center; gap: 6px;
       margin-left: auto;
@@ -80,8 +72,13 @@
     .filter-strip select, .filter-strip input {
       padding: 6px 10px; font-size: 0.85rem; border-radius: 8px; border: 1px solid #2b4258; background: #0b1220; color: #e5e7eb;
     }
-    .filter-strip .cat-filter-item { display: inline-flex; align-items: center; gap: 4px; font-size: 0.78rem; color: #cbd5e1; white-space: nowrap; }
-    .filter-strip .cat-filter-item input[type="checkbox"] { accent-color: #2ed3c6; }
+    .filter-strip .cat-filter-item {
+      display: inline-flex; flex-direction: column; align-items: center; justify-content: flex-start;
+      gap: 2px; min-width: 28px; color: #cbd5e1; white-space: nowrap; font-size: 0.62rem;
+      line-height: 1.05;
+    }
+    .filter-strip .cat-filter-item input[type="checkbox"] { accent-color: #2ed3c6; margin: 0; }
+    .filter-strip .cat-filter-label { font-size: 0.62rem; letter-spacing: 0.01em; color: #94a3b8; }
     .filter-strip-select { min-width: 0; max-width: 42vw; }
     .filter-strip-input { flex: 1; min-width: 120px; max-width: 240px; }
     table.data-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
@@ -353,17 +350,13 @@
         <option value="合宿">合宿</option>
         <option value="マリノス戦">マリノス戦</option>
       </select>
-      <label class="cat-filter-item"><input type="checkbox" id="filterCatU13" checked />U-13</label>
-      <label class="cat-filter-item"><input type="checkbox" id="filterCatU14" />U-14</label>
-      <label class="cat-filter-item"><input type="checkbox" id="filterCatU15" />U-15</label>
-      <div class="filter-state-inline" aria-live="polite">
-        <span id="filterKindState" class="filter-state-chip">種別: All</span>
-        <span id="filterCategoryState" class="filter-state-chip">カテゴリ: U-13</span>
-      </div>
+      <label class="cat-filter-item"><input type="checkbox" id="filterCatU13" checked /><span class="cat-filter-label">U-13</span></label>
+      <label class="cat-filter-item"><input type="checkbox" id="filterCatU14" /><span class="cat-filter-label">U-14</span></label>
+      <label class="cat-filter-item"><input type="checkbox" id="filterCatU15" /><span class="cat-filter-label">U-15</span></label>
     </div>
     <div class="filter-strip-actions">
       <span id="weekLoadStatus" class="filter-strip-status"></span>
-      <button type="button" class="filter-strip-icon-btn" id="btnTodayJump" title="本日へジャンプ" aria-label="本日へジャンプ">今日</button>
+      <button type="button" class="filter-strip-icon-btn" id="btnTodayJump" title="本日へジャンプ" aria-label="本日へジャンプ" style="font-size:0.86rem;">今日</button>
       <button type="button" class="filter-strip-icon-btn" id="btnWeekPrev" title="前の1週間を読み込み" aria-label="前の1週間を読み込み">←</button>
       <button type="button" class="filter-strip-icon-btn" id="btnWeekNext" title="次の1週間を読み込み" aria-label="次の1週間を読み込み">→</button>
     </div>
@@ -1123,24 +1116,6 @@
       if (c13) c13.checked = !!_filterCategoryChecks.u13;
       if (c14) c14.checked = !!_filterCategoryChecks.u14;
       if (c15) c15.checked = !!_filterCategoryChecks.u15;
-      updateFilterStateText();
-    }
-
-    function updateFilterStateText() {
-      var fk = document.getElementById('filterKind');
-      var kindText = 'All';
-      var catParts = [];
-      if (fk && fk.selectedIndex >= 0) {
-        kindText = String(fk.options[fk.selectedIndex].textContent || '').trim() || 'All';
-      }
-      if (_filterCategoryChecks.u13) catParts.push('U-13');
-      if (_filterCategoryChecks.u14) catParts.push('U-14');
-      if (_filterCategoryChecks.u15) catParts.push('U-15');
-      var catText = catParts.length ? catParts.join('/') : 'なし';
-      var ks = document.getElementById('filterKindState');
-      var cs = document.getElementById('filterCategoryState');
-      if (ks) ks.textContent = '種別: ' + kindText;
-      if (cs) cs.textContent = 'カテゴリ: ' + catText;
     }
 
     function bindFilterStripOnce() {
@@ -1153,7 +1128,6 @@
       __filterStripBound = true;
       fk.addEventListener('change', function() {
         _filterKind = fk.value || '';
-        updateFilterStateText();
         scheduleRerender();
       });
       [c13, c14, c15].forEach(function(chk) {
@@ -1163,7 +1137,6 @@
             u14: !!c14.checked,
             u15: !!c15.checked
           };
-          updateFilterStateText();
           scheduleRerender();
         });
       });
