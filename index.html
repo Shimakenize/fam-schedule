@@ -277,8 +277,14 @@
       border-top: 1px solid rgba(0, 0, 0, 0.28); font-size: 0.56rem; font-weight: 600; opacity: 0.95;
       line-height: 1.15;
     }
-    /* 集合帯: 各種別のメインより一段明るい（TR は薄い緑で本枠と識別） */
-    /* 集合帯はメインより明るく（試合ブルーでも段差が分かるように） */
+    /* 出発 → 集合 → 本番の順で明るさ段階（出発が最明） */
+    .tl-block--stacked.tl-kind-match .tl-block-seg--departure { background: #6b8fc9; color: #f8fafc; }
+    .tl-block--stacked.tl-kind-adhoc .tl-block-seg--departure { background: #7c5fb8; color: #faf5ff; }
+    .tl-block--stacked.tl-kind-tr .tl-block-seg--departure { background: #4ade80; color: #052e16; }
+    .tl-block--stacked.tl-kind-juku .tl-block-seg--departure { background: #fb923c; color: #1c0a02; }
+    .tl-block--stacked.tl-kind-private .tl-block-seg--departure { background: #7c6ba8; color: #faf5ff; }
+    .tl-block--stacked.tl-kind-gasshuku .tl-block-seg--departure { background: #d97706; color: #fffbeb; }
+    .tl-block--stacked.tl-kind-marinos .tl-block-seg--departure { background: #60a5fa; color: #eff6ff; }
     .tl-block--stacked.tl-kind-match .tl-block-seg--assembly { background: #3d5f8f; color: #f1f5f9; }
     .tl-block--stacked.tl-kind-adhoc .tl-block-seg--assembly { background: #5c4280; color: #f5f3ff; }
     .tl-block--stacked.tl-kind-tr .tl-block-seg--assembly { background: #22a356; color: #ecfdf5; }
@@ -437,7 +443,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260430-6';
+    var __UI_BUILD__ = '20260430-7';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -941,6 +947,25 @@
       return out;
     }
 
+    /** 「HH:MM出発」「出発HH:MM」を列挙し、mainStart 未満の分だけ返す（スペース許容） */
+    function collectDepartureMinutesBefore(s, mainStartMin) {
+      var out = [];
+      var re1 = /([01]?\d|2[0-3])\s*[:：]\s*([0-5]\d)\s*出発/g;
+      var re2 = /出発\s*([01]?\d|2[0-3])\s*[:：]\s*([0-5]\d)/g;
+      var m;
+      re1.lastIndex = 0;
+      while ((m = re1.exec(s)) !== null) {
+        var M = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+        if (M < mainStartMin) out.push(M);
+      }
+      re2.lastIndex = 0;
+      while ((m = re2.exec(s)) !== null) {
+        var M2 = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+        if (M2 < mainStartMin) out.push(M2);
+      }
+      return out;
+    }
+
     function parseTimeRangeMinutesCore(s) {
       s = String(s || '').trim();
       if (!s) return null;
@@ -985,7 +1010,7 @@
       var s1 = normalizeKickoffStripTR(String(ev.kickoff_primary || ev.time || '').trim());
       var tr = parseTimeRangeMinutesCoreNormalized(ev);
       if (!tr) return null;
-      var mins = collectShuGoMinutesBefore(s1, tr.start);
+      var mins = collectShuGoMinutesBefore(s1, tr.start).concat(collectDepartureMinutesBefore(s1, tr.start));
       if (!mins.length) return tr;
       var newStart = tr.start;
       for (var i = 0; i < mins.length; i++) {
@@ -1855,18 +1880,28 @@
       return pad2(Math.floor(m / 60)) + ':' + pad2(m % 60);
     }
 
-    /** 集合がメインより前なら「HH:MM集合 · メイン範囲」、それ以外は生の kickoff */
+    /** 出発・集合がメインより前なら時刻順で「… · メイン」、それ以外は生の kickoff */
     function formatKickoffAssemblyThenMain(ev) {
       var raw = String(ev.kickoff_primary || ev.time || '').trim();
       if (!raw) return raw;
-      var disp = parseTimeRangeMinutesForDisplay(ev);
+      var s1 = normalizeKickoffStripTR(raw);
       var core = parseTimeRangeMinutesCoreNormalized(ev);
-      if (!disp || !core || disp.start >= core.start) return raw;
-      var assemblyStr = formatMinutesHm(disp.start) + '集合';
+      if (!core) return raw;
+      var disp = parseTimeRangeMinutesForDisplay(ev);
+      if (!disp || disp.start >= core.start) return raw;
+      var depMins = collectDepartureMinutesBefore(s1, core.start);
+      var asmMins = collectShuGoMinutesBefore(s1, core.start);
+      var depMin = depMins.length ? Math.min.apply(null, depMins) : null;
+      var asmMin = asmMins.length ? Math.min.apply(null, asmMins) : null;
+      if (depMin != null && asmMin != null && depMin === asmMin) asmMin = null;
+      var parts = [];
+      if (depMin != null) parts.push(formatMinutesHm(depMin) + '出発');
+      if (asmMin != null) parts.push(formatMinutesHm(asmMin) + '集合');
       var mainStr = core.end > core.start
         ? (formatMinutesHm(core.start) + '-' + formatMinutesHm(core.end))
         : formatMinutesHm(core.start);
-      return assemblyStr + ' · ' + mainStr;
+      parts.push(mainStr);
+      return parts.join(' · ');
     }
 
     function timelineEventSubtitleInBlock(ev) {
@@ -1877,34 +1912,59 @@
     }
 
     /**
-     * 集合行＋本番行（解散は本番末尾の tail のみ。タイムラインの別ブロックにはしない）
+     * 出発→集合→本番（時刻順）。解散は本番末尾の tail のみ。別レーンの枠にはしない。
      */
     function buildTimelineStackedInnerHtml(ev, clip) {
       if (!ev || !clip || clip.de <= clip.ds) return '';
       var core = parseTimeRangeMinutesCoreNormalized(ev);
       if (!core) return '';
-      var disp = parseTimeRangeMinutesForDisplay(ev);
+      var s1 = normalizeKickoffStripTR(String(ev.kickoff_primary || ev.time || '').trim());
+      var mainStart = core.start;
+      var mainEnd = core.end;
       var dm = parseDismissalMinute(ev);
       var dismissStr = dm == null ? '' : (formatMinutesHm(dm) + '解散');
-      var hasAsm = !!(disp && disp.start < core.start);
-      var a0 = hasAsm ? Math.max(clip.ds, disp.start) : -1;
-      var a1 = hasAsm ? Math.min(clip.de, core.start) : -1;
-      var asmMin = hasAsm && a1 > a0 ? a1 - a0 : 0;
-      var mainStart = Math.max(clip.ds, core.start);
-      var mainEnd = Math.min(clip.de, core.end);
-      var mainMin = Math.max(0, mainEnd - mainStart);
-      if (asmMin <= 0 && !dismissStr) return '';
-      var gAsm = asmMin > 0 ? Math.max(1, asmMin) : 0;
+
+      var depMins = collectDepartureMinutesBefore(s1, mainStart);
+      var asmMins = collectShuGoMinutesBefore(s1, mainStart);
+      var depMin = depMins.length ? Math.min.apply(null, depMins) : null;
+      var asmMin = asmMins.length ? Math.min.apply(null, asmMins) : null;
+      if (depMin != null && asmMin != null && depMin === asmMin) asmMin = null;
+
+      var innerPts = [];
+      if (depMin != null && depMin < mainStart) innerPts.push({ t: depMin, ty: 'dep' });
+      if (asmMin != null && asmMin < mainStart) innerPts.push({ t: asmMin, ty: 'asm' });
+      innerPts.sort(function(a, b) {
+        if (a.t !== b.t) return a.t - b.t;
+        return a.ty === 'dep' ? -1 : 1;
+      });
+
+      var mainS = Math.max(clip.ds, mainStart);
+      var mainE = Math.min(clip.de, mainEnd);
+      var mainMin = Math.max(0, mainE - mainS);
+
+      var h = '<div class="tl-block-inner tl-block-inner--stack">';
+      var hasPre = false;
+      for (var j = 0; j < innerPts.length; j++) {
+        var segStart = j === 0 ? clip.ds : innerPts[j].t;
+        var segEnd = Math.min(clip.de, (j + 1 < innerPts.length ? innerPts[j + 1].t : mainStart));
+        if (segEnd <= segStart) continue;
+        var smin = segEnd - segStart;
+        var g = Math.max(1, smin);
+        var lab = innerPts[j].ty === 'dep'
+          ? (formatMinutesHm(innerPts[j].t) + '出発')
+          : (formatMinutesHm(innerPts[j].t) + '集合');
+        var cls = innerPts[j].ty === 'dep' ? 'tl-block-seg--departure' : 'tl-block-seg--assembly';
+        h += '<div class="tl-block-seg ' + cls + '" style="flex:' + g + ' 1 0;min-height:0">' + esc(lab) + '</div>';
+        hasPre = true;
+      }
+
+      if (!hasPre && !dismissStr && mainMin <= 0) return '';
+
       var gMain = Math.max(1, mainMin);
       var mainTimeStr = core.end > core.start
         ? (formatMinutesHm(core.start) + '-' + formatMinutesHm(core.end))
         : formatMinutesHm(core.start);
-      var asmLine = asmMin > 0 ? (formatMinutesHm(a0) + '集合') : '';
       var sub = timelineEventSubtitleInBlock(ev);
-      var h = '<div class="tl-block-inner tl-block-inner--stack">';
-      if (asmMin > 0) {
-        h += '<div class="tl-block-seg tl-block-seg--assembly" style="flex:' + gAsm + ' 1 0;min-height:0">' + esc(asmLine) + '</div>';
-      }
       h += '<div class="tl-block-seg tl-block-seg--main" style="flex:' + gMain + ' 1 0;min-height:0">';
       h += '<div class="tl-block-seg-body">';
       h += '<span class="tl-block-seg-time">' + esc(mainTimeStr) + '</span>';
