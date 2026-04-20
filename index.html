@@ -252,6 +252,46 @@
       background: #1e3a5f; color: #e5e7eb; font-size: 0.62rem; line-height: 1.25; overflow: hidden; border: 1px solid #334155;
       box-shadow: 0 1px 2px rgba(0,0,0,0.35); }
     .tl-block-inner { position: relative; z-index: 1; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
+    .tl-block-inner--stack {
+      display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden;
+      -webkit-line-clamp: unset; -webkit-box-orient: unset;
+    }
+    .tl-block--stacked { padding: 0 !important; background: transparent !important; }
+    .tl-block-seg {
+      min-height: 0; padding: 3px 4px; box-sizing: border-box; display: flex; flex-direction: column;
+      justify-content: flex-start; gap: 2px; overflow: hidden; text-align: left; line-height: 1.2;
+    }
+    .tl-block-seg-time { font-weight: 700; font-size: 0.62rem; letter-spacing: 0.02em; }
+    .tl-block-seg-sub {
+      font-size: 0.56rem; font-weight: 500; opacity: 0.9; line-height: 1.15;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word;
+    }
+    /* 解散はタイムライン上の別枠ではなく、本番セグメント末尾の一行のみ */
+    .tl-block-seg--main { justify-content: flex-start; }
+    .tl-block-seg-body {
+      flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; justify-content: flex-start;
+      gap: 2px; overflow: hidden;
+    }
+    .tl-block-seg-tail {
+      flex: 0 0 auto; margin-top: auto; padding-top: 3px;
+      border-top: 1px solid rgba(0, 0, 0, 0.28); font-size: 0.56rem; font-weight: 600; opacity: 0.95;
+      line-height: 1.15;
+    }
+    /* 集合帯: 各種別のメインより一段明るい（TR は薄い緑で本枠と識別） */
+    .tl-block--stacked.tl-kind-match .tl-block-seg--assembly { background: #2d4a6f; color: #e5e7eb; }
+    .tl-block--stacked.tl-kind-adhoc .tl-block-seg--assembly { background: #4d3a6f; color: #ede9fe; }
+    .tl-block--stacked.tl-kind-tr .tl-block-seg--assembly { background: #1d6f45; color: #ecfdf5; }
+    .tl-block--stacked.tl-kind-juku .tl-block-seg--assembly { background: #9a3412; color: #ffedd5; }
+    .tl-block--stacked.tl-kind-private .tl-block-seg--assembly { background: #4d3a66; color: #ede9fe; }
+    .tl-block--stacked.tl-kind-gasshuku .tl-block-seg--assembly { background: #713f12; color: #fef3c7; }
+    .tl-block--stacked.tl-kind-marinos .tl-block-seg--assembly { background: #1e4a9e; color: #dbeafe; }
+    .tl-block--stacked.tl-kind-match .tl-block-seg--main { background: #1e3a5f; color: #e5e7eb; }
+    .tl-block--stacked.tl-kind-adhoc .tl-block-seg--main { background: #3d2a5c; color: #ede9fe; }
+    .tl-block--stacked.tl-kind-tr .tl-block-seg--main { background: #14532d; color: #ecfdf5; }
+    .tl-block--stacked.tl-kind-juku .tl-block-seg--main { background: #7c2d12; color: #ffedd5; }
+    .tl-block--stacked.tl-kind-private .tl-block-seg--main { background: #3f2a56; color: #ede9fe; }
+    .tl-block--stacked.tl-kind-gasshuku .tl-block-seg--main { background: #422006; color: #fef3c7; }
+    .tl-block--stacked.tl-kind-marinos .tl-block-seg--main { background: #003f8a; color: #dbeafe; }
     .tl-block-em {
       position: absolute; left: 2px; right: 2px; box-sizing: border-box; border-radius: 4px;
       pointer-events: none; z-index: 0;
@@ -396,7 +436,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260430-3';
+    var __UI_BUILD__ = '20260430-5';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -958,6 +998,36 @@
       var ae = Math.min(core.start, blockDe);
       if (ae <= as) return [];
       return [{ ds: as, de: ae }];
+    }
+
+    /** メイン終了以降の解散時刻（分）。別枠用ではなく表示ラベル用。 */
+    function parseDismissalMinute(ev) {
+      var s = normalizeKickoffStripTR(String(ev.kickoff_primary || ev.time || '').trim());
+      if (!s) return null;
+      var core = parseTimeRangeMinutesCoreNormalized(ev);
+      var re1 = /([01]?\d|2[0-3])\s*[:：]\s*([0-5]\d)\s*解散/g;
+      var re2 = /解散\s*([01]?\d|2[0-3])\s*[:：]\s*([0-5]\d)/g;
+      var cands = [];
+      var m;
+      re1.lastIndex = 0;
+      while ((m = re1.exec(s)) !== null) {
+        cands.push(parseInt(m[1], 10) * 60 + parseInt(m[2], 10));
+      }
+      re2.lastIndex = 0;
+      while ((m = re2.exec(s)) !== null) {
+        cands.push(parseInt(m[1], 10) * 60 + parseInt(m[2], 10));
+      }
+      if (!cands.length) return null;
+      if (core) {
+        var i, pick = null;
+        for (i = 0; i < cands.length; i++) {
+          if (cands[i] >= core.end) {
+            if (pick === null || cands[i] < pick) pick = cands[i];
+          }
+        }
+        if (pick !== null) return pick;
+      }
+      return Math.max.apply(null, cands);
     }
 
     /** 同一日の行の並び用（一覧・週表示で使用） */
@@ -1758,6 +1828,52 @@
       return assemblyStr + ' · ' + mainStr;
     }
 
+    function timelineEventSubtitleInBlock(ev) {
+      var league = String(ev.league_or_competition || '').trim();
+      var curMain = String(ev.title || ev.opponent || '').trim() || '—';
+      if (league) return league + ' · ' + curMain;
+      return curMain;
+    }
+
+    /**
+     * 集合行＋本番行（解散は本番末尾の tail のみ。タイムラインの別ブロックにはしない）
+     */
+    function buildTimelineStackedInnerHtml(ev, clip) {
+      if (!ev || !clip || clip.de <= clip.ds) return '';
+      var core = parseTimeRangeMinutesCoreNormalized(ev);
+      if (!core) return '';
+      var disp = parseTimeRangeMinutesForDisplay(ev);
+      var dm = parseDismissalMinute(ev);
+      var dismissStr = dm == null ? '' : (formatMinutesHm(dm) + '解散');
+      var hasAsm = !!(disp && disp.start < core.start);
+      var a0 = hasAsm ? Math.max(clip.ds, disp.start) : -1;
+      var a1 = hasAsm ? Math.min(clip.de, core.start) : -1;
+      var asmMin = hasAsm && a1 > a0 ? a1 - a0 : 0;
+      var mainStart = Math.max(clip.ds, core.start);
+      var mainEnd = Math.min(clip.de, core.end);
+      var mainMin = Math.max(0, mainEnd - mainStart);
+      if (asmMin <= 0 && !dismissStr) return '';
+      var gAsm = asmMin > 0 ? Math.max(1, asmMin) : 0;
+      var gMain = Math.max(1, mainMin);
+      var mainTimeStr = core.end > core.start
+        ? (formatMinutesHm(core.start) + '-' + formatMinutesHm(core.end))
+        : formatMinutesHm(core.start);
+      var asmLine = asmMin > 0 ? (formatMinutesHm(a0) + '集合') : '';
+      var sub = timelineEventSubtitleInBlock(ev);
+      var h = '<div class="tl-block-inner tl-block-inner--stack">';
+      if (asmMin > 0) {
+        h += '<div class="tl-block-seg tl-block-seg--assembly" style="flex:' + gAsm + ' 1 0;min-height:0">' + esc(asmLine) + '</div>';
+      }
+      h += '<div class="tl-block-seg tl-block-seg--main" style="flex:' + gMain + ' 1 0;min-height:0">';
+      h += '<div class="tl-block-seg-body">';
+      h += '<span class="tl-block-seg-time">' + esc(mainTimeStr) + '</span>';
+      if (sub) h += '<span class="tl-block-seg-sub">' + esc(sub) + '</span>';
+      h += '</div>';
+      if (dismissStr) h += '<span class="tl-block-seg-tail">' + esc(dismissStr) + '</span>';
+      h += '</div></div>';
+      return h;
+    }
+
     function pointerYToTimelineMinutes(dayBody, clientY) {
       var root = dayBody.closest('.tl-root');
       if (!root) return null;
@@ -2412,9 +2528,12 @@
         var lab = esc(timelineEventPlainTitle(ev));
         var titBase = timelineEventTitleAttr(ev);
         var tit = escAttr(titBase + (prov ? '（時刻なし・30分仮表示）' : ''));
-        var emHtml = '';
         var bSpan = clip.de - clip.ds;
-        if (bSpan > 0) {
+        var stackedInner = (!prov && bSpan > 0) ? buildTimelineStackedInnerHtml(ev, clip) : '';
+        var useStack = stackedInner !== '';
+        var stackCls = useStack ? ' tl-block--stacked' : '';
+        var emHtml = '';
+        if (!useStack && bSpan > 0) {
           var aSegs = findAssemblyShadeSegmentInClip(ev, clip.ds, clip.de);
           for (var ai = 0; ai < aSegs.length; ai++) {
             var ag = aSegs[ai];
@@ -2436,8 +2555,12 @@
             }
           }
         }
-        h += '<div class="tl-block ' + kcls + (rowCls ? ' ' + rowCls : '') + provCls + mcls + '" data-tl-ev-id="' + escAttr(String(ev.id || '')) + '" style="top:' + topPct.toFixed(2) + '%;height:' + hPct.toFixed(2) + '%;left:' + (leftPct + 0.35).toFixed(2) + '%;width:' + (wPct - 0.7).toFixed(2) + '%" title="' + tit + '">';
-        h += emHtml + '<span class="tl-block-inner">' + lab + '</span></div>';
+        h += '<div class="tl-block ' + kcls + stackCls + (rowCls ? ' ' + rowCls : '') + provCls + mcls + '" data-tl-ev-id="' + escAttr(String(ev.id || '')) + '" style="top:' + topPct.toFixed(2) + '%;height:' + hPct.toFixed(2) + '%;left:' + (leftPct + 0.35).toFixed(2) + '%;width:' + (wPct - 0.7).toFixed(2) + '%" title="' + tit + '">';
+        if (useStack) {
+          h += stackedInner + '</div>';
+        } else {
+          h += emHtml + '<span class="tl-block-inner">' + lab + '</span></div>';
+        }
       }
       h += '</div>';
       return h;
