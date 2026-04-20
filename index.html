@@ -224,6 +224,10 @@
       width: 100%; flex: 1; min-height: 640px; height: 640px; border-right: none;
     }
     .tl-header-row { display: flex; align-items: stretch; border-bottom: 1px solid #233041; min-height: 48px; }
+    .tl-footer-row {
+      display: flex; align-items: stretch; border-top: 1px solid #233041; min-height: 48px;
+      background: #0b1220;
+    }
     .tl-corner { width: 48px; flex-shrink: 0; padding: 8px 4px; font-size: 0.65rem; color: #64748b; display: flex; align-items: flex-end; }
     .tl-tz { line-height: 1.2; }
     .tl-day-head { flex: 1; min-width: 56px; text-align: center; padding: 8px 4px; font-size: 0.8rem; color: #9ccce6; border-left: 1px solid #233041; }
@@ -443,7 +447,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260430-8';
+    var __UI_BUILD__ = '20260430-9';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -2483,35 +2487,47 @@
       return 'tl-kind-match';
     }
 
+    /** タイムライン表示窓の算出用。6–22 枠に収める前の生の開始・終了（分） */
+    function collectTimelineRawMinMax(dateIsos, grouped) {
+      var gmin = null;
+      var gmax = null;
+      for (var i = 0; i < dateIsos.length; i++) {
+        var dayEv = grouped[dateIsos[i]] || [];
+        for (var j = 0; j < dayEv.length; j++) {
+          var tr = parseTimeRangeMinutesForDisplay(dayEv[j]);
+          if (!tr) continue;
+          if (gmin === null || tr.start < gmin) gmin = tr.start;
+          if (gmax === null || tr.end > gmax) gmax = tr.end;
+        }
+      }
+      return { gmin: gmin, gmax: gmax };
+    }
+
     function computeTimelineViewWindow(dateIsos, grouped) {
       var pad = 45;
       var abs0 = TL_START_MIN;
       var abs1 = TL_END_MIN;
-      var gmin = null;
-      var gmax = null;
-      for (var i = 0; i < dateIsos.length; i++) {
-        var sp = splitDayEventsForTimeline(grouped[dateIsos[i]] || []);
-        for (var j = 0; j < sp.timed.length; j++) {
-          var cl = sp.timed[j].clip;
-          if (gmin === null || cl.ds < gmin) gmin = cl.ds;
-          if (gmax === null || cl.de > gmax) gmax = cl.de;
-        }
-      }
+      var mm = collectTimelineRawMinMax(dateIsos, grouped);
+      var gmin = mm.gmin;
+      var gmax = mm.gmax;
       if (gmin === null) {
         return { rangeStart: abs0, rangeEnd: abs1, rangeSpan: abs1 - abs0, slotPx: 40 };
       }
-      var rangeStart = Math.max(abs0, gmin - pad);
-      var rangeEnd = Math.min(abs1, gmax + pad);
-      rangeStart = Math.floor(rangeStart / 30) * 30;
+      var rangeStart = Math.min(abs0, gmin - pad);
+      var rangeEnd = Math.max(abs1, gmax + pad);
+      rangeStart = Math.max(0, Math.floor(rangeStart / 30) * 30);
       rangeEnd = Math.ceil(rangeEnd / 30) * 30;
-      if (rangeEnd <= rangeStart) rangeEnd = Math.min(abs1, rangeStart + 120);
+      if (rangeEnd <= rangeStart) rangeEnd = rangeStart + 120;
       var rangeSpan = rangeEnd - rangeStart;
       var slots = Math.max(1, rangeSpan / 30);
       var slotPx = 640 / slots;
       return { rangeStart: rangeStart, rangeEnd: rangeEnd, rangeSpan: rangeSpan, slotPx: slotPx };
     }
 
-    function splitDayEventsForTimeline(dayEv) {
+    /** rangeStartMin / rangeEndMin は表示窓（省略時は 6:00–22:00） */
+    function splitDayEventsForTimeline(dayEv, rangeStartMin, rangeEndMin) {
+      var rs = rangeStartMin != null ? rangeStartMin : TL_START_MIN;
+      var re = rangeEndMin != null ? rangeEndMin : TL_END_MIN;
       var allDay = [];
       var timed = [];
       var provisional = [];
@@ -2522,13 +2538,13 @@
           provisional.push(ev);
           continue;
         }
-        var ds = Math.max(tr.start, TL_START_MIN);
-        var de = Math.min(tr.end, TL_END_MIN);
+        var ds = Math.max(tr.start, rs);
+        var de = Math.min(tr.end, re);
         if (de <= ds) {
           if (tr.end > tr.start) {
             provisional.push(ev);
           } else {
-            var p0 = Math.min(Math.max(tr.start, TL_START_MIN), TL_END_MIN - 30);
+            var p0 = Math.min(Math.max(tr.start, rs), re - 30);
             timed.push({ ev: ev, clip: { ds: p0, de: p0 + 30 }, _provisional: true });
           }
           continue;
@@ -2538,13 +2554,13 @@
       provisional.sort(function(a, b) {
         return eventDaySortKey(a) - eventDaySortKey(b) || String(a.id || '').localeCompare(String(b.id || ''));
       });
-      var bottom = TL_END_MIN;
+      var bottom = re;
       for (var k = 0; k < provisional.length; k++) {
         var ev2 = provisional[k];
         var de2 = bottom;
         var ds2 = de2 - 30;
-        if (ds2 < TL_START_MIN) ds2 = TL_START_MIN;
-        if (de2 <= ds2) de2 = Math.min(ds2 + 30, TL_END_MIN);
+        if (ds2 < rs) ds2 = rs;
+        if (de2 <= ds2) de2 = Math.min(ds2 + 30, re);
         timed.push({ ev: ev2, clip: { ds: ds2, de: de2 }, _provisional: true });
         bottom = ds2;
       }
@@ -2704,18 +2720,8 @@
       return h;
     }
 
-    function buildTimelineForDates(dateIsos, grouped, selectedYear, scrollWrapId) {
-      var todayIso = todayIsoJst();
-      var tw = computeTimelineViewWindow(dateIsos, grouped);
-      var slotPx = tw.slotPx || 40;
-      var wrapId = scrollWrapId ? ' id="' + escAttr(String(scrollWrapId)) + '"' : '';
-      var h = '<div class="tl-root tl-root--fixed-cols tl-root--split" data-tl-range-start="' + escAttr(String(tw.rangeStart)) + '" data-tl-range-end="' + escAttr(String(tw.rangeEnd)) + '" data-tl-range-span="' + escAttr(String(tw.rangeSpan)) + '">';
-      h += '<div class="tl-left-rail"><div class="tl-corner"><span class="tl-tz">JST</span></div>';
-      h += '<div class="tl-left-rail-spacer"></div>';
-      h += buildTimeRulerHTML(tw.rangeStart, tw.rangeEnd);
-      h += '</div>';
-      h += '<div class="tl-wrap"' + wrapId + '><div class="tl-scroll-inner">';
-      h += '<div class="tl-header-row">';
+    function buildTimelineDayHeadCellsHtml(dateIsos, todayIso) {
+      var h = '';
       for (var c = 0; c < dateIsos.length; c++) {
         var isoDate = dateIsos[c];
         var d = parseLocalDate(isoDate);
@@ -2724,12 +2730,28 @@
         var isToday = todayIso && isoDate === todayIso;
         h += '<div class="tl-day-head' + (isToday ? ' tl-day-head--today' : '') + '"><span class="tl-dow">' + esc(wd) + '</span> <span class="tl-dom-wrap"><span class="tl-dom">' + esc(dom) + '</span></span></div>';
       }
+      return h;
+    }
+
+    function buildTimelineForDates(dateIsos, grouped, selectedYear, scrollWrapId) {
+      var todayIso = todayIsoJst();
+      var tw = computeTimelineViewWindow(dateIsos, grouped);
+      var rs = tw.rangeStart;
+      var re = tw.rangeEnd;
+      var slotPx = tw.slotPx || 40;
+      var wrapId = scrollWrapId ? ' id="' + escAttr(String(scrollWrapId)) + '"' : '';
+      var h = '<div class="tl-root tl-root--fixed-cols tl-root--split" data-tl-range-start="' + escAttr(String(tw.rangeStart)) + '" data-tl-range-end="' + escAttr(String(tw.rangeEnd)) + '" data-tl-range-span="' + escAttr(String(tw.rangeSpan)) + '">';
+      h += '<div class="tl-left-rail"><div class="tl-corner"><span class="tl-tz">JST</span></div>';
+      h += '<div class="tl-left-rail-spacer"></div>';
+      h += buildTimeRulerHTML(tw.rangeStart, tw.rangeEnd);
       h += '</div>';
+      h += '<div class="tl-wrap"' + wrapId + '><div class="tl-scroll-inner">';
+      h += '<div class="tl-header-row">' + buildTimelineDayHeadCellsHtml(dateIsos, todayIso) + '</div>';
       h += '<div class="tl-allday-row">';
       for (var c2 = 0; c2 < dateIsos.length; c2++) {
         var iso2 = dateIsos[c2];
         var dayEv = grouped[iso2] || [];
-        var sp = splitDayEventsForTimeline(dayEv);
+        var sp = splitDayEventsForTimeline(dayEv, rs, re);
         h += '<div class="tl-allday-cell">' + buildAllDayChipsFromList(sp.allDay) + '</div>';
       }
       h += '</div>';
@@ -2737,14 +2759,16 @@
       for (var c3 = 0; c3 < dateIsos.length; c3++) {
         var iso3 = dateIsos[c3];
         var dayEv3 = grouped[iso3] || [];
-        var sp3 = splitDayEventsForTimeline(dayEv3);
+        var sp3 = splitDayEventsForTimeline(dayEv3, rs, re);
         var placements = assignTimelineLanesByGroup(sp3.timed);
         h += '<div class="tl-day-body" data-date="' + escAttr(iso3) + '" style="--tl-slot:' + slotPx.toFixed(2) + 'px">';
         h += buildTimedBlocksLayerHtml(placements, tw.rangeStart, tw.rangeSpan);
         h += buildTimelineNowMarkerHtml(iso3, todayIso, tw.rangeStart, tw.rangeEnd, tw.rangeSpan);
         h += '</div>';
       }
-      h += '</div></div></div></div></div>';
+      h += '</div></div>';
+      h += '<div class="tl-footer-row" aria-hidden="true">' + buildTimelineDayHeadCellsHtml(dateIsos, todayIso) + '</div>';
+      h += '</div></div></div>';
       return h;
     }
 
