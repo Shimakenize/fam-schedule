@@ -251,7 +251,11 @@
     .tl-block { position: absolute; pointer-events: auto; box-sizing: border-box; padding: 2px 4px; border-radius: 6px;
       background: #1e3a5f; color: #e5e7eb; font-size: 0.62rem; line-height: 1.25; overflow: hidden; border: 1px solid #334155;
       box-shadow: 0 1px 2px rgba(0,0,0,0.35); }
-    .tl-block-inner { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
+    .tl-block-inner { position: relative; z-index: 1; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
+    .tl-block-em {
+      position: absolute; left: 2px; right: 2px; box-sizing: border-box; border-radius: 4px;
+      pointer-events: none; z-index: 0; background: rgba(0, 0, 0, 0.28);
+    }
     .tl-block--muted { opacity: 0.55; }
     .tl-block.row-conflict { background: #5a1d1d; border-color: #b91c1c; }
     .tl-block.row-near { background: #4a3b00; border-color: #a16207; }
@@ -325,7 +329,7 @@
   <header class="app-header">
     <div class="header-main">
           <img src="/fam-schedule/app_logo.jpg" alt="App logo" class="app-header-logo">
-      <div class="header-title-line" id="headerTitleLine">スケジュール <span class="ver" id="verInline"></span></div> <!-- GitHub Actions 再トリガー用コメント 3 -->
+      <div class="header-title-line" id="headerTitleLine">スケジュール <span class="ver" id="verInline"></span></div> <!-- GitHub Actions 再トリガー用コメント 4 -->
       <div class="header-right">
         <div class="header-user" id="headerUser"> </div>
       </div>
@@ -382,7 +386,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260430-1';
+    var __UI_BUILD__ = '20260430-2';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -891,6 +895,42 @@
         if (mins[i] < newStart) newStart = mins[i];
       }
       return { start: newStart, end: tr.end };
+    }
+
+    function eventDateOnOrAfterTodayJst(ev) {
+      var ymd = String(ev.event_date || '').slice(0, 10);
+      var today = todayYmdJst();
+      return ymd && ymd.length >= 10 && ymd >= today;
+    }
+
+    /** HH:MM k/o の直後から60分とタイムライン帯 [blockDs,blockDe] の重なり（複数 k/o はマージ） */
+    function findKoShadeSegmentsInClip(kickStr, blockDs, blockDe) {
+      var s = String(kickStr || '');
+      var re = /([01]?\d|2[0-3])\s*[:：]\s*([0-5]\d)\s*k\s*[/／]\s*o/gi;
+      var segs = [];
+      var m;
+      re.lastIndex = 0;
+      while ((m = re.exec(s)) !== null) {
+        var km = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+        var ke = km + 60;
+        var ds = Math.max(km, blockDs);
+        var de = Math.min(ke, blockDe);
+        if (de > ds) segs.push({ ds: ds, de: de });
+      }
+      if (!segs.length) return [];
+      segs.sort(function(a, b) { return a.ds - b.ds; });
+      var out = [];
+      var cur = segs[0];
+      for (var i = 1; i < segs.length; i++) {
+        var n = segs[i];
+        if (n.ds <= cur.de) cur.de = Math.max(cur.de, n.de);
+        else {
+          out.push(cur);
+          cur = n;
+        }
+      }
+      out.push(cur);
+      return out;
     }
 
     /** 同一日の行の並び用（一覧・週表示で使用） */
@@ -2329,8 +2369,21 @@
         var lab = esc(timelineEventPlainTitle(ev));
         var titBase = timelineEventTitleAttr(ev);
         var tit = escAttr(titBase + (prov ? '（時刻なし・30分仮表示）' : ''));
+        var emHtml = '';
+        var bSpan = clip.de - clip.ds;
+        if (eventDateOnOrAfterTodayJst(ev) && bSpan > 0) {
+          var kSegs = findKoShadeSegmentsInClip(String(ev.kickoff_primary || ev.time || ''), clip.ds, clip.de);
+          for (var ki = 0; ki < kSegs.length; ki++) {
+            var sg = kSegs[ki];
+            var emTop = (sg.ds - clip.ds) / bSpan * 100;
+            var emH = (sg.de - sg.ds) / bSpan * 100;
+            if (emH > 0.08) {
+              emHtml += '<span class="tl-block-em" style="top:' + emTop.toFixed(2) + '%;height:' + emH.toFixed(2) + '%"></span>';
+            }
+          }
+        }
         h += '<div class="tl-block ' + kcls + (rowCls ? ' ' + rowCls : '') + provCls + mcls + '" data-tl-ev-id="' + escAttr(String(ev.id || '')) + '" style="top:' + topPct.toFixed(2) + '%;height:' + hPct.toFixed(2) + '%;left:' + (leftPct + 0.35).toFixed(2) + '%;width:' + (wPct - 0.7).toFixed(2) + '%" title="' + tit + '">';
-        h += '<span class="tl-block-inner">' + lab + '</span></div>';
+        h += emHtml + '<span class="tl-block-inner">' + lab + '</span></div>';
       }
       h += '</div>';
       return h;
