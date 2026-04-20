@@ -278,13 +278,14 @@
       line-height: 1.15;
     }
     /* 集合帯: 各種別のメインより一段明るい（TR は薄い緑で本枠と識別） */
-    .tl-block--stacked.tl-kind-match .tl-block-seg--assembly { background: #2d4a6f; color: #e5e7eb; }
-    .tl-block--stacked.tl-kind-adhoc .tl-block-seg--assembly { background: #4d3a6f; color: #ede9fe; }
-    .tl-block--stacked.tl-kind-tr .tl-block-seg--assembly { background: #1d6f45; color: #ecfdf5; }
-    .tl-block--stacked.tl-kind-juku .tl-block-seg--assembly { background: #9a3412; color: #ffedd5; }
-    .tl-block--stacked.tl-kind-private .tl-block-seg--assembly { background: #4d3a66; color: #ede9fe; }
-    .tl-block--stacked.tl-kind-gasshuku .tl-block-seg--assembly { background: #713f12; color: #fef3c7; }
-    .tl-block--stacked.tl-kind-marinos .tl-block-seg--assembly { background: #1e4a9e; color: #dbeafe; }
+    /* 集合帯はメインより明るく（試合ブルーでも段差が分かるように） */
+    .tl-block--stacked.tl-kind-match .tl-block-seg--assembly { background: #3d5f8f; color: #f1f5f9; }
+    .tl-block--stacked.tl-kind-adhoc .tl-block-seg--assembly { background: #5c4280; color: #f5f3ff; }
+    .tl-block--stacked.tl-kind-tr .tl-block-seg--assembly { background: #22a356; color: #ecfdf5; }
+    .tl-block--stacked.tl-kind-juku .tl-block-seg--assembly { background: #b45309; color: #fffbeb; }
+    .tl-block--stacked.tl-kind-private .tl-block-seg--assembly { background: #5b3d78; color: #faf5ff; }
+    .tl-block--stacked.tl-kind-gasshuku .tl-block-seg--assembly { background: #92400e; color: #fffbeb; }
+    .tl-block--stacked.tl-kind-marinos .tl-block-seg--assembly { background: #2563eb; color: #eff6ff; }
     .tl-block--stacked.tl-kind-match .tl-block-seg--main { background: #1e3a5f; color: #e5e7eb; }
     .tl-block--stacked.tl-kind-adhoc .tl-block-seg--main { background: #3d2a5c; color: #ede9fe; }
     .tl-block--stacked.tl-kind-tr .tl-block-seg--main { background: #14532d; color: #ecfdf5; }
@@ -436,7 +437,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260430-5';
+    var __UI_BUILD__ = '20260430-6';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -889,6 +890,38 @@
       return s;
     }
 
+    /** 注釈の括弧（全角・半角）を除き、先頭の時間レンジだけを誤爆しにくくする */
+    function stripParentheticalNotes(s) {
+      s = String(s || '');
+      s = s.replace(/（[^（）]*）/g, ' ');
+      s = s.replace(/\([^()]*\)/g, ' ');
+      return s.replace(/\s+/g, ' ').trim();
+    }
+
+    /**
+     * 「HH:MM k/o …（HH:MMまで）」形式があれば、メイン区間をそれに合わせる（先頭の広いレンジより優先）
+     */
+    function parseKoUntilRangeFromKickoff(s) {
+      s = String(s || '').trim();
+      if (!s) return null;
+      var reKo = /([01]?\d|2[0-3])\s*[:：]\s*([0-5]\d)\s*k\s*[/／]\s*o/i;
+      var mk = s.match(reKo);
+      if (!mk) return null;
+      var st = parseInt(mk[1], 10) * 60 + parseInt(mk[2], 10);
+      var reUntilFw = /（\s*([01]?\d|2[0-3])\s*[:：]\s*([0-5]\d)\s*まで\s*）/;
+      var reUntilHw = /\(\s*([01]?\d|2[0-3])\s*[:：]\s*([0-5]\d)\s*まで\s*\)/;
+      var mu = s.match(reUntilFw) || s.match(reUntilHw);
+      var en;
+      if (mu) {
+        en = parseInt(mu[1], 10) * 60 + parseInt(mu[2], 10);
+        if (en <= st) en += 24 * 60;
+      } else {
+        en = st + 60;
+      }
+      if (en <= st) return null;
+      return { start: st, end: en };
+    }
+
     /** 「HH:MM集合」「集合HH:MM」を列挙し、rangeStart 未満の分だけ返す */
     function collectShuGoMinutesBefore(s, rangeStartMin) {
       var out = [];
@@ -925,13 +958,21 @@
     }
 
     function parseTimeRangeMinutes(ev) {
-      return parseTimeRangeMinutesCore(String(ev.kickoff_primary || ev.time || '').trim());
+      var raw = String(ev.kickoff_primary || ev.time || '').trim();
+      var s1 = normalizeKickoffStripTR(raw);
+      var koR = parseKoUntilRangeFromKickoff(s1);
+      if (koR) return koR;
+      var stripped = stripParentheticalNotes(s1);
+      return parseTimeRangeMinutesCore(stripped) || parseTimeRangeMinutesCore(s1);
     }
 
     /** TR 除去後の文字列からメイン時間帯のみ（集合による start 繰り上げなし） */
     function parseTimeRangeMinutesCoreNormalized(ev) {
       var s1 = normalizeKickoffStripTR(String(ev.kickoff_primary || ev.time || '').trim());
-      return parseTimeRangeMinutesCore(s1);
+      var koR = parseKoUntilRangeFromKickoff(s1);
+      if (koR) return koR;
+      var stripped = stripParentheticalNotes(s1);
+      return parseTimeRangeMinutesCore(stripped) || parseTimeRangeMinutesCore(s1);
     }
 
     /** 本日以降: TR除去 + 集合がメイン開始より前なら start を繰り上げ（並び・重なり・タイムライン共通） */
@@ -942,7 +983,7 @@
         return parseTimeRangeMinutes(ev);
       }
       var s1 = normalizeKickoffStripTR(String(ev.kickoff_primary || ev.time || '').trim());
-      var tr = parseTimeRangeMinutesCore(s1);
+      var tr = parseTimeRangeMinutesCoreNormalized(ev);
       if (!tr) return null;
       var mins = collectShuGoMinutesBefore(s1, tr.start);
       if (!mins.length) return tr;
