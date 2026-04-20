@@ -43,7 +43,7 @@
     .btn-primary { background: #2ed3c6; color: #06212b; font-weight: 700; }
     .table-wrap { padding: 14px 16px; overflow-x: auto; }
     .table-wrap-main { max-height: calc(100vh - 200px); overflow-y: auto; overflow-x: auto; }
-    .data-table thead th { position: sticky; top: 0; z-index: 2; background: #0b1220; box-shadow: 0 1px 0 #233041; }
+    .data-table thead th { position: static; background: #0b1220; box-shadow: 0 1px 0 #233041; }
     .filter-strip {
       display: none; flex-wrap: nowrap; align-items: center; gap: 10px;
       padding: 8px 16px; background: #111827; border-bottom: 1px solid #233041;
@@ -195,7 +195,7 @@
     .seg-toggle .seg-btn.active { background: #1e3a5f; color: #fff; font-weight: 600; }
     .tl-filter-chrome { margin-bottom: 4px; }
     .tl-wrap { padding: 0 12px 16px 0; overflow-x: auto; flex: 1; min-width: 0; }
-    .tl-scroll-inner { min-width: 520px; }
+    .tl-scroll-inner { min-width: 520px; display: flex; flex-direction: column; align-items: stretch; }
     .tl-root--fixed-cols { --tl-day-col: 150px; }
     .tl-root--fixed-cols .tl-scroll-inner { min-width: 0; width: max-content; }
     .tl-root--fixed-cols .tl-day-head,
@@ -221,12 +221,15 @@
       flex-shrink: 0; min-height: 36px; background: #0b1220; border-bottom: 1px solid #233041; box-sizing: border-box;
     }
     .tl-left-rail .tl-time-ruler {
-      width: 100%; flex: 1; min-height: 640px; height: 640px; border-right: none;
+      width: 100%; flex: 0 0 auto; min-height: 640px; height: 640px; border-right: none;
     }
-    .tl-header-row { display: flex; align-items: stretch; border-bottom: 1px solid #233041; min-height: 48px; }
+    .tl-left-rail-footer-spacer {
+      flex-shrink: 0; min-height: 48px; box-sizing: border-box; background: #0f1419;
+    }
+    .tl-header-row { display: flex; align-items: stretch; border-bottom: 1px solid #233041; min-height: 48px; flex: 0 0 auto; }
     .tl-footer-row {
       display: flex; align-items: stretch; border-top: 1px solid #233041; min-height: 48px;
-      background: #0b1220;
+      background: #0b1220; flex: 0 0 auto;
     }
     .tl-corner { width: 48px; flex-shrink: 0; padding: 8px 4px; font-size: 0.65rem; color: #64748b; display: flex; align-items: flex-end; }
     .tl-tz { line-height: 1.2; }
@@ -234,12 +237,12 @@
     .tl-day-head--today .tl-dom-wrap { display: inline-block; background: #2563eb; color: #fff; border-radius: 999px; padding: 2px 8px; }
     .tl-dow { color: #94a3b8; font-size: 0.72rem; }
     .tl-dom { font-weight: 700; }
-    .tl-allday-row { display: flex; border-bottom: 1px solid #233041; background: #0b1220; min-height: 36px; }
+    .tl-allday-row { display: flex; border-bottom: 1px solid #233041; background: #0b1220; min-height: 36px; flex: 0 0 auto; }
     .tl-gutter-spacer { width: 48px; flex-shrink: 0; }
     .tl-allday-cell { flex: 1; min-width: 56px; border-left: 1px solid #233041; padding: 4px; min-height: 28px; display: flex; flex-wrap: wrap; gap: 4px; align-content: flex-start; }
     .tl-chip { font-size: 0.65rem; padding: 3px 6px; border-radius: 6px; background: #1e3a5f; color: #bfdbfe; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .tl-chip--muted { opacity: 0.55; background: #374151; color: #9ca3af; }
-    .tl-main-row { display: flex; align-items: stretch; }
+    .tl-main-row { display: flex; align-items: stretch; flex: 0 0 auto; }
     .tl-time-ruler { width: 48px; flex-shrink: 0; height: 640px; position: relative; border-right: 1px solid #233041; }
     .tl-hlab { position: absolute; left: 0; right: 2px; text-align: right; font-size: 0.68rem; color: #64748b; transform: translateY(-50%); }
     .tl-days-strip { display: flex; flex: 1; min-width: 0; }
@@ -447,7 +450,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260430-9';
+    var __UI_BUILD__ = '20260430-10';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -1449,8 +1452,8 @@
       if (currentView === 'pending' || currentView === 'admin') return;
       var t = todayIsoJst();
       if (!t) t = toIsoDate(new Date());
-      var from = addDaysIso(t, -7);
-      var to = addDaysIso(t, 7);
+      var from = addDaysIso(t, -2);
+      var to = addDaysIso(t, 28);
       document.getElementById('viewContent').innerHTML = '<div class="empty">読み込み中…</div>';
       var data = await fetchEventsRange(from, to);
       var evs = data.events || [];
@@ -1467,8 +1470,8 @@
 
     async function refreshScheduleCacheFromServer() {
       var t = todayIsoJst() || toIsoDate(new Date());
-      var from = __cachedMonthData && __cachedMonthData.rangeFrom ? __cachedMonthData.rangeFrom : addDaysIso(t, -7);
-      var to = __cachedMonthData && __cachedMonthData.rangeTo ? __cachedMonthData.rangeTo : addDaysIso(t, 7);
+      var from = __cachedMonthData && __cachedMonthData.rangeFrom ? __cachedMonthData.rangeFrom : addDaysIso(t, -2);
+      var to = __cachedMonthData && __cachedMonthData.rangeTo ? __cachedMonthData.rangeTo : addDaysIso(t, 28);
       var data = await fetchEventsRange(from, to);
       var evs = data.events || [];
       if (!__cachedMonthData) {
@@ -2744,6 +2747,7 @@
       h += '<div class="tl-left-rail"><div class="tl-corner"><span class="tl-tz">JST</span></div>';
       h += '<div class="tl-left-rail-spacer"></div>';
       h += buildTimeRulerHTML(tw.rangeStart, tw.rangeEnd);
+      h += '<div class="tl-left-rail-footer-spacer" aria-hidden="true"></div>';
       h += '</div>';
       h += '<div class="tl-wrap"' + wrapId + '><div class="tl-scroll-inner">';
       h += '<div class="tl-header-row">' + buildTimelineDayHeadCellsHtml(dateIsos, todayIso) + '</div>';
