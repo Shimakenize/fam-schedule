@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Cache-Control" content="no-cache">
-  <title>スケジュール</title>
+  <title>REGALIA</title>
   <!-- GitHub Actions トリガーテスト用コメント -->
   <style>
     * { box-sizing: border-box; }
@@ -386,7 +386,7 @@
   <header class="app-header">
     <div class="header-main">
           <img src="/fam-schedule/app_logo.jpg" alt="App logo" class="app-header-logo">
-      <div class="header-title-line" id="headerTitleLine">スケジュール <span class="ver" id="verInline"></span></div> <!-- GitHub Actions 再トリガー用コメント 4 -->
+      <div class="header-title-line" id="headerTitleLine"><span class="ver" id="verInline"></span></div> <!-- GitHub Actions 再トリガー用コメント 4 -->
       <div class="header-right">
         <div class="header-user" id="headerUser"> </div>
       </div>
@@ -443,7 +443,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260430-7';
+    var __UI_BUILD__ = '20260430-8';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -458,10 +458,21 @@
     }
 
     function applyVersionLabel() {
-      var ver = String(window.__APP_VERSION__ || '').trim();
-      var verText = (ver ? ('(v' + ver + ')') : '') + (typeof __UI_BUILD__ !== 'undefined' ? ' · ' + __UI_BUILD__ : '');
-      document.getElementById('verInline').textContent = verText;
-      document.title = 'スケジュール' + (verText ? ' ' + verText : '');
+      var raw = String(window.__APP_VERSION__ || '').trim();
+      var gasCore = raw.replace(/\s+/g, '').replace(/-gas$/i, '').replace(/^v/i, '');
+      var verShort = gasCore ? ('v' + gasCore) : '';
+      var ui = typeof __UI_BUILD__ !== 'undefined' ? String(__UI_BUILD__) : '';
+      var uiSuffix = '';
+      var um = ui.match(/-(\d+)$/);
+      if (um) uiSuffix = um[1];
+      else if (/^\d+$/.test(ui)) uiSuffix = ui;
+      var verText = '';
+      if (verShort && uiSuffix) verText = verShort + ' (' + uiSuffix + ')';
+      else if (verShort) verText = verShort;
+      else if (uiSuffix) verText = '(' + uiSuffix + ')';
+      var el = document.getElementById('verInline');
+      if (el) el.textContent = verText;
+      document.title = verText || 'REGALIA';
     }
 
     var DEV_TOKEN = new URLSearchParams(location.search).get('dev') || '';
