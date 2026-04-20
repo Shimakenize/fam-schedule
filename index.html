@@ -372,8 +372,8 @@
       <button type="button" class="tl-detail-close" id="tlDetailClose" aria-label="閉じる">×</button>
       <h2 class="tl-detail-title" id="tlDetailTitle">予定の詳細</h2>
       <div id="tlDetailBody"></div>
-    </div>
-  </div>
+      </div>
+      </div>
   <div id="uiBusyToast" class="ui-busy-toast" hidden></div>
 
   <script>
@@ -820,8 +820,40 @@
     }
 
 
-    function parseTimeRangeMinutes(ev) {
-      var s = String(ev.kickoff_primary || ev.time || '').trim();
+    function todayYmdJst() {
+      return new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' });
+    }
+
+    /** 時刻直後に付いた TR と末尾 TR を除去（本日以降の拡張パース用） */
+    function normalizeKickoffStripTR(s) {
+      s = String(s || '').trim();
+      if (!s) return s;
+      s = s.replace(/(\d{1,2}\s*[:：]\s*[0-5]\d)\s*TR/gi, '$1');
+      s = s.replace(/\s*TR\s*$/i, '').trim();
+      return s;
+    }
+
+    /** 「HH:MM集合」「集合HH:MM」を列挙し、rangeStart 未満の分だけ返す */
+    function collectShuGoMinutesBefore(s, rangeStartMin) {
+      var out = [];
+      var re1 = /([01]?\d|2[0-3])\s*[:：]\s*([0-5]\d)\s*集合/g;
+      var re2 = /集合\s*([01]?\d|2[0-3])\s*[:：]\s*([0-5]\d)/g;
+      var m;
+      re1.lastIndex = 0;
+      while ((m = re1.exec(s)) !== null) {
+        var M = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+        if (M < rangeStartMin) out.push(M);
+      }
+      re2.lastIndex = 0;
+      while ((m = re2.exec(s)) !== null) {
+        var M2 = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+        if (M2 < rangeStartMin) out.push(M2);
+      }
+      return out;
+    }
+
+    function parseTimeRangeMinutesCore(s) {
+      s = String(s || '').trim();
       if (!s) return null;
       var m = s.match(/([01]?\d|2[0-3])\s*[:：]\s*([0-5]\d)\s*[-–—〜~]\s*([01]?\d|2[0-3])\s*[:：]\s*([0-5]\d)/);
       if (m) {
@@ -836,9 +868,32 @@
       return { start: st2, end: st2 };
     }
 
+    function parseTimeRangeMinutes(ev) {
+      return parseTimeRangeMinutesCore(String(ev.kickoff_primary || ev.time || '').trim());
+    }
+
+    /** 本日以降: TR除去 + 集合がメイン開始より前なら start を繰り上げ（並び・重なり・タイムライン共通） */
+    function parseTimeRangeMinutesForDisplay(ev) {
+      var ymd = String(ev.event_date || '').slice(0, 10);
+      var today = todayYmdJst();
+      if (!ymd || ymd.length < 10 || ymd < today) {
+        return parseTimeRangeMinutes(ev);
+      }
+      var s1 = normalizeKickoffStripTR(String(ev.kickoff_primary || ev.time || '').trim());
+      var tr = parseTimeRangeMinutesCore(s1);
+      if (!tr) return null;
+      var mins = collectShuGoMinutesBefore(s1, tr.start);
+      if (!mins.length) return tr;
+      var newStart = tr.start;
+      for (var i = 0; i < mins.length; i++) {
+        if (mins[i] < newStart) newStart = mins[i];
+      }
+      return { start: newStart, end: tr.end };
+    }
+
     /** 同一日の行の並び用（一覧・週表示で使用） */
     function eventDaySortKey(ev) {
-      var tr = parseTimeRangeMinutes(ev);
+      var tr = parseTimeRangeMinutesForDisplay(ev);
       if (tr) return tr.start;
       var s2 = String(ev.kickoff_secondary || '').trim();
       var m2 = s2.match(/([01]?\d|2[0-3])\s*[:：]\s*([0-5]\d)/);
@@ -875,7 +930,7 @@
         var tier = categoryTier(String(ev.category_code || ''));
         if (!(tier === 'u13' || tier === 'all')) continue;
         if (isGkTrainingEvent(ev)) continue; // GKトレーニングは比較対象外
-        var tr = parseTimeRangeMinutes(ev);
+        var tr = parseTimeRangeMinutesForDisplay(ev);
         if (!tr) continue;
         var d = String(ev.event_date || '');
         if (!byDate[d]) byDate[d] = [];
@@ -912,7 +967,7 @@
         var ev = rows[i];
         var kind = canonicalEventKind(ev.event_kind);
         if (fk && kind !== fk) continue;
-        var evTier = categoryTier(String(ev.category_code || ''));
+          var evTier = categoryTier(String(ev.category_code || ''));
         var checks = _filterCategoryChecks || {};
         if (evTier === 'all') {
           if (!(checks.u13 || checks.u14 || checks.u15)) continue;
@@ -1218,7 +1273,7 @@
       if (currentView === 'admin' || currentView === 'pending') return;
       if (!__cachedMonthData) return;
       var el = document.getElementById('viewContent');
-      var all = __cachedMonthData.events || [];
+        var all = __cachedMonthData.events || [];
       if (currentView === 'table') {
         if (!all.length) {
           el.innerHTML = '<div class="empty">この期間にイベントはありません。</div>';
@@ -1228,8 +1283,8 @@
         markU13RiskFlags(fr);
         fr.sort(compareEventsByDateTimeId);
         el.innerHTML = buildFullTable(fr, displayYearFromRange(), all);
-        return;
-      }
+          return;
+        }
       if (currentView === 'timeline') {
         renderTimelineRangeView();
       }
@@ -2070,8 +2125,8 @@
                 }
                 closeTimelineDetailPopup();
                 refreshScheduleCacheFromServer().catch(function() {});
-                return;
-              }
+        return;
+      }
               if (act === 'off' || act === 'reactivate') {
                 if (!data || !data.event_id) throw new Error('event_id がありません');
                 var actionBody = {
@@ -2149,7 +2204,7 @@
       var provisional = [];
       for (var i = 0; i < dayEv.length; i++) {
         var ev = dayEv[i];
-        var tr = parseTimeRangeMinutes(ev);
+        var tr = parseTimeRangeMinutesForDisplay(ev);
         if (!tr) {
           provisional.push(ev);
           continue;
