@@ -299,6 +299,11 @@
     .tl-block--stacked.tl-kind-private .tl-block-seg--assembly { background: #5b3d78; color: #faf5ff; }
     .tl-block--stacked.tl-kind-gasshuku .tl-block-seg--assembly { background: #92400e; color: #fffbeb; }
     .tl-block--stacked.tl-kind-marinos .tl-block-seg--assembly { background: #2563eb; color: #eff6ff; }
+    .tl-block--stacked.tl-kind-match .tl-block-seg--match-pre1 { background: #4a6fa0; color: #f1f5f9; }
+    .tl-block--stacked.tl-kind-match .tl-block-seg--match-pre2 { background: #6b8fc9; color: #f8fafc; }
+    .tl-block--stacked.tl-kind-match .tl-block-seg--match-pre3 { background: #94a8d4; color: #0f172a; }
+    .tl-block--stacked.tl-kind-match .tl-block-seg--match-post1 { background: #2d4f75; color: #e2e8f0; }
+    .tl-block--stacked.tl-kind-match .tl-block-seg--match-post2 { background: #3d5f8f; color: #f1f5f9; }
     .tl-block--stacked.tl-kind-match .tl-block-seg--main { background: #1e3a5f; color: #e5e7eb; }
     .tl-block--stacked.tl-kind-adhoc .tl-block-seg--main { background: #3d2a5c; color: #ede9fe; }
     .tl-block--stacked.tl-kind-tr .tl-block-seg--main { background: #14532d; color: #ecfdf5; }
@@ -984,6 +989,118 @@
       return out;
     }
 
+    /** 試合のみ: タイムライン段階モデル（event_kind 空は従来どおり非試合扱い） */
+    function isMatchTimelineSegEv(ev) {
+      var k = String(ev && ev.event_kind != null ? ev.event_kind : '').trim();
+      if (!k) return false;
+      return canonicalEventKind(k) === 'match';
+    }
+
+    function _matchHmRe() {
+      return '([01]?\\d|2[0-3])\\s*[:：]\\s*([0-5]\\d)';
+    }
+
+    function matchPreTierFromRole(role) {
+      if (role === 'bus_gather') return 2;
+      if (role === 'onsite' || role === 'spectate_dep' || role === 'onsite_legacy') return 1;
+      return 3;
+    }
+
+    /** mainStart 未満のマーカー {m,label,role} を収集し時刻順 */
+    function matchCollectPreMarkers(s1, mainStart) {
+      var out = [];
+      var seen = {};
+      var hm = _matchHmRe();
+      function scan(re, label, role) {
+        var m;
+        re.lastIndex = 0;
+        while ((m = re.exec(s1)) !== null) {
+          var M = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+          if (M >= mainStart) continue;
+          var sk = M + ':' + role;
+          if (seen[sk]) continue;
+          seen[sk] = 1;
+          out.push({ m: M, label: label, role: role });
+        }
+      }
+      scan(new RegExp(hm + '出発車', 'g'), '出発車', 'shuppatsu_car');
+      scan(new RegExp(hm + '出発電車', 'g'), '出発電車', 'shuppatsu_train');
+      scan(new RegExp(hm + '観戦出発車', 'g'), '観戦出発車', 'spectate_dep');
+      scan(new RegExp(hm + '観戦出発電車', 'g'), '観戦出発電車', 'spectate_dep');
+      scan(new RegExp(hm + 'バス集合', 'g'), 'バス集合', 'bus_gather');
+      scan(new RegExp(hm + '現地集合', 'g'), '現地集合', 'onsite');
+      var depLegacy = collectDepartureMinutesBefore(s1, mainStart);
+      var ai, di, dm;
+      for (di = 0; di < depLegacy.length; di++) {
+        dm = depLegacy[di];
+        if (seen[dm + ':shuppatsu_car'] || seen[dm + ':shuppatsu_train']) continue;
+        if (seen[dm + ':shuppatsu_legacy']) continue;
+        seen[dm + ':shuppatsu_legacy'] = 1;
+        out.push({ m: dm, label: '出発', role: 'shuppatsu_legacy' });
+      }
+      var asmLegacy = collectShuGoMinutesBefore(s1, mainStart);
+      for (ai = 0; ai < asmLegacy.length; ai++) {
+        var am = asmLegacy[ai];
+        if (seen[am + ':onsite'] || seen[am + ':bus_gather'] || seen[am + ':spectate_dep']) continue;
+        if (seen[am + ':onsite_legacy']) continue;
+        seen[am + ':onsite_legacy'] = 1;
+        out.push({ m: am, label: '集合', role: 'onsite_legacy' });
+      }
+      out.sort(function(a, b) { return a.m - b.m || String(a.role).localeCompare(String(b.role)); });
+      return out;
+    }
+
+    /** mainEnd より後のマーカー {m,label} 時刻昇順（試合用） */
+    function matchCollectPostMarkers(s1, mainEnd) {
+      var out = [];
+      var seen = {};
+      var hm = _matchHmRe();
+      function one(re, label) {
+        var m;
+        re.lastIndex = 0;
+        while ((m = re.exec(s1)) !== null) {
+          var M = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+          if (M <= mainEnd) continue;
+          var sk = M + ':' + label;
+          if (seen[sk]) continue;
+          seen[sk] = 1;
+          out.push({ m: M, label: label });
+        }
+      }
+      one(new RegExp(hm + 'バス到着', 'g'), 'バス到着');
+      one(new RegExp(hm + 'バス解散', 'g'), 'バス到着');
+      one(new RegExp(hm + '自宅車', 'g'), '自宅車');
+      one(new RegExp(hm + '自宅電車', 'g'), '自宅電車');
+      var reDis1 = new RegExp(hm + '解散', 'g');
+      var m2;
+      reDis1.lastIndex = 0;
+      while ((m2 = reDis1.exec(s1)) !== null) {
+        var M2 = parseInt(m2[1], 10) * 60 + parseInt(m2[2], 10);
+        if (M2 <= mainEnd) continue;
+        if (seen[M2 + ':バス到着']) continue;
+        var sk2 = M2 + ':解散';
+        if (seen[sk2]) continue;
+        seen[sk2] = 1;
+        out.push({ m: M2, label: 'バス到着' });
+      }
+      out.sort(function(a, b) { return a.m - b.m; });
+      return out;
+    }
+
+    function matchAllPreMinutes(s1, mainStart) {
+      var arr = matchCollectPreMarkers(s1, mainStart);
+      var nums = [];
+      for (var i = 0; i < arr.length; i++) nums.push(arr[i].m);
+      return nums;
+    }
+
+    function matchAllPostMinutes(s1, mainEnd) {
+      var arr = matchCollectPostMarkers(s1, mainEnd);
+      var nums = [];
+      for (var j = 0; j < arr.length; j++) nums.push(arr[j].m);
+      return nums;
+    }
+
     function parseTimeRangeMinutesCore(s) {
       s = String(s || '').trim();
       if (!s) return null;
@@ -1028,13 +1145,26 @@
       var s1 = normalizeKickoffStripTR(String(ev.kickoff_primary || ev.time || '').trim());
       var tr = parseTimeRangeMinutesCoreNormalized(ev);
       if (!tr) return null;
+      if (isMatchTimelineSegEv(ev)) {
+        var preM = matchAllPreMinutes(s1, tr.start);
+        var newStart = tr.start;
+        for (var pi = 0; pi < preM.length; pi++) {
+          if (preM[pi] < newStart) newStart = preM[pi];
+        }
+        var newEnd = tr.end;
+        var postM = matchAllPostMinutes(s1, tr.end);
+        for (var pj = 0; pj < postM.length; pj++) {
+          if (postM[pj] > newEnd) newEnd = postM[pj];
+        }
+        return { start: newStart, end: newEnd };
+      }
       var mins = collectShuGoMinutesBefore(s1, tr.start).concat(collectDepartureMinutesBefore(s1, tr.start));
       if (!mins.length) return tr;
-      var newStart = tr.start;
+      var newStart2 = tr.start;
       for (var i = 0; i < mins.length; i++) {
-        if (mins[i] < newStart) newStart = mins[i];
+        if (mins[i] < newStart2) newStart2 = mins[i];
       }
-      return { start: newStart, end: tr.end };
+      return { start: newStart2, end: tr.end };
     }
 
     function eventDateOnOrAfterTodayJst(ev) {
@@ -1918,6 +2048,22 @@
       var s1 = normalizeKickoffStripTR(raw);
       var core = parseTimeRangeMinutesCoreNormalized(ev);
       if (!core) return raw;
+      if (isMatchTimelineSegEv(ev)) {
+        var bits = [];
+        var pms = matchCollectPreMarkers(s1, core.start);
+        var pi;
+        for (pi = 0; pi < pms.length; pi++) {
+          bits.push(formatMinutesHm(pms[pi].m) + pms[pi].label);
+        }
+        bits.push(core.end > core.start
+          ? (formatMinutesHm(core.start) + '-' + formatMinutesHm(core.end))
+          : formatMinutesHm(core.start));
+        var ptm = matchCollectPostMarkers(s1, core.end);
+        for (pi = 0; pi < ptm.length; pi++) {
+          bits.push(formatMinutesHm(ptm[pi].m) + ptm[pi].label);
+        }
+        return bits.join(' · ');
+      }
       var disp = parseTimeRangeMinutesForDisplay(ev);
       if (!disp || disp.start >= core.start) return raw;
       var depMins = collectDepartureMinutesBefore(s1, core.start);
@@ -1943,11 +2089,122 @@
       return curMain;
     }
 
+    function matchFindPreAtMinute(preMs, minute) {
+      for (var i = 0; i < preMs.length; i++) {
+        if (preMs[i].m === minute) return preMs[i];
+      }
+      return null;
+    }
+
+    /** 試合: §1.0.1 トークンに基づく積層（他種別は buildTimelineStackedInnerHtml 従来） */
+    function buildMatchTimelineStackedInnerHtml(ev, clip) {
+      if (!ev || !clip || clip.de <= clip.ds) return '';
+      var core = parseTimeRangeMinutesCoreNormalized(ev);
+      if (!core) return '';
+      var s1 = normalizeKickoffStripTR(String(ev.kickoff_primary || ev.time || '').trim());
+      var mainStart = core.start;
+      var mainEnd = core.end;
+      var preMs = matchCollectPreMarkers(s1, mainStart);
+      var postMs = matchCollectPostMarkers(s1, mainEnd);
+      var h = '<div class="tl-block-inner tl-block-inner--stack">';
+      var hasAny = false;
+      var segA, segB, wMin, g, cls, lab, mk, i, j, tp, uq, u, s;
+
+      if (mainStart > clip.ds) {
+        tp = [Math.max(clip.ds, 0)];
+        for (i = 0; i < preMs.length; i++) {
+          if (preMs[i].m > clip.ds && preMs[i].m < mainStart) tp.push(preMs[i].m);
+        }
+        tp.push(Math.min(mainStart, clip.de));
+        tp.sort(function(x, y) { return x - y; });
+        uq = [];
+        for (u = 0; u < tp.length; u++) {
+          if (u === 0 || tp[u] !== tp[u - 1]) uq.push(tp[u]);
+        }
+        for (s = 0; s < uq.length - 1; s++) {
+          segA = Math.max(uq[s], clip.ds);
+          segB = Math.min(uq[s + 1], clip.de, mainStart);
+          if (segB <= segA) continue;
+          wMin = segB - segA;
+          g = Math.max(1, wMin);
+          mk = matchFindPreAtMinute(preMs, uq[s]);
+          if (mk) {
+            cls = 'tl-block-seg--match-pre' + matchPreTierFromRole(mk.role);
+            lab = formatMinutesHm(mk.m) + mk.label;
+          } else {
+            cls = 'tl-block-seg--match-pre3';
+            lab = '';
+          }
+          h += '<div class="tl-block-seg ' + cls + '" style="flex:' + g + ' 1 0;min-height:0">' + esc(lab) + '</div>';
+          hasAny = true;
+        }
+      }
+
+      var mainS = Math.max(clip.ds, mainStart);
+      var mainE = Math.min(clip.de, mainEnd);
+      var mainMin = Math.max(0, mainE - mainS);
+      var gMain = Math.max(1, mainMin);
+      var mainTimeStr = core.end > core.start
+        ? (formatMinutesHm(core.start) + '-' + formatMinutesHm(core.end))
+        : formatMinutesHm(core.start);
+      var sub = timelineEventSubtitleInBlock(ev);
+      h += '<div class="tl-block-seg tl-block-seg--main" style="flex:' + gMain + ' 1 0;min-height:0">';
+      h += '<div class="tl-block-seg-body">';
+      h += '<span class="tl-block-seg-time">' + esc(mainTimeStr) + '</span>';
+      if (sub) h += '<span class="tl-block-seg-sub">' + esc(sub) + '</span>';
+      h += '</div></div>';
+      hasAny = true;
+
+      if (mainEnd < clip.de && postMs.length) {
+        tp = [Math.max(mainEnd, clip.ds)];
+        for (j = 0; j < postMs.length; j++) {
+          if (postMs[j].m > mainEnd && postMs[j].m < clip.de) tp.push(postMs[j].m);
+        }
+        tp.push(clip.de);
+        tp.sort(function(x2, y2) { return x2 - y2; });
+        uq = [];
+        for (u = 0; u < tp.length; u++) {
+          if (u === 0 || tp[u] !== tp[u - 1]) uq.push(tp[u]);
+        }
+        var postSegIx = 0;
+        for (s = 0; s < uq.length - 1; s++) {
+          segA = Math.max(uq[s], clip.ds, mainEnd);
+          segB = Math.min(uq[s + 1], clip.de);
+          if (segB <= segA) continue;
+          postSegIx++;
+          wMin = segB - segA;
+          g = Math.max(1, wMin);
+          mk = null;
+          for (j = 0; j < postMs.length; j++) {
+            if (postMs[j].m === uq[s]) { mk = postMs[j]; break; }
+          }
+          cls = postSegIx === 1 ? 'tl-block-seg--match-post1' : 'tl-block-seg--match-post2';
+          lab = mk ? (formatMinutesHm(mk.m) + mk.label) : '';
+          h += '<div class="tl-block-seg ' + cls + '" style="flex:' + g + ' 1 0;min-height:0">' + esc(lab) + '</div>';
+          hasAny = true;
+        }
+      } else if (mainEnd < clip.de) {
+        segA = Math.max(mainEnd, clip.ds);
+        segB = clip.de;
+        if (segB > segA) {
+          g = Math.max(1, segB - segA);
+          h += '<div class="tl-block-seg tl-block-seg--match-post2" style="flex:' + g + ' 1 0;min-height:0"></div>';
+          hasAny = true;
+        }
+      }
+
+      h += '</div>';
+      return hasAny ? h : '';
+    }
+
     /**
      * 出発→集合→本番（時刻順）。解散は本番末尾の tail のみ。別レーンの枠にはしない。
      */
     function buildTimelineStackedInnerHtml(ev, clip) {
       if (!ev || !clip || clip.de <= clip.ds) return '';
+      if (isMatchTimelineSegEv(ev)) {
+        return buildMatchTimelineStackedInnerHtml(ev, clip);
+      }
       var core = parseTimeRangeMinutesCoreNormalized(ev);
       if (!core) return '';
       var s1 = normalizeKickoffStripTR(String(ev.kickoff_primary || ev.time || '').trim());
