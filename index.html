@@ -263,6 +263,12 @@
       display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden;
       -webkit-line-clamp: unset; -webkit-box-orient: unset;
     }
+    .tl-match-pre-row {
+      display: flex; flex-direction: row; gap: 2px; min-height: 0;
+    }
+    .tl-match-pre-row > .tl-block-seg {
+      flex: 1 1 0; min-width: 0;
+    }
     .tl-block--stacked { padding: 0 !important; background: transparent !important; }
     .tl-block-seg {
       min-height: 0; padding: 3px 4px; box-sizing: border-box; display: flex; flex-direction: column;
@@ -302,8 +308,9 @@
     .tl-block--stacked.tl-kind-match .tl-block-seg--match-pre1 { background: #4a6fa0; color: #f1f5f9; }
     .tl-block--stacked.tl-kind-match .tl-block-seg--match-pre2 { background: #6b8fc9; color: #f8fafc; }
     .tl-block--stacked.tl-kind-match .tl-block-seg--match-pre3 { background: #94a8d4; color: #0f172a; }
-    .tl-block--stacked.tl-kind-match .tl-block-seg--match-post1 { background: #2d4f75; color: #e2e8f0; }
-    .tl-block--stacked.tl-kind-match .tl-block-seg--match-post2 { background: #3d5f8f; color: #f1f5f9; }
+    /* メイン直後 → 一段明るい → さらに一段明るい */
+    .tl-block--stacked.tl-kind-match .tl-block-seg--match-post1 { background: #355c7a; color: #e8f0fa; }
+    .tl-block--stacked.tl-kind-match .tl-block-seg--match-post2 { background: #4a7194; color: #f8fafc; }
     .tl-block--stacked.tl-kind-match .tl-block-seg--main { background: #1e3a5f; color: #e5e7eb; }
     .tl-block--stacked.tl-kind-adhoc .tl-block-seg--main { background: #3d2a5c; color: #ede9fe; }
     .tl-block--stacked.tl-kind-tr .tl-block-seg--main { background: #14532d; color: #ecfdf5; }
@@ -455,7 +462,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260430-14';
+    var __UI_BUILD__ = '20260430-15';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -494,6 +501,8 @@
     var liffGroupId = '';
     var __lastMe = null;
     var __cachedMonthData = null;
+    /** タイムライン詳細からの保存・削除後にこの日へスクロール（空なら今日） */
+    var __tlAfterEditScrollIso = '';
     var currentView = 'timeline';
     var WEEKDAY_JA = ['日', '月', '火', '水', '木', '金', '土'];
     var _filterKind = '';
@@ -2124,6 +2133,32 @@
       return null;
     }
 
+    function matchPreMarkersAtMinute(preMs, minute) {
+      var arr = [];
+      for (var i = 0; i < preMs.length; i++) {
+        if (preMs[i].m === minute) arr.push(preMs[i]);
+      }
+      return arr;
+    }
+
+    function matchPreLabelsJoined(arr) {
+      var parts = [];
+      for (var i = 0; i < arr.length; i++) {
+        parts.push(formatMinutesHm(arr[i].m) + arr[i].label);
+      }
+      return parts.join(' ');
+    }
+
+    function matchPreClassFromMarkers(arr) {
+      if (!arr.length) return 'tl-block-seg--match-pre3';
+      var best = 3;
+      for (var i = 0; i < arr.length; i++) {
+        var t = matchPreTierFromRole(arr[i].role);
+        if (t < best) best = t;
+      }
+      return 'tl-block-seg--match-pre' + best;
+    }
+
     /** 試合: §1.0.1 トークンに基づく積層（他種別は buildTimelineStackedInnerHtml 従来） */
     function buildMatchTimelineStackedInnerHtml(ev, clip) {
       if (!ev || !clip || clip.de <= clip.ds) return '';
@@ -2149,21 +2184,41 @@
         for (u = 0; u < tp.length; u++) {
           if (u === 0 || tp[u] !== tp[u - 1]) uq.push(tp[u]);
         }
+        var hasSpectateDep = false;
+        for (i = 0; i < preMs.length; i++) {
+          if (preMs[i].role === 'spectate_dep') {
+            hasSpectateDep = true;
+            break;
+          }
+        }
+        var endM, atEnd, spl, pi, labL, labR, clsL, clsR;
         for (s = 0; s < uq.length - 1; s++) {
           segA = Math.max(uq[s], clip.ds);
           segB = Math.min(uq[s + 1], clip.de, mainStart);
           if (segB <= segA) continue;
           wMin = segB - segA;
           g = Math.max(1, wMin);
-          mk = matchFindPreAtMinute(preMs, uq[s]);
-          if (mk) {
-            cls = 'tl-block-seg--match-pre' + matchPreTierFromRole(mk.role);
-            lab = formatMinutesHm(mk.m) + mk.label;
+          endM = uq[s + 1];
+          atEnd = matchPreMarkersAtMinute(preMs, endM);
+          if (hasSpectateDep) {
+            spl = { player: [], spectate: [] };
+            for (pi = 0; pi < atEnd.length; pi++) {
+              if (atEnd[pi].role === 'spectate_dep') spl.spectate.push(atEnd[pi]);
+              else spl.player.push(atEnd[pi]);
+            }
+            labL = matchPreLabelsJoined(spl.player);
+            labR = matchPreLabelsJoined(spl.spectate);
+            clsL = matchPreClassFromMarkers(spl.player);
+            clsR = matchPreClassFromMarkers(spl.spectate);
+            h += '<div class="tl-match-pre-row" style="flex:' + g + ' 1 0;min-height:0">';
+            h += '<div class="tl-block-seg ' + clsL + '">' + esc(labL) + '</div>';
+            h += '<div class="tl-block-seg ' + clsR + '">' + esc(labR) + '</div>';
+            h += '</div>';
           } else {
-            cls = 'tl-block-seg--match-pre3';
-            lab = '';
+            lab = matchPreLabelsJoined(atEnd);
+            cls = matchPreClassFromMarkers(atEnd);
+            h += '<div class="tl-block-seg ' + cls + '" style="flex:' + g + ' 1 0;min-height:0">' + esc(lab) + '</div>';
           }
-          h += '<div class="tl-block-seg ' + cls + '" style="flex:' + g + ' 1 0;min-height:0">' + esc(lab) + '</div>';
           hasAny = true;
         }
       }
@@ -2204,7 +2259,7 @@
           g = Math.max(1, wMin);
           mk = null;
           for (j = 0; j < postMs.length; j++) {
-            if (postMs[j].m === uq[s]) { mk = postMs[j]; break; }
+            if (postMs[j].m === uq[s + 1]) { mk = postMs[j]; break; }
           }
           cls = postSegIx === 1 ? 'tl-block-seg--match-post1' : 'tl-block-seg--match-post2';
           lab = mk ? (formatMinutesHm(mk.m) + mk.label) : '';
@@ -2742,10 +2797,12 @@
                   }
                   applyLocalEventCreate(createBody, createRes && createRes.event_id);
                 }
+                var keepIso = data.event_date && String(data.event_date).length >= 10 ? String(data.event_date).slice(0, 10) : '';
+                if (keepIso) __tlAfterEditScrollIso = keepIso;
                 closeTimelineDetailPopup();
-                refreshScheduleCacheFromServer().catch(function() {});
-        return;
-      }
+                await refreshScheduleCacheFromServer().catch(function() {});
+                return;
+              }
               if (act === 'off' || act === 'reactivate') {
                 if (!data || !data.event_id) throw new Error('event_id がありません');
                 var actionBody = {
@@ -2759,8 +2816,10 @@
                 }
                 if (act === 'off') applyLocalEventPatch(data.event_id, { display_status: 'off', off_at: new Date().toISOString() });
                 else applyLocalEventPatch(data.event_id, { display_status: 'active', off_at: '', deleted_at: '' });
+                var keepIsoOff = data.event_date && String(data.event_date).length >= 10 ? String(data.event_date).slice(0, 10) : '';
+                if (keepIsoOff) __tlAfterEditScrollIso = keepIsoOff;
                 closeTimelineDetailPopup();
-                refreshScheduleCacheFromServer().catch(function() {});
+                await refreshScheduleCacheFromServer().catch(function() {});
                 return;
               }
             } catch (err) {
@@ -3086,6 +3145,26 @@
       wrap.scrollLeft = Math.max(0, Math.round(targetScroll));
     }
 
+    function scrollTimelineMonthToDate(isoDate) {
+      var wrap = document.getElementById('tlMonthScroll');
+      if (!wrap) return;
+      var d = String(isoDate || '').trim();
+      if (d.length < 10) {
+        scrollTimelineMonthToToday();
+        return;
+      }
+      d = d.slice(0, 10);
+      var cell = wrap.querySelector('.tl-day-body[data-date="' + d + '"]');
+      if (!cell) {
+        scrollTimelineMonthToToday();
+        return;
+      }
+      var cellCenter = cell.getBoundingClientRect().left + cell.getBoundingClientRect().width / 2;
+      var box = wrap.getBoundingClientRect();
+      var targetScroll = wrap.scrollLeft + (cellCenter - (box.left + box.width / 2));
+      wrap.scrollLeft = Math.max(0, Math.round(targetScroll));
+    }
+
     function renderTimelineRangeView() {
       clearTimelineNowLineTimer();
       var el = document.getElementById('viewContent');
@@ -3105,7 +3184,10 @@
       el.innerHTML = buildTimelineForDates(dateIsos, grouped, yRef, 'tlMonthScroll');
       requestAnimationFrame(function() {
         requestAnimationFrame(function() {
-          scrollTimelineMonthToToday();
+          var anchorIso = __tlAfterEditScrollIso;
+          __tlAfterEditScrollIso = '';
+          if (anchorIso) scrollTimelineMonthToDate(anchorIso);
+          else scrollTimelineMonthToToday();
           updateTimelineNowLineMarkers();
           startTimelineNowLineTimer();
         });
