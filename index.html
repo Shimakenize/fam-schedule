@@ -455,7 +455,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260430-13';
+    var __UI_BUILD__ = '20260430-14';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -1976,6 +1976,33 @@
       return league === 'TRG' || title === 'TRG';
     }
 
+    function isTrgLeagueOrTitleFields(league, title) {
+      var lg = String(league || '').trim().toUpperCase();
+      var ti = String(title || '').trim().toUpperCase();
+      return lg === 'TRG' || ti === 'TRG';
+    }
+
+    /** 編集フォームの種別: 大会/タイトルが TRG なら試合（シート上が TR のままの行の表示用） */
+    function timelineEditEffectiveEventKind(ev) {
+      if (!ev) return '';
+      if (isTimelineTrgEvent(ev)) return 'match';
+      return String(ev.event_kind || '').trim();
+    }
+
+    /** 保存直前: TRG 練習試合なら API に送る patch を match + TRG に揃える（ローカルキャッシュも正しくする） */
+    function normalizeTrgTrainingPatch(patch) {
+      var p = patch || {};
+      if (!isTrgLeagueOrTitleFields(p.league_or_competition, p.title)) return p;
+      var out = {};
+      for (var k in p) {
+        if (Object.prototype.hasOwnProperty.call(p, k)) out[k] = p[k];
+      }
+      out.event_kind = 'match';
+      out.league_or_competition = 'TRG';
+      out.title = 'TRG';
+      return out;
+    }
+
     function timelineEventMainLabel(ev) {
       var opp = String(ev.opponent || '').trim();
       if (isTimelineTrgEvent(ev) && opp) return 'TRG ' + opp;
@@ -2354,7 +2381,7 @@
         (eid ? '<input type="hidden" name="event_id" value="' + escAttr(eid) + '" />' : '') +
         '<label class="tl-edit-label">日付</label><input class="tl-edit-field" type="date" name="event_date" required value="' + escAttr(ds) + '" />' +
         '<label class="tl-edit-label">種別</label><select class="tl-edit-field" name="event_kind" required>' +
-        kindOptionsForEditor(ev ? ev.event_kind : '') + '</select>' +
+        kindOptionsForEditor(ev ? timelineEditEffectiveEventKind(ev) : '') + '</select>' +
         '<label class="tl-edit-label">カテゴリ</label><select class="tl-edit-field" name="category_code" required>' +
         categoryOptionsForEditor(ev ? (ev.category_code || '') : '') + '</select>' +
         '<label class="tl-edit-label">大会</label><input class="tl-edit-field" type="text" name="league_or_competition" value="' +
@@ -2670,7 +2697,7 @@
                 if (!data.category_code) throw new Error('カテゴリを入力してください');
                 if (!data.kickoff_primary) throw new Error('時間を入力してください');
                 if (data.event_id) {
-                  var patchObj = {
+                  var patchObj = normalizeTrgTrainingPatch({
                     event_date: data.event_date,
                     event_kind: data.event_kind,
                     category_code: data.category_code,
@@ -2681,7 +2708,7 @@
                     kickoff_secondary: data.kickoff_secondary,
                     venue: data.venue,
                     notes: data.notes
-                  };
+                  });
                   try {
                     await apiPostJson('/api/schedule/member-patch', {
                       event_id: data.event_id,
@@ -2695,7 +2722,7 @@
                   }
                   applyLocalEventPatch(data.event_id, patchObj);
                 } else {
-                  var createBody = {
+                  var createBody = normalizeTrgTrainingPatch({
                     event_date: data.event_date,
                     event_kind: data.event_kind,
                     category_code: data.category_code,
@@ -2706,7 +2733,7 @@
                     kickoff_secondary: data.kickoff_secondary,
                     venue: data.venue,
                     notes: data.notes
-                  };
+                  });
                   var createRes = null;
                   try {
                     createRes = await apiPostJson('/api/schedule/member-create', createBody);
