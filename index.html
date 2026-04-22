@@ -263,11 +263,15 @@
       display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden;
       -webkit-line-clamp: unset; -webkit-box-orient: unset;
     }
-    .tl-match-pre-row {
+    .tl-match-pre-dual {
       display: flex; flex-direction: row; gap: 2px; min-height: 0;
     }
-    .tl-match-pre-row > .tl-block-seg {
-      flex: 1 1 0; min-width: 0;
+    .tl-match-pre-col {
+      flex: 1 1 0; min-width: 0; min-height: 0;
+      display: flex; flex-direction: column;
+    }
+    .tl-match-pre-col > .tl-block-seg {
+      font-size: 0.55rem; line-height: 1.15; word-break: break-word;
     }
     .tl-block--stacked { padding: 0 !important; background: transparent !important; }
     .tl-block-seg {
@@ -462,7 +466,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260430-15';
+    var __UI_BUILD__ = '20260430-16';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -2126,21 +2130,6 @@
       return curMain;
     }
 
-    function matchFindPreAtMinute(preMs, minute) {
-      for (var i = 0; i < preMs.length; i++) {
-        if (preMs[i].m === minute) return preMs[i];
-      }
-      return null;
-    }
-
-    function matchPreMarkersAtMinute(preMs, minute) {
-      var arr = [];
-      for (var i = 0; i < preMs.length; i++) {
-        if (preMs[i].m === minute) arr.push(preMs[i]);
-      }
-      return arr;
-    }
-
     function matchPreLabelsJoined(arr) {
       var parts = [];
       for (var i = 0; i < arr.length; i++) {
@@ -2159,6 +2148,49 @@
       return 'tl-block-seg--match-pre' + best;
     }
 
+    /**
+     * メイン前の1列分。lane=null なら全マーカー、false=選手側、true=観戦出発のみ。
+     * 各区間のラベルは区間終端 uq[s+1] のマーカーで解決。
+     */
+    function buildMatchPreColumnStackedHtml(preMs, preTop, preBot, lane) {
+      var filt = [];
+      for (var fi = 0; fi < preMs.length; fi++) {
+        if (lane == null) filt.push(preMs[fi]);
+        else {
+          var isSp = preMs[fi].role === 'spectate_dep';
+          if (lane ? isSp : !isSp) filt.push(preMs[fi]);
+        }
+      }
+      var tp = [preTop];
+      for (var j = 0; j < filt.length; j++) {
+        if (filt[j].m >= preTop && filt[j].m < preBot) tp.push(filt[j].m);
+      }
+      tp.push(preBot);
+      tp.sort(function(x, y) { return x - y; });
+      var uq = [];
+      for (var u = 0; u < tp.length; u++) {
+        if (u === 0 || tp[u] !== tp[u - 1]) uq.push(tp[u]);
+      }
+      var h = '';
+      var s, segA, segB, wMin, g, endM, atEnd, pi, lab, cls;
+      for (s = 0; s < uq.length - 1; s++) {
+        segA = Math.max(uq[s], preTop);
+        segB = Math.min(uq[s + 1], preBot);
+        if (segB <= segA) continue;
+        wMin = segB - segA;
+        g = Math.max(1, wMin);
+        endM = uq[s + 1];
+        atEnd = [];
+        for (pi = 0; pi < filt.length; pi++) {
+          if (filt[pi].m === endM) atEnd.push(filt[pi]);
+        }
+        lab = matchPreLabelsJoined(atEnd);
+        cls = matchPreClassFromMarkers(atEnd);
+        h += '<div class="tl-block-seg ' + cls + '" style="flex:' + g + ' 1 0;min-height:0">' + esc(lab) + '</div>';
+      }
+      return h;
+    }
+
     /** 試合: §1.0.1 トークンに基づく積層（他種別は buildTimelineStackedInnerHtml 従来） */
     function buildMatchTimelineStackedInnerHtml(ev, clip) {
       if (!ev || !clip || clip.de <= clip.ds) return '';
@@ -2174,50 +2206,24 @@
       var segA, segB, wMin, g, cls, lab, mk, i, j, tp, uq, u, s;
 
       if (mainStart > clip.ds) {
-        tp = [Math.max(clip.ds, 0)];
-        for (i = 0; i < preMs.length; i++) {
-          if (preMs[i].m > clip.ds && preMs[i].m < mainStart) tp.push(preMs[i].m);
-        }
-        tp.push(Math.min(mainStart, clip.de));
-        tp.sort(function(x, y) { return x - y; });
-        uq = [];
-        for (u = 0; u < tp.length; u++) {
-          if (u === 0 || tp[u] !== tp[u - 1]) uq.push(tp[u]);
-        }
-        var hasSpectateDep = false;
-        for (i = 0; i < preMs.length; i++) {
-          if (preMs[i].role === 'spectate_dep') {
-            hasSpectateDep = true;
-            break;
-          }
-        }
-        var endM, atEnd, spl, pi, labL, labR, clsL, clsR;
-        for (s = 0; s < uq.length - 1; s++) {
-          segA = Math.max(uq[s], clip.ds);
-          segB = Math.min(uq[s + 1], clip.de, mainStart);
-          if (segB <= segA) continue;
-          wMin = segB - segA;
-          g = Math.max(1, wMin);
-          endM = uq[s + 1];
-          atEnd = matchPreMarkersAtMinute(preMs, endM);
-          if (hasSpectateDep) {
-            spl = { player: [], spectate: [] };
-            for (pi = 0; pi < atEnd.length; pi++) {
-              if (atEnd[pi].role === 'spectate_dep') spl.spectate.push(atEnd[pi]);
-              else spl.player.push(atEnd[pi]);
+        var preTop = Math.max(clip.ds, 0);
+        var preBot = Math.min(mainStart, clip.de);
+        if (preBot > preTop) {
+          var hasSpectateDep = false;
+          for (i = 0; i < preMs.length; i++) {
+            if (preMs[i].role === 'spectate_dep') {
+              hasSpectateDep = true;
+              break;
             }
-            labL = matchPreLabelsJoined(spl.player);
-            labR = matchPreLabelsJoined(spl.spectate);
-            clsL = matchPreClassFromMarkers(spl.player);
-            clsR = matchPreClassFromMarkers(spl.spectate);
-            h += '<div class="tl-match-pre-row" style="flex:' + g + ' 1 0;min-height:0">';
-            h += '<div class="tl-block-seg ' + clsL + '">' + esc(labL) + '</div>';
-            h += '<div class="tl-block-seg ' + clsR + '">' + esc(labR) + '</div>';
+          }
+          var totalPre = Math.max(1, preBot - preTop);
+          if (hasSpectateDep) {
+            h += '<div class="tl-match-pre-dual" style="flex:' + totalPre + ' 1 0;min-height:0">';
+            h += '<div class="tl-match-pre-col">' + buildMatchPreColumnStackedHtml(preMs, preTop, preBot, false) + '</div>';
+            h += '<div class="tl-match-pre-col">' + buildMatchPreColumnStackedHtml(preMs, preTop, preBot, true) + '</div>';
             h += '</div>';
           } else {
-            lab = matchPreLabelsJoined(atEnd);
-            cls = matchPreClassFromMarkers(atEnd);
-            h += '<div class="tl-block-seg ' + cls + '" style="flex:' + g + ' 1 0;min-height:0">' + esc(lab) + '</div>';
+            h += buildMatchPreColumnStackedHtml(preMs, preTop, preBot, null);
           }
           hasAny = true;
         }
