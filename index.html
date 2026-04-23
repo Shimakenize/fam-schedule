@@ -325,8 +325,12 @@
     .tl-block--stacked.tl-kind-tr .tl-block-seg--match-post1 { background: #355c7a; color: #e8f0fa; }
     .tl-block--stacked.tl-kind-match .tl-block-seg--match-post2,
     .tl-block--stacked.tl-kind-tr .tl-block-seg--match-post2 { background: #4a7194; color: #f8fafc; }
-    .tl-block-seg--match-post-spacer {
-      flex: 1 1 0; min-width: 0; min-height: 0; background: rgba(15, 23, 42, 0.2);
+    .tl-match-spectate-lead-spacer {
+      box-sizing: border-box; margin: 0; padding: 0; border: none; background: transparent;
+      pointer-events: none; flex-shrink: 0;
+    }
+    .tl-match-post-rail-spacer {
+      flex: 1 1 0; min-height: 0; min-width: 0; background: transparent; box-sizing: border-box;
     }
     .tl-block--stacked.tl-kind-match .tl-block-seg--main { background: #1e3a5f; color: #e5e7eb; }
     .tl-block--stacked.tl-kind-adhoc .tl-block-seg--main { background: #3d2a5c; color: #ede9fe; }
@@ -479,7 +483,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260430-20';
+    var __UI_BUILD__ = '20260430-21';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -2216,6 +2220,33 @@
       return h;
     }
 
+    /** 観戦出発のみの列。先頭〜最初の観戦マーカーまでは帯にせず透明スペーサ（保護者列の空ヘッダを出さない） */
+    function buildMatchSpectatePreColumnHtml(preMs, preTop, preBot) {
+      var sm = [];
+      for (var si = 0; si < preMs.length; si++) {
+        if (preMs[si].role === 'spectate_dep') sm.push(preMs[si]);
+      }
+      if (!sm.length) return '';
+      sm.sort(function(a, b) { return a.m - b.m; });
+      var h = '';
+      var firstM = sm[0].m;
+      var lead = Math.max(0, firstM - preTop);
+      if (lead > 0) {
+        h += '<div class="tl-match-spectate-lead-spacer" style="flex:' + lead + ' 1 0;min-height:0"></div>';
+      }
+      var sk, t0, t1, gSeg, labS, clsS;
+      for (sk = 0; sk < sm.length; sk++) {
+        t0 = sm[sk].m;
+        t1 = sk + 1 < sm.length ? sm[sk + 1].m : preBot;
+        if (t1 <= t0) continue;
+        gSeg = Math.max(1, t1 - t0);
+        labS = formatMinutesHm(sm[sk].m) + sm[sk].label;
+        clsS = matchPreClassFromMarkers([sm[sk]]);
+        h += '<div class="tl-block-seg ' + clsS + '" style="flex:' + gSeg + ' 1 0;min-height:0">' + esc(labS) + '</div>';
+      }
+      return h;
+    }
+
     /** 試合: §1.0.1 トークンに基づく積層（他種別は buildTimelineStackedInnerHtml 従来） */
     function buildMatchTimelineStackedInnerHtml(ev, clip) {
       if (!ev || !clip || clip.de <= clip.ds) return '';
@@ -2245,7 +2276,7 @@
           if (hasSpectateDep) {
             h += '<div class="tl-match-pre-dual" style="flex:' + totalPre + ' 1 0;min-height:0">';
             h += '<div class="tl-match-pre-col">' + buildMatchPreColumnStackedHtml(preMs, preTop, preBot, false) + '</div>';
-            h += '<div class="tl-match-pre-col">' + buildMatchPreColumnStackedHtml(preMs, preTop, preBot, true) + '</div>';
+            h += '<div class="tl-match-pre-col">' + buildMatchSpectatePreColumnHtml(preMs, preTop, preBot) + '</div>';
             h += '</div>';
           } else {
             h += buildMatchPreColumnStackedHtml(preMs, preTop, preBot, null);
@@ -2269,7 +2300,7 @@
       h += '</div></div>';
       hasAny = true;
 
-      /* メイン後: 区間終端 uq[s+1] のマーカー＝その行動の終了時刻 */
+      /* メイン後: 区間終端 uq[s+1] のマーカー＝終了時刻。ラベル無し区間は前の帯にマージ（空の細枠を出さない） */
       if (mainEnd < clip.de && postMs.length) {
         tp = [Math.max(mainEnd, clip.ds)];
         for (j = 0; j < postMs.length; j++) {
@@ -2281,30 +2312,51 @@
         for (u = 0; u < tp.length; u++) {
           if (u === 0 || tp[u] !== tp[u - 1]) uq.push(tp[u]);
         }
-        var postSegIx = 0;
+        var postRows = [];
+        var pendingLead = 0;
         for (s = 0; s < uq.length - 1; s++) {
           segA = Math.max(uq[s], clip.ds, mainEnd);
           segB = Math.min(uq[s + 1], clip.de);
           if (segB <= segA) continue;
-          postSegIx++;
           wMin = segB - segA;
           g = Math.max(1, wMin);
           mk = null;
           for (j = 0; j < postMs.length; j++) {
             if (postMs[j].m === uq[s + 1]) { mk = postMs[j]; break; }
           }
-          cls = postSegIx === 1 ? 'tl-block-seg--match-post1' : 'tl-block-seg--match-post2';
           lab = mk ? (formatMinutesHm(mk.m) + mk.label) : '';
-          if (hasSpectateDep) {
-            h += '<div class="tl-match-pre-row" style="flex:' + g + ' 1 0;min-height:0">';
-            h += '<div class="tl-block-seg ' + cls + '" style="flex:1 1 0;min-width:0">' + esc(lab) + '</div>';
-            h += '<div class="tl-block-seg tl-block-seg--match-post-spacer"></div>';
-            h += '</div>';
-          } else {
-            h += '<div class="tl-block-seg ' + cls + '" style="flex:' + g + ' 1 0;min-height:0">' + esc(lab) + '</div>';
+          if (!lab) {
+            if (postRows.length) postRows[postRows.length - 1].g += g;
+            else pendingLead += g;
+            continue;
           }
-          hasAny = true;
+          postRows.push({ g: g + pendingLead, lab: lab, cls: '' });
+          pendingLead = 0;
         }
+        if (pendingLead > 0 && postRows.length) postRows[postRows.length - 1].g += pendingLead;
+        var pr, rw, postSum, pCls;
+        postSum = 0;
+        for (pr = 0; pr < postRows.length; pr++) postSum += postRows[pr].g;
+        postSum = Math.max(1, postSum);
+        if (hasSpectateDep) {
+          h += '<div class="tl-match-pre-dual" style="flex:' + postSum + ' 1 0;min-height:0">';
+          h += '<div class="tl-match-pre-col">';
+          for (pr = 0; pr < postRows.length; pr++) {
+            rw = postRows[pr];
+            pCls = pr % 2 === 0 ? 'tl-block-seg--match-post1' : 'tl-block-seg--match-post2';
+            h += '<div class="tl-block-seg ' + pCls + '" style="flex:' + rw.g + ' 1 0;min-height:0">' + esc(rw.lab) + '</div>';
+          }
+          h += '</div>';
+          h += '<div class="tl-match-pre-col"><div class="tl-match-post-rail-spacer" aria-hidden="true"></div></div>';
+          h += '</div>';
+        } else {
+          for (pr = 0; pr < postRows.length; pr++) {
+            rw = postRows[pr];
+            pCls = pr % 2 === 0 ? 'tl-block-seg--match-post1' : 'tl-block-seg--match-post2';
+            h += '<div class="tl-block-seg ' + pCls + '" style="flex:' + rw.g + ' 1 0;min-height:0">' + esc(rw.lab) + '</div>';
+          }
+        }
+        hasAny = true;
       } else if (mainEnd < clip.de) {
         segA = Math.max(mainEnd, clip.ds);
         segB = clip.de;
