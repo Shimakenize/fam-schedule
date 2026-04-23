@@ -332,6 +332,10 @@
     .tl-match-post-rail-spacer {
       flex: 1 1 0; min-height: 0; min-width: 0; background: transparent; box-sizing: border-box;
     }
+    /* 自宅車のみメイン同様に全幅（保護者も同乗）。自宅電車は左列のみ */
+    .tl-block-seg--match-post-wide {
+      align-self: stretch; width: 100%; box-sizing: border-box;
+    }
     .tl-block--stacked.tl-kind-match .tl-block-seg--main { background: #1e3a5f; color: #e5e7eb; }
     .tl-block--stacked.tl-kind-adhoc .tl-block-seg--main { background: #3d2a5c; color: #ede9fe; }
     .tl-block--stacked.tl-kind-tr .tl-block-seg--main { background: #14532d; color: #ecfdf5; }
@@ -483,7 +487,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260430-21';
+    var __UI_BUILD__ = '20260430-22';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -2220,6 +2224,11 @@
       return h;
     }
 
+    /** メイン後: 自宅車は保護者も共通のため全幅、自宅電車は選手のみ（左列） */
+    function isMatchPostSharedJitakaCar(row) {
+      return row && String(row.postLabel || '') === '自宅車';
+    }
+
     /** 観戦出発のみの列。先頭〜最初の観戦マーカーまでは帯にせず透明スペーサ（保護者列の空ヘッダを出さない） */
     function buildMatchSpectatePreColumnHtml(preMs, preTop, preBot) {
       var sm = [];
@@ -2330,25 +2339,52 @@
             else pendingLead += g;
             continue;
           }
-          postRows.push({ g: g + pendingLead, lab: lab, cls: '' });
+          postRows.push({ g: g + pendingLead, lab: lab, postLabel: mk.label });
           pendingLead = 0;
         }
         if (pendingLead > 0 && postRows.length) postRows[postRows.length - 1].g += pendingLead;
-        var pr, rw, postSum, pCls;
-        postSum = 0;
-        for (pr = 0; pr < postRows.length; pr++) postSum += postRows[pr].g;
-        postSum = Math.max(1, postSum);
+        var pr, rw, pCls, chunks, curNarrow, chi, ch, ls, idxClr, stripeIx;
         if (hasSpectateDep) {
-          h += '<div class="tl-match-pre-dual" style="flex:' + postSum + ' 1 0;min-height:0">';
-          h += '<div class="tl-match-pre-col">';
+          chunks = [];
+          curNarrow = [];
           for (pr = 0; pr < postRows.length; pr++) {
             rw = postRows[pr];
-            pCls = pr % 2 === 0 ? 'tl-block-seg--match-post1' : 'tl-block-seg--match-post2';
-            h += '<div class="tl-block-seg ' + pCls + '" style="flex:' + rw.g + ' 1 0;min-height:0">' + esc(rw.lab) + '</div>';
+            if (isMatchPostSharedJitakaCar(rw)) {
+              if (curNarrow.length) {
+                chunks.push({ type: 'dual', rows: curNarrow });
+                curNarrow = [];
+              }
+              chunks.push({ type: 'wide', row: rw });
+            } else {
+              curNarrow.push(rw);
+            }
           }
-          h += '</div>';
-          h += '<div class="tl-match-pre-col"><div class="tl-match-post-rail-spacer" aria-hidden="true"></div></div>';
-          h += '</div>';
+          if (curNarrow.length) chunks.push({ type: 'dual', rows: curNarrow });
+          stripeIx = 0;
+          for (chi = 0; chi < chunks.length; chi++) {
+            ch = chunks[chi];
+            if (ch.type === 'dual') {
+              ls = 0;
+              for (idxClr = 0; idxClr < ch.rows.length; idxClr++) ls += ch.rows[idxClr].g;
+              ls = Math.max(1, ls);
+              h += '<div class="tl-match-pre-dual" style="flex:' + ls + ' 1 0;min-height:0">';
+              h += '<div class="tl-match-pre-col">';
+              for (idxClr = 0; idxClr < ch.rows.length; idxClr++) {
+                rw = ch.rows[idxClr];
+                pCls = stripeIx % 2 === 0 ? 'tl-block-seg--match-post1' : 'tl-block-seg--match-post2';
+                stripeIx++;
+                h += '<div class="tl-block-seg ' + pCls + '" style="flex:' + rw.g + ' 1 0;min-height:0">' + esc(rw.lab) + '</div>';
+              }
+              h += '</div>';
+              h += '<div class="tl-match-pre-col"><div class="tl-match-post-rail-spacer" aria-hidden="true"></div></div>';
+              h += '</div>';
+            } else {
+              rw = ch.row;
+              pCls = stripeIx % 2 === 0 ? 'tl-block-seg--match-post1' : 'tl-block-seg--match-post2';
+              stripeIx++;
+              h += '<div class="tl-block-seg ' + pCls + ' tl-block-seg--match-post-wide" style="flex:' + rw.g + ' 1 0;min-height:0">' + esc(rw.lab) + '</div>';
+            }
+          }
         } else {
           for (pr = 0; pr < postRows.length; pr++) {
             rw = postRows[pr];
