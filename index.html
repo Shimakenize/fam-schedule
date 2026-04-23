@@ -299,57 +299,35 @@
       border-top: 1px solid rgba(0, 0, 0, 0.28); font-size: 0.56rem; font-weight: 600; opacity: 0.95;
       line-height: 1.15;
     }
-    /* 出発 → 集合 → 本番の順で明るさ段階（出発が最明） */
-    .tl-block--stacked.tl-kind-match .tl-block-seg--departure { background: #6b8fc9; color: #f8fafc; }
-    .tl-block--stacked.tl-kind-adhoc .tl-block-seg--departure { background: #7c5fb8; color: #faf5ff; }
-    .tl-block--stacked.tl-kind-tr .tl-block-seg--departure { background: #4ade80; color: #052e16; }
-    .tl-block--stacked.tl-kind-juku .tl-block-seg--departure { background: #fb923c; color: #1c0a02; }
-    .tl-block--stacked.tl-kind-private .tl-block-seg--departure { background: #7c6ba8; color: #faf5ff; }
-    .tl-block--stacked.tl-kind-gasshuku .tl-block-seg--departure { background: #d97706; color: #fffbeb; }
-    .tl-block--stacked.tl-kind-marinos .tl-block-seg--departure { background: #60a5fa; color: #eff6ff; }
-    .tl-block--stacked.tl-kind-match .tl-block-seg--assembly { background: #3d5f8f; color: #f1f5f9; }
-    .tl-block--stacked.tl-kind-adhoc .tl-block-seg--assembly { background: #5c4280; color: #f5f3ff; }
-    .tl-block--stacked.tl-kind-tr .tl-block-seg--assembly { background: #22a356; color: #ecfdf5; }
-    .tl-block--stacked.tl-kind-juku .tl-block-seg--assembly { background: #b45309; color: #fffbeb; }
-    .tl-block--stacked.tl-kind-private .tl-block-seg--assembly { background: #5b3d78; color: #faf5ff; }
-    .tl-block--stacked.tl-kind-gasshuku .tl-block-seg--assembly { background: #92400e; color: #fffbeb; }
-    .tl-block--stacked.tl-kind-marinos .tl-block-seg--assembly { background: #2563eb; color: #eff6ff; }
-    .tl-block--stacked.tl-kind-match .tl-block-seg--match-pre1,
-    .tl-block--stacked.tl-kind-tr .tl-block-seg--match-pre1,
-    .tl-block--stacked.tl-kind-adhoc .tl-block-seg--match-pre1,
-    .tl-block--stacked.tl-kind-juku .tl-block-seg--match-pre1,
-    .tl-block--stacked.tl-kind-private .tl-block-seg--match-pre1,
-    .tl-block--stacked.tl-kind-gasshuku .tl-block-seg--match-pre1,
-    .tl-block--stacked.tl-kind-marinos .tl-block-seg--match-pre1 { background: #4a6fa0; color: #f1f5f9; }
-    .tl-block--stacked.tl-kind-match .tl-block-seg--match-pre2,
-    .tl-block--stacked.tl-kind-tr .tl-block-seg--match-pre2,
-    .tl-block--stacked.tl-kind-adhoc .tl-block-seg--match-pre2,
-    .tl-block--stacked.tl-kind-juku .tl-block-seg--match-pre2,
-    .tl-block--stacked.tl-kind-private .tl-block-seg--match-pre2,
-    .tl-block--stacked.tl-kind-gasshuku .tl-block-seg--match-pre2,
-    .tl-block--stacked.tl-kind-marinos .tl-block-seg--match-pre2 { background: #6b8fc9; color: #f8fafc; }
-    .tl-block--stacked.tl-kind-match .tl-block-seg--match-pre3,
-    .tl-block--stacked.tl-kind-tr .tl-block-seg--match-pre3,
-    .tl-block--stacked.tl-kind-adhoc .tl-block-seg--match-pre3,
-    .tl-block--stacked.tl-kind-juku .tl-block-seg--match-pre3,
-    .tl-block--stacked.tl-kind-private .tl-block-seg--match-pre3,
-    .tl-block--stacked.tl-kind-gasshuku .tl-block-seg--match-pre3,
-    .tl-block--stacked.tl-kind-marinos .tl-block-seg--match-pre3 { background: #94a8d4; color: #0f172a; }
-    /* メイン直後 → 一段明るい → さらに一段明るい */
-    .tl-block--stacked.tl-kind-match .tl-block-seg--match-post1,
-    .tl-block--stacked.tl-kind-tr .tl-block-seg--match-post1,
-    .tl-block--stacked.tl-kind-adhoc .tl-block-seg--match-post1,
-    .tl-block--stacked.tl-kind-juku .tl-block-seg--match-post1,
-    .tl-block--stacked.tl-kind-private .tl-block-seg--match-post1,
-    .tl-block--stacked.tl-kind-gasshuku .tl-block-seg--match-post1,
-    .tl-block--stacked.tl-kind-marinos .tl-block-seg--match-post1 { background: #355c7a; color: #e8f0fa; }
-    .tl-block--stacked.tl-kind-match .tl-block-seg--match-post2,
-    .tl-block--stacked.tl-kind-tr .tl-block-seg--match-post2,
-    .tl-block--stacked.tl-kind-adhoc .tl-block-seg--match-post2,
-    .tl-block--stacked.tl-kind-juku .tl-block-seg--match-post2,
-    .tl-block--stacked.tl-kind-private .tl-block-seg--match-post2,
-    .tl-block--stacked.tl-kind-gasshuku .tl-block-seg--match-post2,
-    .tl-block--stacked.tl-kind-marinos .tl-block-seg--match-post2 { background: #4a7194; color: #f8fafc; }
+    /* 積層: .tl-block.tl-kind-* の --stack-base（本番と同一）から白へ color-mix して段階的に明るく */
+    .tl-block--stacked .tl-block-seg--departure {
+      background: color-mix(in srgb, var(--stack-base, #1e3a5f) 44%, white);
+      color: #f8fafc;
+    }
+    .tl-block--stacked .tl-block-seg--assembly {
+      background: color-mix(in srgb, var(--stack-base, #1e3a5f) 56%, white);
+      color: #f1f5f9;
+    }
+    .tl-block--stacked .tl-block-seg--match-pre1 {
+      background: color-mix(in srgb, var(--stack-base, #1e3a5f) 70%, white);
+      color: #f1f5f9;
+    }
+    .tl-block--stacked .tl-block-seg--match-pre2 {
+      background: color-mix(in srgb, var(--stack-base, #1e3a5f) 55%, white);
+      color: #f8fafc;
+    }
+    .tl-block--stacked .tl-block-seg--match-pre3 {
+      background: color-mix(in srgb, var(--stack-base, #1e3a5f) 36%, white);
+      color: #0f172a;
+    }
+    .tl-block--stacked .tl-block-seg--match-post1 {
+      background: color-mix(in srgb, var(--stack-base, #1e3a5f) 64%, white);
+      color: #e8f0fa;
+    }
+    .tl-block--stacked .tl-block-seg--match-post2 {
+      background: color-mix(in srgb, var(--stack-base, #1e3a5f) 48%, white);
+      color: #f8fafc;
+    }
     .tl-match-spectate-lead-spacer {
       box-sizing: border-box; margin: 0; padding: 0; border: none; background: transparent;
       pointer-events: none; flex-shrink: 0;
@@ -361,13 +339,14 @@
     .tl-block-seg--match-post-wide {
       align-self: stretch; width: 100%; box-sizing: border-box;
     }
-    .tl-block--stacked.tl-kind-match .tl-block-seg--main { background: #1e3a5f; color: #e5e7eb; }
-    .tl-block--stacked.tl-kind-adhoc .tl-block-seg--main { background: #3d2a5c; color: #ede9fe; }
-    .tl-block--stacked.tl-kind-tr .tl-block-seg--main { background: #14532d; color: #ecfdf5; }
-    .tl-block--stacked.tl-kind-juku .tl-block-seg--main { background: #7c2d12; color: #ffedd5; }
-    .tl-block--stacked.tl-kind-private .tl-block-seg--main { background: #3f2a56; color: #ede9fe; }
-    .tl-block--stacked.tl-kind-gasshuku .tl-block-seg--main { background: #422006; color: #fef3c7; }
-    .tl-block--stacked.tl-kind-marinos .tl-block-seg--main { background: #003f8a; color: #dbeafe; }
+    .tl-block--stacked .tl-block-seg--main { background: var(--stack-base, #1e3a5f); }
+    .tl-block--stacked.tl-kind-match .tl-block-seg--main { color: #e5e7eb; }
+    .tl-block--stacked.tl-kind-adhoc .tl-block-seg--main { color: #ede9fe; }
+    .tl-block--stacked.tl-kind-tr .tl-block-seg--main { color: #ecfdf5; }
+    .tl-block--stacked.tl-kind-juku .tl-block-seg--main { color: #ffedd5; }
+    .tl-block--stacked.tl-kind-private .tl-block-seg--main { color: #ede9fe; }
+    .tl-block--stacked.tl-kind-gasshuku .tl-block-seg--main { color: #fef3c7; }
+    .tl-block--stacked.tl-kind-marinos .tl-block-seg--main { color: #dbeafe; }
     .tl-block-em {
       position: absolute; left: 2px; right: 2px; box-sizing: border-box; border-radius: 4px;
       pointer-events: none; z-index: 0;
@@ -388,13 +367,13 @@
     .tl-block.row-past { filter: grayscale(0.15); }
     .tl-block.row-void { text-decoration: line-through; }
     .tl-block.tl-block--provisional { border-style: dashed; border-width: 2px; border-color: rgba(226, 232, 240, 0.45); }
-    .tl-block.tl-kind-match { background: #1e3a5f; border-color: #334e6f; }
-    .tl-block.tl-kind-adhoc { background: #3d2a5c; border-color: #5b3d7a; }
-    .tl-block.tl-kind-tr { background: #14532d; border-color: #166534; }
-    .tl-block.tl-kind-juku { background: #7c2d12; border-color: #9a3412; }
-    .tl-block.tl-kind-private { background: #3f2a56; border-color: #5c3d75; }
-    .tl-block.tl-kind-gasshuku { background: #422006; border-color: #713f12; }
-    .tl-block.tl-kind-marinos { background: #003f8a; border-color: #1e40af; }
+    .tl-block.tl-kind-match { background: #1e3a5f; border-color: #334e6f; --stack-base: #1e3a5f; }
+    .tl-block.tl-kind-adhoc { background: #3d2a5c; border-color: #5b3d7a; --stack-base: #3d2a5c; }
+    .tl-block.tl-kind-tr { background: #14532d; border-color: #166534; --stack-base: #14532d; }
+    .tl-block.tl-kind-juku { background: #7c2d12; border-color: #9a3412; --stack-base: #7c2d12; }
+    .tl-block.tl-kind-private { background: #3f2a56; border-color: #5c3d75; --stack-base: #3f2a56; }
+    .tl-block.tl-kind-gasshuku { background: #422006; border-color: #713f12; --stack-base: #422006; }
+    .tl-block.tl-kind-marinos { background: #003f8a; border-color: #1e40af; --stack-base: #003f8a; }
     .tl-block, .tl-chip { cursor: pointer; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
     .tl-detail-backdrop {
       position: fixed; inset: 0; z-index: 9998; background: rgba(0, 0, 0, 0.55);
@@ -512,7 +491,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260430-23';
+    var __UI_BUILD__ = '20260430-24';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
