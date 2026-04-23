@@ -334,10 +334,7 @@
       --tl-stack-main-color: #003f8a; /* メイン色 */
     }
 
-    .tl-block-seg--stack-aux {
-      background: var(--tl-stack-aux-base);
-    }
-    .tl-block-seg--stack-aux.tl-block-seg--dist-1 { background: #23436d; } /* 試合 */
+    .tl-block--stacked.tl-kind-match .tl-block-seg--stack-aux.tl-block-seg--dist-1 { background: #23436d; } /* 試合 */
     .tl-block--stacked.tl-kind-adhoc .tl-block-seg--stack-aux.tl-block-seg--dist-1 { background: #46306a; }
     .tl-block--stacked.tl-kind-tr .tl-block-seg--stack-aux.tl-block-seg--dist-1 { background: #175f34; }
     .tl-block--stacked.tl-kind-juku .tl-block-seg--stack-aux.tl-block-seg--dist-1 { background: #8f3415; }
@@ -345,7 +342,7 @@
     .tl-block--stacked.tl-kind-gasshuku .tl-block-seg--stack-aux.tl-block-seg--dist-1 { background: #4c2507; }
     .tl-block--stacked.tl-kind-marinos .tl-block-seg--stack-aux.tl-block-seg--dist-1 { background: #00489f; }
 
-    .tl-block-seg--stack-aux.tl-block-seg--dist-2 { background: #274b7c; } /* 試合 */
+    .tl-block--stacked.tl-kind-match .tl-block-seg--stack-aux.tl-block-seg--dist-2 { background: #274b7c; } /* 試合 */
     .tl-block--stacked.tl-kind-adhoc .tl-block-seg--stack-aux.tl-block-seg--dist-2 { background: #4f3778; }
     .tl-block--stacked.tl-kind-tr .tl-block-seg--stack-aux.tl-block-seg--dist-2 { background: #1a6c3b; }
     .tl-block--stacked.tl-kind-juku .tl-block-seg--stack-aux.tl-block-seg--dist-2 { background: #a13b17; }
@@ -353,7 +350,7 @@
     .tl-block--stacked.tl-kind-gasshuku .tl-block-seg--stack-aux.tl-block-seg--dist-2 { background: #562a08; }
     .tl-block--stacked.tl-kind-marinos .tl-block-seg--stack-aux.tl-block-seg--dist-2 { background: #0052b3; }
 
-    .tl-block-seg--stack-aux.tl-block-seg--dist-3 { background: #2c548a; } /* 試合 */
+    .tl-block--stacked.tl-kind-match .tl-block-seg--stack-aux.tl-block-seg--dist-3 { background: #2c548a; } /* 試合 */
     .tl-block--stacked.tl-kind-adhoc .tl-block-seg--stack-aux.tl-block-seg--dist-3 { background: #583d85; }
     .tl-block--stacked.tl-kind-tr .tl-block-seg--stack-aux.tl-block-seg--dist-3 { background: #1d7841; }
     .tl-block--stacked.tl-kind-juku .tl-block-seg--stack-aux.tl-block-seg--dist-3 { background: #b4411a; }
@@ -515,7 +512,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260430-32';
+    var __UI_BUILD__ = '20260430-33';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
