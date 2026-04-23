@@ -191,6 +191,10 @@
       cursor: pointer; padding: 4px 8px; font-family: inherit;
     }
     .todo-del:hover { color: #fca5a5; }
+    .todo-row--busy { opacity: 0.92; }
+    .todo-check:disabled { opacity: 0.55; cursor: wait; }
+    .todo-del:disabled { opacity: 0.4; cursor: wait; }
+    .todo-row-status { flex: 0 0 auto; min-width: 3.8em; font-size: 0.74rem; color: #5eead4; font-weight: 500; align-self: center; }
     .todo-empty { padding: 20px 8px; color: #94a3b8; font-size: 0.86rem; }
     .filter-strip.disabled { opacity: 0.45; pointer-events: none; }
     .week-block-title { font-size: 0.9rem; font-weight: 600; color: #9ccce6; margin: 16px 0 8px; padding: 0 16px; }
@@ -547,7 +551,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260430-31';
+    var __UI_BUILD__ = '20260430-32';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -3691,6 +3695,7 @@
         h += '<button type="button" class="todo-check' + (done ? ' todo-check--done' : '') + '" data-todo-toggle="' + escAttr(t.id) + '" aria-label="' + (done ? '未完了に戻す' : '完了にする') + '">';
         if (done) h += '✓';
         h += '</button>';
+        h += '<span class="todo-row-status" role="status" aria-live="polite"></span>';
         h += '<span class="todo-text' + (done ? ' todo-text--done' : '') + '">' + esc(t.text) + '</span>';
         h += '<button type="button" class="todo-del" data-todo-del="' + escAttr(t.id) + '" aria-label="削除">×</button>';
         h += '</div>';
@@ -3764,24 +3769,48 @@
         var tg = ev.target.closest('[data-todo-toggle]');
         var del = ev.target.closest('[data-todo-del]');
         if (tg) {
+          if (tg.disabled) return;
           var id = tg.getAttribute('data-todo-toggle');
           var isDone = tg.classList.contains('todo-check--done');
+          var row = tg.closest('.todo-row');
+          var st = row && row.querySelector('.todo-row-status');
+          var delBtn = row && row.querySelector('[data-todo-del]');
+          tg.disabled = true;
+          if (delBtn) delBtn.disabled = true;
+          if (row) row.classList.add('todo-row--busy');
+          if (st) st.textContent = '更新中…';
           try {
             await apiPostJson('/api/admin/app-todo-update', { id: id, done: !isDone });
             await reloadTodoListMount();
           } catch (e) {
             alert(esc(String(e.message || e)));
+            tg.disabled = false;
+            if (delBtn) delBtn.disabled = false;
+            if (row) row.classList.remove('todo-row--busy');
+            if (st) st.textContent = '';
           }
           return;
         }
         if (del) {
+          if (del.disabled) return;
           var did = del.getAttribute('data-todo-del');
           if (!confirm('このタスクを削除しますか？')) return;
+          var rowD = del.closest('.todo-row');
+          var stD = rowD && rowD.querySelector('.todo-row-status');
+          var chk = rowD && rowD.querySelector('[data-todo-toggle]');
+          del.disabled = true;
+          if (chk) chk.disabled = true;
+          if (rowD) rowD.classList.add('todo-row--busy');
+          if (stD) stD.textContent = '更新中…';
           try {
             await apiPostJson('/api/admin/app-todo-delete', { id: did });
             await reloadTodoListMount();
           } catch (e) {
             alert(esc(String(e.message || e)));
+            del.disabled = false;
+            if (chk) chk.disabled = false;
+            if (rowD) rowD.classList.remove('todo-row--busy');
+            if (stD) stD.textContent = '';
           }
         }
       });
