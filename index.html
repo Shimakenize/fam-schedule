@@ -305,20 +305,41 @@
       line-height: 1.15;
     }
     /* 積層·メイン外: .stack-aux 固定色（本番#より一段淡い srgb 線形ブレンドを事前計算。color-mix 非対応の LIFF WebView でも必ず乗る） */
-    .tl-block--stacked.tl-kind-match .tl-block-seg--stack-aux { background: #4e79af; color: #e8f0fa; }
-    .tl-block--stacked.tl-kind-adhoc .tl-block-seg--stack-aux { background: #837797; color: #ede9fe; }
-    .tl-block--stacked.tl-kind-tr .tl-block-seg--stack-aux { background: #699179; color: #ecfdf5; }
-    .tl-block--stacked.tl-kind-juku .tl-block-seg--stack-aux { background: #c4977d; color: #431407; }
-    .tl-block--stacked.tl-kind-private .tl-block-seg--stack-aux { background: #736385; color: #ede9fe; }
-    .tl-block--stacked.tl-kind-gasshuku .tl-block-seg--stack-aux { background: #867060; color: #fef3c7; }
-    .tl-block--stacked.tl-kind-marinos .tl-block-seg--stack-aux { background: #5c84b4; color: #dbeafe; }
-    .tl-match-spectate-lead-spacer {
-      box-sizing: border-box; margin: 0; padding: 0; border: none; background: transparent;
-      pointer-events: none; flex-shrink: 0;
+    .tl-block--stacked.tl-kind-match {
+      --tl-stack-aux-base: #4e79af; /* 試合のベース色 */
+      --tl-stack-main-color: #1e3a5f; /* メイン色 */
     }
-    .tl-match-post-rail-spacer {
-      flex: 1 1 0; min-height: 0; min-width: 0; background: transparent; box-sizing: border-box;
+    .tl-block--stacked.tl-kind-adhoc {
+      --tl-stack-aux-base: #837797; /* 単発のベース色 */
+      --tl-stack-main-color: #3d2a5c; /* メイン色 */
     }
+    .tl-block--stacked.tl-kind-tr {
+      --tl-stack-aux-base: #699179; /* TRのベース色 */
+      --tl-stack-main-color: #14532d; /* メイン色 */
+    }
+    .tl-block--stacked.tl-kind-juku {
+      --tl-stack-aux-base: #c4977d; /* 塾のベース色 */
+      --tl-stack-main-color: #7c2d12; /* メイン色 */
+    }
+    .tl-block--stacked.tl-kind-private {
+      --tl-stack-aux-base: #736385; /* 私用のベース色 */
+      --tl-stack-main-color: #3f2a56; /* メイン色 */
+    }
+    .tl-block--stacked.tl-kind-gasshuku {
+      --tl-stack-aux-base: #867060; /* 合宿のベース色 */
+      --tl-stack-main-color: #422006; /* メイン色 */
+    }
+    .tl-block--stacked.tl-kind-marinos {
+      --tl-stack-aux-base: #5c84b4; /* マリノス戦のベース色 */
+      --tl-stack-main-color: #003f8a; /* メイン色 */
+    }
+
+    .tl-block-seg--stack-aux {
+      background: var(--tl-stack-aux-base);
+    }
+    .tl-block-seg--stack-aux.tl-block-seg--dist-1 { background: color-mix(in srgb, var(--tl-stack-aux-base) 90%, white); } /* メインに最も近い (0-30分) */
+    .tl-block-seg--stack-aux.tl-block-seg--dist-2 { background: color-mix(in srgb, var(--tl-stack-aux-base) 75%, white); } /* 中間 (30-60分) */
+    .tl-block-seg--stack-aux.tl-block-seg--dist-3 { background: color-mix(in srgb, var(--tl-stack-aux-base) 60%, white); } /* 最も離れた (60分以上) */
     /* 車同乗＝全幅。電車・バス＝左列（観戦2列時）。語は kickoff 原文のまま */
     .tl-block-seg--match-post-wide {
       align-self: stretch; width: 100%; box-sizing: border-box;
@@ -474,7 +495,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260430-30';
+    var __UI_BUILD__ = '20260430-31';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -2176,11 +2197,17 @@
       return 'tl-block-seg--match-pre' + best;
     }
 
+    function getDistanceTierClass(distanceMinutes) {
+      if (distanceMinutes <= 30) return 'tl-block-seg--dist-1';
+      if (distanceMinutes <= 60) return 'tl-block-seg--dist-2';
+      return 'tl-block-seg--dist-3';
+    }
+
     /**
      * メイン前の1列分。lane=null なら全マーカー、false=選手側、true=観戦出発のみ。
      * メイン前: 各区間の始端 uq[s] のマーカー＝その行動の開始時刻。メイン後は別処理で終端＝終了時刻。
      */
-    function buildMatchPreColumnStackedHtml(preMs, preTop, preBot, lane) {
+    function buildMatchPreColumnStackedHtml(preMs, preTop, preBot, lane, mainStart) {
       var filt = [];
       for (var fi = 0; fi < preMs.length; fi++) {
         if (lane == null) filt.push(preMs[fi]);
@@ -2198,7 +2225,7 @@
       var earlyLab = matchPreLabelsJoined(earlyFilt);
       var h = '';
       if (earlyLab) {
-        h += '<div class="tl-block-seg tl-block-seg--stack-aux tl-block-seg--match-pre3" style="flex:1 1 0;min-height:22px;max-height:40px">' + esc(earlyLab) + '</div>';
+        h += '<div class="tl-block-seg tl-block-seg--stack-aux ' + getDistanceTierClass(mainStart - earlyFilt[0].m) + ' tl-block-seg--match-pre3" style="flex:1 1 0;min-height:22px;max-height:40px">' + esc(earlyLab) + '</div>';
       }
       var tp = [preTop];
       for (j = 0; j < filt.length; j++) {
@@ -2210,7 +2237,7 @@
       for (var u = 0; u < tp.length; u++) {
         if (u === 0 || tp[u] !== tp[u - 1]) uq.push(tp[u]);
       }
-      var s, segA, segB, wMin, g, startM, atStartMark, pi, lab, cls;
+      var s, segA, segB, wMin, g, startM, atStartMark, pi, lab, cls, distCls;
       for (s = 0; s < uq.length - 1; s++) {
         segA = Math.max(uq[s], preTop);
         segB = Math.min(uq[s + 1], preBot);
@@ -2224,13 +2251,14 @@
         }
         lab = matchPreLabelsJoined(atStartMark);
         cls = matchPreClassFromMarkers(atStartMark);
-        h += '<div class="tl-block-seg tl-block-seg--stack-aux ' + cls + '" style="flex:' + g + ' 1 0;min-height:0">' + esc(lab) + '</div>';
+        distCls = getDistanceTierClass(mainStart - startM);
+        h += '<div class="tl-block-seg tl-block-seg--stack-aux ' + cls + ' ' + distCls + '" style="flex:' + g + ' 1 0;min-height:0">' + esc(lab) + '</div>';
       }
       return h;
     }
 
     /** 観戦出発のみの列。先頭〜最初の観戦マーカーまでは帯にせず透明スペーサ（保護者列の空ヘッダを出さない） */
-    function buildMatchSpectatePreColumnHtml(preMs, preTop, preBot) {
+    function buildMatchSpectatePreColumnHtml(preMs, preTop, preBot, mainStart) {
       var sm = [];
       for (var si = 0; si < preMs.length; si++) {
         if (preMs[si].role === 'spectate_dep') sm.push(preMs[si]);
@@ -2243,7 +2271,7 @@
       if (lead > 0) {
         h += '<div class="tl-match-spectate-lead-spacer" style="flex:' + lead + ' 1 0;min-height:0"></div>';
       }
-      var sk, t0, t1, gSeg, labS, clsS;
+      var sk, t0, t1, gSeg, labS, clsS, distCls;
       for (sk = 0; sk < sm.length; sk++) {
         t0 = sm[sk].m;
         t1 = sk + 1 < sm.length ? sm[sk + 1].m : preBot;
@@ -2251,7 +2279,8 @@
         gSeg = Math.max(1, t1 - t0);
         labS = formatMinutesHm(sm[sk].m) + sm[sk].label;
         clsS = matchPreClassFromMarkers([sm[sk]]);
-        h += '<div class="tl-block-seg tl-block-seg--stack-aux ' + clsS + '" style="flex:' + gSeg + ' 1 0;min-height:0">' + esc(labS) + '</div>';
+        distCls = getDistanceTierClass(mainStart - t0);
+        h += '<div class="tl-block-seg tl-block-seg--stack-aux ' + clsS + ' ' + distCls + '" style="flex:' + gSeg + ' 1 0;min-height:0">' + esc(labS) + '</div>';
       }
       return h;
     }
@@ -2284,8 +2313,8 @@
           var totalPre = Math.max(1, preBot - preTop);
           if (hasSpectateDep) {
             h += '<div class="tl-match-pre-dual" style="flex:' + totalPre + ' 1 0;min-height:0">';
-            h += '<div class="tl-match-pre-col">' + buildMatchPreColumnStackedHtml(preMs, preTop, preBot, false) + '</div>';
-            h += '<div class="tl-match-pre-col">' + buildMatchSpectatePreColumnHtml(preMs, preTop, preBot) + '</div>';
+            h += '<div class="tl-match-pre-col">' + buildMatchPreColumnStackedHtml(preMs, preTop, preBot, false, mainStart) + '</div>';
+            h += '<div class="tl-match-pre-col">' + buildMatchSpectatePreColumnHtml(preMs, preTop, preBot, mainStart) + '</div>';
             h += '</div>';
           } else {
             h += buildMatchPreColumnStackedHtml(preMs, preTop, preBot, null);
@@ -2378,8 +2407,9 @@
               for (idxClr = 0; idxClr < ch.rows.length; idxClr++) {
                 rw = ch.rows[idxClr];
                 pCls = stripeIx % 2 === 0 ? 'tl-block-seg--match-post1' : 'tl-block-seg--match-post2';
+                var distCls = getDistanceTierClass(Math.abs(rw.m - mainEnd));
                 stripeIx++;
-                h += '<div class="tl-block-seg tl-block-seg--stack-aux ' + pCls + '" style="flex:' + rw.g + ' 1 0;min-height:0">' + esc(rw.lab) + '</div>';
+                h += '<div class="tl-block-seg tl-block-seg--stack-aux ' + pCls + ' ' + distCls + '" style="flex:' + rw.g + ' 1 0;min-height:0">' + esc(rw.lab) + '</div>';
               }
               h += '</div>';
               h += '<div class="tl-match-pre-col"><div class="tl-match-post-rail-spacer" aria-hidden="true"></div></div>';
@@ -2387,15 +2417,17 @@
             } else {
               rw = ch.row;
               pCls = stripeIx % 2 === 0 ? 'tl-block-seg--match-post1' : 'tl-block-seg--match-post2';
+              var distCls = getDistanceTierClass(Math.abs(rw.m - mainEnd));
               stripeIx++;
-              h += '<div class="tl-block-seg tl-block-seg--stack-aux ' + pCls + ' tl-block-seg--match-post-wide" style="flex:' + rw.g + ' 1 0;min-height:0">' + esc(rw.lab) + '</div>';
+              h += '<div class="tl-block-seg tl-block-seg--stack-aux ' + pCls + ' ' + distCls + ' tl-block-seg--match-post-wide" style="flex:' + rw.g + ' 1 0;min-height:0">' + esc(rw.lab) + '</div>';
             }
           }
         } else {
           for (pr = 0; pr < postRows.length; pr++) {
             rw = postRows[pr];
             pCls = pr % 2 === 0 ? 'tl-block-seg--match-post1' : 'tl-block-seg--match-post2';
-            h += '<div class="tl-block-seg tl-block-seg--stack-aux ' + pCls + '" style="flex:' + rw.g + ' 1 0;min-height:0">' + esc(rw.lab) + '</div>';
+            var distCls = getDistanceTierClass(Math.abs(rw.m - mainEnd));
+            h += '<div class="tl-block-seg tl-block-seg--stack-aux ' + pCls + ' ' + distCls + '" style="flex:' + rw.g + ' 1 0;min-height:0">' + esc(rw.lab) + '</div>';
           }
         }
         hasAny = true;
@@ -2404,7 +2436,7 @@
         segB = clip.de;
         if (segB > segA) {
           g = Math.max(1, segB - segA);
-          h += '<div class="tl-block-seg tl-block-seg--stack-aux tl-block-seg--match-post2" style="flex:' + g + ' 1 0;min-height:0"></div>';
+          h += '<div class="tl-block-seg tl-block-seg--stack-aux ' + getDistanceTierClass(Math.abs(segA - mainEnd)) + ' tl-block-seg--match-post2" style="flex:' + g + ' 1 0;min-height:0"></div>';
           hasAny = true;
         }
       }
