@@ -547,7 +547,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260430-27';
+    var __UI_BUILD__ = '20260430-29';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -737,8 +737,21 @@
       if (btnReload) btnReload.onclick = function() { location.reload(); };
     }
 
+    /** GAS Web アプリ POST 時、本文が届かない環境でも e.parameter でルーティングできるよう URL に _path を付与する */
+    function gasExecUrlWithQuery(baseUrl, path) {
+      var base = String(baseUrl || '').replace(/\/$/, '');
+      var pathOnly = path.split('?')[0];
+      var q = '_path=' + encodeURIComponent(pathOnly);
+      if (IS_DEV_BYPASS) {
+        q += '&dev_token=' + encodeURIComponent(DEV_TOKEN) + '&userId=dev-claude';
+      } else {
+        q += '&userId=' + encodeURIComponent(lineUserId || '');
+      }
+      return base + (base.indexOf('?') >= 0 ? '&' : '?') + q;
+    }
+
     async function fetchWithAuth(path, options) {
-      var o = options || {};
+      var o = Object.assign({}, options || {}, { cache: 'no-store' });
       var method = (o.method || 'GET').toUpperCase();
       if (method === 'POST' && o.body) {
         try {
@@ -754,7 +767,7 @@
           }
           var postUrlDirect = window.__API_BASE__ || '';
           try {
-            if (postUrlDirect) return await fetch(postUrlDirect, o);
+            if (postUrlDirect) return await fetch(gasExecUrlWithQuery(postUrlDirect, path), o);
           } catch (e0) { /* fallthrough */ }
           return fetch(postUrlWithQuery, o);
         } catch (e) { /* ignore */ }
@@ -786,11 +799,17 @@
         throw new Error('ログインの有効期限が切れました。画面上部の「LINE で再ログイン」を押してください。');
       }
       if (!r.ok) throw new Error(r.status + ' ' + msg);
+      var data;
       try {
-        return msg ? JSON.parse(msg) : {};
+        data = msg ? JSON.parse(msg) : {};
       } catch (e) {
         throw new Error(r.status + ' ' + msg);
       }
+      // GAS は失敗時も HTTP 200 で { error: "..." } を返すことがある
+      if (data && typeof data.error === 'string' && data.error.length) {
+        throw new Error(data.error);
+      }
+      return data;
     }
 
     function dbg(msg) {}
@@ -882,6 +901,7 @@
     async function apiPostJson(path, body) {
       var r = await fetchWithAuthRetry(path, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body || {})
       });
       return readApiErrorOrJson(r);
