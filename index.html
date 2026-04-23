@@ -165,6 +165,33 @@
     .identity-panel .value { word-break: break-all; font-family: ui-monospace, monospace; font-size: 0.82rem; }
     .btn-sm { padding: 4px 10px; font-size: 0.78rem; margin-right: 6px; }
     .btn-warn { background: #b45309; color: #fff; }
+    .todo-panel { margin: 0; padding: 14px 16px 24px; font-size: 0.88rem; color: #e5e7eb; max-width: 720px; }
+    .todo-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+    .todo-title { margin: 0; font-size: 1.05rem; font-weight: 700; color: #fff; }
+    .todo-add-head-btn { flex-shrink: 0; }
+    .todo-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
+    .todo-new-input {
+      flex: 1 1 200px; min-width: 160px; padding: 10px 12px; border-radius: 8px; border: 1px solid #2b4258;
+      background: #0b1220; color: #e5e7eb; font-size: 0.88rem; font-family: inherit;
+    }
+    .todo-list { border-top: 1px solid #233041; }
+    .todo-row {
+      display: flex; align-items: center; gap: 12px; padding: 12px 4px; border-bottom: 1px solid #1e293b;
+      min-height: 48px; box-sizing: border-box;
+    }
+    .todo-check {
+      flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%; border: 2px solid #2ed3c6; background: transparent;
+      color: transparent; cursor: pointer; padding: 0; font-size: 0.75rem; line-height: 1; font-family: inherit;
+    }
+    .todo-check--done { background: #2ed3c6; color: #06212b; font-weight: 800; }
+    .todo-text { flex: 1 1 auto; min-width: 0; word-break: break-word; }
+    .todo-text--done { opacity: 0.45; text-decoration: line-through; color: #94a3b8; }
+    .todo-del {
+      flex: 0 0 auto; border: none; background: transparent; color: #64748b; font-size: 1.25rem; line-height: 1;
+      cursor: pointer; padding: 4px 8px; font-family: inherit;
+    }
+    .todo-del:hover { color: #fca5a5; }
+    .todo-empty { padding: 20px 8px; color: #94a3b8; font-size: 0.86rem; }
     .filter-strip.disabled { opacity: 0.45; pointer-events: none; }
     .week-block-title { font-size: 0.9rem; font-weight: 600; color: #9ccce6; margin: 16px 0 8px; padding: 0 16px; }
     .week-block-title:first-of-type { margin-top: 8px; }
@@ -473,6 +500,7 @@
     <button type="button" class="view-tab active" data-view="timeline" id="tabTimeline">タイムライン</button>
     <button type="button" class="view-tab" data-view="table" id="tabTable">テーブル</button>
     <button type="button" class="view-tab" data-view="admin" id="tabAdmin" hidden>管理</button>
+    <button type="button" class="view-tab" data-view="todo" id="tabTodo" hidden>ToDo</button>
     <button type="button" class="view-tab" data-view="pending" id="tabPending" hidden>仮登録</button>
   </nav>
   <div class="filter-strip" id="filterStrip" style="display:none;" aria-label="絞り込み">
@@ -519,7 +547,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260430-26';
+    var __UI_BUILD__ = '20260430-27';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -1719,7 +1747,7 @@
     }
 
     async function loadScheduleInitial() {
-      if (currentView === 'pending' || currentView === 'admin') return;
+      if (currentView === 'pending' || currentView === 'admin' || currentView === 'todo') return;
       var t = todayIsoJst();
       if (!t) t = toIsoDate(new Date());
       var from = addDaysIso(t, -2);
@@ -1752,7 +1780,7 @@
       __cachedMonthData.rangeTo = data.to || to;
       __cachedMonthData.year = parseInt(String(__cachedMonthData.rangeFrom).slice(0, 4), 10);
       __cachedMonthData.month = parseInt(String(__cachedMonthData.rangeFrom).slice(5, 7), 10);
-      if (currentView !== 'admin' && currentView !== 'pending') {
+      if (currentView !== 'admin' && currentView !== 'pending' && currentView !== 'todo') {
         updateToolbarForView();
         scheduleRerender();
       }
@@ -1763,7 +1791,7 @@
     }
 
     function scheduleRerender() {
-      if (currentView === 'admin' || currentView === 'pending') return;
+      if (currentView === 'admin' || currentView === 'pending' || currentView === 'todo') return;
       if (!__cachedMonthData) return;
       var el = document.getElementById('viewContent');
         var all = __cachedMonthData.events || [];
@@ -3462,6 +3490,10 @@
         await showPendingPanel();
         return;
       }
+      if (currentView === 'todo') {
+        await showTodoPanel();
+        return;
+      }
       if (currentView === 'admin') return;
       await loadScheduleInitial();
     }
@@ -3625,12 +3657,113 @@
       loadAdminTabContent();
     }
 
+    function buildTodoRowsHtml(todos) {
+      if (!todos || !todos.length) {
+        return '<div class="todo-empty">まだタスクはありません。「+ 追加」または下の入力から追加できます。</div>';
+      }
+      var h = '';
+      var i;
+      for (i = 0; i < todos.length; i++) {
+        var t = todos[i];
+        var done = !!t.done;
+        h += '<div class="todo-row" data-todo-id="' + escAttr(t.id) + '">';
+        h += '<button type="button" class="todo-check' + (done ? ' todo-check--done' : '') + '" data-todo-toggle="' + escAttr(t.id) + '" aria-label="' + (done ? '未完了に戻す' : '完了にする') + '">';
+        if (done) h += '✓';
+        h += '</button>';
+        h += '<span class="todo-text' + (done ? ' todo-text--done' : '') + '">' + esc(t.text) + '</span>';
+        h += '<button type="button" class="todo-del" data-todo-del="' + escAttr(t.id) + '" aria-label="削除">×</button>';
+        h += '</div>';
+      }
+      return h;
+    }
+
+    async function reloadTodoListMount() {
+      var mount = document.getElementById('todoListMount');
+      if (!mount) return;
+      try {
+        var res = await apiGet('/api/admin/app-todos');
+        if (res.error) throw new Error(res.error);
+        mount.innerHTML = buildTodoRowsHtml(res.todos || []);
+      } catch (e) {
+        mount.innerHTML = '<div class="error">' + esc(String(e.message || e)) + '</div>';
+      }
+    }
+
+    async function todoPanelSubmitAdd() {
+      var inp = document.getElementById('todoNewInput');
+      var tx = (inp && inp.value || '').trim();
+      if (!tx) {
+        alert('内容を入力してください');
+        return;
+      }
+      try {
+        await apiPostJson('/api/admin/app-todo-create', { text: tx });
+        inp.value = '';
+        await reloadTodoListMount();
+      } catch (e) {
+        alert(esc(String(e.message || e)));
+      }
+    }
+
+    async function showTodoPanel() {
+      var el = document.getElementById('viewContent');
+      el.innerHTML =
+        '<div class="todo-panel">' +
+        '<div class="todo-header">' +
+        '<h2 class="todo-title">ToDo</h2>' +
+        '<button type="button" class="btn btn-primary todo-add-head-btn" id="btnTodoFocusInput">+ 追加</button>' +
+        '</div>' +
+        '<div class="todo-toolbar">' +
+        '<input type="text" id="todoNewInput" class="todo-new-input" placeholder="新しいタスク…" />' +
+        '<button type="button" class="btn btn-primary" id="btnTodoAdd">追加</button>' +
+        '</div>' +
+        '<div id="todoListMount" class="todo-list">読み込み中…</div></div>';
+      document.getElementById('btnTodoAdd').addEventListener('click', todoPanelSubmitAdd);
+      document.getElementById('btnTodoFocusInput').addEventListener('click', function() {
+        var inp = document.getElementById('todoNewInput');
+        if (inp) inp.focus();
+      });
+      var inp0 = document.getElementById('todoNewInput');
+      if (inp0) {
+        inp0.addEventListener('keydown', function(ev) {
+          if (ev.key === 'Enter') todoPanelSubmitAdd();
+        });
+      }
+      var mount = document.getElementById('todoListMount');
+      mount.addEventListener('click', async function(ev) {
+        var tg = ev.target.closest('[data-todo-toggle]');
+        var del = ev.target.closest('[data-todo-del]');
+        if (tg) {
+          var id = tg.getAttribute('data-todo-toggle');
+          var isDone = tg.classList.contains('todo-check--done');
+          try {
+            await apiPostJson('/api/admin/app-todo-update', { id: id, done: !isDone });
+            await reloadTodoListMount();
+          } catch (e) {
+            alert(esc(String(e.message || e)));
+          }
+          return;
+        }
+        if (del) {
+          var did = del.getAttribute('data-todo-del');
+          if (!confirm('このタスクを削除しますか？')) return;
+          try {
+            await apiPostJson('/api/admin/app-todo-delete', { id: did });
+            await reloadTodoListMount();
+          } catch (e) {
+            alert(esc(String(e.message || e)));
+          }
+        }
+      });
+      await reloadTodoListMount();
+    }
+
     async function applyView(view) {
       currentView = view;
       if (view !== 'timeline') clearTimelineNowLineTimer();
       setViewTabsUI();
       var showScheduleChrome =
-        view !== 'admin' && view !== 'pending' && __lastMe && __lastMe.access_granted;
+        view !== 'admin' && view !== 'pending' && view !== 'todo' && __lastMe && __lastMe.access_granted;
       var fsx = document.getElementById('filterStrip');
       if (fsx) fsx.style.display = showScheduleChrome ? 'flex' : 'none';
       if (view === 'admin') {
@@ -3640,6 +3773,11 @@
       }
       if (view === 'pending') {
         if (__lastMe && __lastMe.is_admin) await showPendingPanel();
+        else document.getElementById('viewContent').innerHTML = '<div class="error">管理者のみ利用できます。</div>';
+        return;
+      }
+      if (view === 'todo') {
+        if (__lastMe && __lastMe.is_admin) await showTodoPanel();
         else document.getElementById('viewContent').innerHTML = '<div class="error">管理者のみ利用できます。</div>';
         return;
       }
@@ -3655,7 +3793,7 @@
       document.querySelectorAll('.view-tab').forEach(function(btn) {
         btn.addEventListener('click', function() {
           var v = btn.getAttribute('data-view');
-          if ((v === 'admin' || v === 'pending') && (!__lastMe || !__lastMe.is_admin)) return;
+          if ((v === 'admin' || v === 'pending' || v === 'todo') && (!__lastMe || !__lastMe.is_admin)) return;
           applyView(v).catch(function(e) {
             document.getElementById('viewContent').innerHTML = '<div class="error">' + esc(String(e.message || e)) + '</div>';
           });
@@ -3728,15 +3866,18 @@
       _cachedHeaderNoIds = parts.length ? parts.join(' · ') : '—';
       updateMetaStrip(me);
       var tabAdmin = document.getElementById('tabAdmin');
+      var tabTodo = document.getElementById('tabTodo');
       var tabPending = document.getElementById('tabPending');
       if (me.is_admin) {
         tabAdmin.hidden = false;
+        if (tabTodo) tabTodo.hidden = false;
         if (tabPending) tabPending.hidden = false;
       } else {
         tabAdmin.hidden = true;
+        if (tabTodo) tabTodo.hidden = true;
         if (tabPending) tabPending.hidden = true;
       }
-      if ((currentView === 'admin' || currentView === 'pending') && !me.is_admin) {
+      if ((currentView === 'admin' || currentView === 'pending' || currentView === 'todo') && !me.is_admin) {
         currentView = 'timeline';
         setViewTabsUI();
       }
@@ -3760,11 +3901,14 @@
         document.getElementById('loading').textContent = '';
         var me = await refreshMeAndPanels();
         var wantAdmin = readUrlTab() === 'admin' && me.is_admin;
+        var wantTodo = readUrlTab() === 'todo' && me.is_admin;
         var wantPending = readUrlTab() === 'pending' && me.is_admin;
         var urlTab = readUrlTab();
         if (me.access_granted) {
           if (wantPending) {
             applyView('pending');
+          } else if (wantTodo) {
+            applyView('todo');
           } else if (wantAdmin) {
             applyView('admin');
           } else {
