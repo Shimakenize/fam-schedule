@@ -166,10 +166,10 @@
     .btn-sm { padding: 4px 10px; font-size: 0.78rem; margin-right: 6px; }
     .btn-warn { background: #b45309; color: #fff; }
     .todo-panel { margin: 0; padding: 14px 16px 24px; font-size: 0.88rem; color: #e5e7eb; max-width: 720px; }
-    .todo-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+    .todo-header { margin-bottom: 14px; }
     .todo-title { margin: 0; font-size: 1.05rem; font-weight: 700; color: #fff; }
-    .todo-add-head-btn { flex-shrink: 0; }
     .todo-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
+    .todo-add-status { flex: 0 0 auto; min-width: 4.5em; color: #5eead4; font-size: 0.82rem; font-weight: 500; }
     .todo-new-input {
       flex: 1 1 200px; min-width: 160px; padding: 10px 12px; border-radius: 8px; border: 1px solid #2b4258;
       background: #0b1220; color: #e5e7eb; font-size: 0.88rem; font-family: inherit;
@@ -547,7 +547,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260430-30';
+    var __UI_BUILD__ = '20260430-31';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -3680,7 +3680,7 @@
 
     function buildTodoRowsHtml(todos) {
       if (!todos || !todos.length) {
-        return '<div class="todo-empty">まだタスクはありません。「+ 追加」または下の入力から追加できます。</div>';
+        return '<div class="todo-empty">まだタスクはありません。下の入力から追加できます。</div>';
       }
       var h = '';
       var i;
@@ -3712,17 +3712,30 @@
 
     async function todoPanelSubmitAdd() {
       var inp = document.getElementById('todoNewInput');
+      var btn = document.getElementById('btnTodoAdd');
+      var statusEl = document.getElementById('todoAddStatus');
       var tx = (inp && inp.value || '').trim();
       if (!tx) {
         alert('内容を入力してください');
         return;
       }
+      function setTodoAddBusy(on) {
+        if (statusEl) {
+          statusEl.textContent = on ? '更新中…' : '';
+          statusEl.setAttribute('aria-busy', on ? 'true' : 'false');
+        }
+        if (btn) btn.disabled = !!on;
+        if (inp) inp.disabled = !!on;
+      }
+      setTodoAddBusy(true);
       try {
         await apiPostJson('/api/admin/app-todo-create', { text: tx });
         inp.value = '';
         await reloadTodoListMount();
       } catch (e) {
         alert(esc(String(e.message || e)));
+      } finally {
+        setTodoAddBusy(false);
       }
     }
 
@@ -3732,18 +3745,14 @@
         '<div class="todo-panel">' +
         '<div class="todo-header">' +
         '<h2 class="todo-title">ToDo</h2>' +
-        '<button type="button" class="btn btn-primary todo-add-head-btn" id="btnTodoFocusInput">+ 追加</button>' +
         '</div>' +
         '<div class="todo-toolbar">' +
         '<input type="text" id="todoNewInput" class="todo-new-input" placeholder="新しいタスク…" />' +
         '<button type="button" class="btn btn-primary" id="btnTodoAdd">追加</button>' +
+        '<span id="todoAddStatus" class="todo-add-status" role="status" aria-live="polite" aria-busy="false"></span>' +
         '</div>' +
         '<div id="todoListMount" class="todo-list">読み込み中…</div></div>';
       document.getElementById('btnTodoAdd').addEventListener('click', todoPanelSubmitAdd);
-      document.getElementById('btnTodoFocusInput').addEventListener('click', function() {
-        var inp = document.getElementById('todoNewInput');
-        if (inp) inp.focus();
-      });
       var inp0 = document.getElementById('todoNewInput');
       if (inp0) {
         inp0.addEventListener('keydown', function(ev) {
