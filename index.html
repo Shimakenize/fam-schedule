@@ -303,17 +303,14 @@
       border-top: 1px solid rgba(0, 0, 0, 0.28); font-size: 0.56rem; font-weight: 600; opacity: 0.95;
       line-height: 1.15;
     }
-    /* 積層: メイン外＝1種の淡色（.tl-block の --stack-aux のみ）。JS の pre/post 段差クラス名は飾り */
-    .tl-block--stacked .tl-block-seg--departure,
-    .tl-block--stacked .tl-block-seg--assembly,
-    .tl-block--stacked .tl-block-seg--match-pre1,
-    .tl-block--stacked .tl-block-seg--match-pre2,
-    .tl-block--stacked .tl-block-seg--match-pre3,
-    .tl-block--stacked .tl-block-seg--match-post1,
-    .tl-block--stacked .tl-block-seg--match-post2 {
-      background: var(--stack-aux, color-mix(in srgb, var(--stack-base, #1e3a5f) var(--stack-aux-mix, 64%), var(--stack-aux-tint, white)));
-      color: var(--stack-aux-fg, #e8f0fa);
-    }
+    /* 積層·メイン外: JS が付与する .tl-block-seg--stack-aux のみで着色（--stack-* 変数は使わない＝前後同じ1段必ず一致） */
+    .tl-block--stacked.tl-kind-match .tl-block-seg--stack-aux { background: color-mix(in srgb, #1e3a5f 64%, white); color: #e8f0fa; }
+    .tl-block--stacked.tl-kind-adhoc .tl-block-seg--stack-aux { background: color-mix(in srgb, #3d2a5c 64%, white); color: #ede9fe; }
+    .tl-block--stacked.tl-kind-tr .tl-block-seg--stack-aux { background: color-mix(in srgb, #14532d 64%, white); color: #ecfdf5; }
+    .tl-block--stacked.tl-kind-juku .tl-block-seg--stack-aux { background: color-mix(in srgb, #7c2d12 72%, #fff7ed); color: #ffedd5; }
+    .tl-block--stacked.tl-kind-private .tl-block-seg--stack-aux { background: color-mix(in srgb, #3f2a56 72%, #faf5ff); color: #ede9fe; }
+    .tl-block--stacked.tl-kind-gasshuku .tl-block-seg--stack-aux { background: color-mix(in srgb, #422006 64%, white); color: #fef3c7; }
+    .tl-block--stacked.tl-kind-marinos .tl-block-seg--stack-aux { background: color-mix(in srgb, #003f8a 64%, white); color: #dbeafe; }
     .tl-match-spectate-lead-spacer {
       box-sizing: border-box; margin: 0; padding: 0; border: none; background: transparent;
       pointer-events: none; flex-shrink: 0;
@@ -325,14 +322,13 @@
     .tl-block-seg--match-post-wide {
       align-self: stretch; width: 100%; box-sizing: border-box;
     }
-    .tl-block--stacked .tl-block-seg--main { background: var(--stack-base, #1e3a5f); }
-    .tl-block--stacked.tl-kind-match .tl-block-seg--main { color: #e5e7eb; }
-    .tl-block--stacked.tl-kind-adhoc .tl-block-seg--main { color: #ede9fe; }
-    .tl-block--stacked.tl-kind-tr .tl-block-seg--main { color: #ecfdf5; }
-    .tl-block--stacked.tl-kind-juku .tl-block-seg--main { color: #ffedd5; }
-    .tl-block--stacked.tl-kind-private .tl-block-seg--main { color: #ede9fe; }
-    .tl-block--stacked.tl-kind-gasshuku .tl-block-seg--main { color: #fef3c7; }
-    .tl-block--stacked.tl-kind-marinos .tl-block-seg--main { color: #dbeafe; }
+    .tl-block--stacked.tl-kind-match .tl-block-seg--main { background: #1e3a5f; color: #e5e7eb; }
+    .tl-block--stacked.tl-kind-adhoc .tl-block-seg--main { background: #3d2a5c; color: #ede9fe; }
+    .tl-block--stacked.tl-kind-tr .tl-block-seg--main { background: #14532d; color: #ecfdf5; }
+    .tl-block--stacked.tl-kind-juku .tl-block-seg--main { background: #7c2d12; color: #ffedd5; }
+    .tl-block--stacked.tl-kind-private .tl-block-seg--main { background: #3f2a56; color: #ede9fe; }
+    .tl-block--stacked.tl-kind-gasshuku .tl-block-seg--main { background: #422006; color: #fef3c7; }
+    .tl-block--stacked.tl-kind-marinos .tl-block-seg--main { background: #003f8a; color: #dbeafe; }
     .tl-block-em {
       position: absolute; left: 2px; right: 2px; box-sizing: border-box; border-radius: 4px;
       pointer-events: none; z-index: 0;
@@ -353,23 +349,13 @@
     .tl-block.row-past { filter: grayscale(0.15); }
     .tl-block.row-void { text-decoration: line-through; }
     .tl-block.tl-block--provisional { border-style: dashed; border-width: 2px; border-color: rgba(226, 232, 240, 0.45); }
-    /* 種別: 面と本番＝--stack-base のみ。淡色は下の1式で導出（二重定義禁止） */
-    .tl-block.tl-kind-match { background: #1e3a5f; border-color: #334e6f; --stack-base: #1e3a5f; --stack-aux-fg: #e8f0fa; }
-    .tl-block.tl-kind-adhoc { background: #3d2a5c; border-color: #5b3d7a; --stack-base: #3d2a5c; --stack-aux-fg: #ede9fe; }
-    .tl-block.tl-kind-tr { background: #14532d; border-color: #166534; --stack-base: #14532d; --stack-aux-fg: #ecfdf5; }
-    .tl-block.tl-kind-juku { background: #7c2d12; border-color: #9a3412; --stack-base: #7c2d12; --stack-aux-mix: 72%; --stack-aux-tint: #fff7ed; --stack-aux-fg: #ffedd5; }
-    .tl-block.tl-kind-private { background: #3f2a56; border-color: #5c3d75; --stack-base: #3f2a56; --stack-aux-mix: 72%; --stack-aux-tint: #faf5ff; --stack-aux-fg: #ede9fe; }
-    .tl-block.tl-kind-gasshuku { background: #422006; border-color: #713f12; --stack-base: #422006; --stack-aux-fg: #fef3c7; }
-    .tl-block.tl-kind-marinos { background: #003f8a; border-color: #1e40af; --stack-base: #003f8a; --stack-aux-fg: #dbeafe; }
-    .tl-block.tl-kind-match,
-    .tl-block.tl-kind-adhoc,
-    .tl-block.tl-kind-tr,
-    .tl-block.tl-kind-juku,
-    .tl-block.tl-kind-private,
-    .tl-block.tl-kind-gasshuku,
-    .tl-block.tl-kind-marinos {
-      --stack-aux: color-mix(in srgb, var(--stack-base) var(--stack-aux-mix, 64%), var(--stack-aux-tint, white));
-    }
+    .tl-block.tl-kind-match { background: #1e3a5f; border-color: #334e6f; }
+    .tl-block.tl-kind-adhoc { background: #3d2a5c; border-color: #5b3d7a; }
+    .tl-block.tl-kind-tr { background: #14532d; border-color: #166534; }
+    .tl-block.tl-kind-juku { background: #7c2d12; border-color: #9a3412; }
+    .tl-block.tl-kind-private { background: #3f2a56; border-color: #5c3d75; }
+    .tl-block.tl-kind-gasshuku { background: #422006; border-color: #713f12; }
+    .tl-block.tl-kind-marinos { background: #003f8a; border-color: #1e40af; }
     .tl-block, .tl-chip { cursor: pointer; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
     .tl-detail-backdrop {
       position: fixed; inset: 0; z-index: 9998; background: rgba(0, 0, 0, 0.55);
@@ -487,7 +473,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260430-27';
+    var __UI_BUILD__ = '20260430-28';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -2211,7 +2197,7 @@
       var earlyLab = matchPreLabelsJoined(earlyFilt);
       var h = '';
       if (earlyLab) {
-        h += '<div class="tl-block-seg tl-block-seg--match-pre3" style="flex:1 1 0;min-height:22px;max-height:40px">' + esc(earlyLab) + '</div>';
+        h += '<div class="tl-block-seg tl-block-seg--stack-aux tl-block-seg--match-pre3" style="flex:1 1 0;min-height:22px;max-height:40px">' + esc(earlyLab) + '</div>';
       }
       var tp = [preTop];
       for (j = 0; j < filt.length; j++) {
@@ -2237,7 +2223,7 @@
         }
         lab = matchPreLabelsJoined(atStartMark);
         cls = matchPreClassFromMarkers(atStartMark);
-        h += '<div class="tl-block-seg ' + cls + '" style="flex:' + g + ' 1 0;min-height:0">' + esc(lab) + '</div>';
+        h += '<div class="tl-block-seg tl-block-seg--stack-aux ' + cls + '" style="flex:' + g + ' 1 0;min-height:0">' + esc(lab) + '</div>';
       }
       return h;
     }
@@ -2264,7 +2250,7 @@
         gSeg = Math.max(1, t1 - t0);
         labS = formatMinutesHm(sm[sk].m) + sm[sk].label;
         clsS = matchPreClassFromMarkers([sm[sk]]);
-        h += '<div class="tl-block-seg ' + clsS + '" style="flex:' + gSeg + ' 1 0;min-height:0">' + esc(labS) + '</div>';
+        h += '<div class="tl-block-seg tl-block-seg--stack-aux ' + clsS + '" style="flex:' + gSeg + ' 1 0;min-height:0">' + esc(labS) + '</div>';
       }
       return h;
     }
@@ -2392,7 +2378,7 @@
                 rw = ch.rows[idxClr];
                 pCls = stripeIx % 2 === 0 ? 'tl-block-seg--match-post1' : 'tl-block-seg--match-post2';
                 stripeIx++;
-                h += '<div class="tl-block-seg ' + pCls + '" style="flex:' + rw.g + ' 1 0;min-height:0">' + esc(rw.lab) + '</div>';
+                h += '<div class="tl-block-seg tl-block-seg--stack-aux ' + pCls + '" style="flex:' + rw.g + ' 1 0;min-height:0">' + esc(rw.lab) + '</div>';
               }
               h += '</div>';
               h += '<div class="tl-match-pre-col"><div class="tl-match-post-rail-spacer" aria-hidden="true"></div></div>';
@@ -2401,14 +2387,14 @@
               rw = ch.row;
               pCls = stripeIx % 2 === 0 ? 'tl-block-seg--match-post1' : 'tl-block-seg--match-post2';
               stripeIx++;
-              h += '<div class="tl-block-seg ' + pCls + ' tl-block-seg--match-post-wide" style="flex:' + rw.g + ' 1 0;min-height:0">' + esc(rw.lab) + '</div>';
+              h += '<div class="tl-block-seg tl-block-seg--stack-aux ' + pCls + ' tl-block-seg--match-post-wide" style="flex:' + rw.g + ' 1 0;min-height:0">' + esc(rw.lab) + '</div>';
             }
           }
         } else {
           for (pr = 0; pr < postRows.length; pr++) {
             rw = postRows[pr];
             pCls = pr % 2 === 0 ? 'tl-block-seg--match-post1' : 'tl-block-seg--match-post2';
-            h += '<div class="tl-block-seg ' + pCls + '" style="flex:' + rw.g + ' 1 0;min-height:0">' + esc(rw.lab) + '</div>';
+            h += '<div class="tl-block-seg tl-block-seg--stack-aux ' + pCls + '" style="flex:' + rw.g + ' 1 0;min-height:0">' + esc(rw.lab) + '</div>';
           }
         }
         hasAny = true;
@@ -2417,7 +2403,7 @@
         segB = clip.de;
         if (segB > segA) {
           g = Math.max(1, segB - segA);
-          h += '<div class="tl-block-seg tl-block-seg--match-post2" style="flex:' + g + ' 1 0;min-height:0"></div>';
+          h += '<div class="tl-block-seg tl-block-seg--stack-aux tl-block-seg--match-post2" style="flex:' + g + ' 1 0;min-height:0"></div>';
           hasAny = true;
         }
       }
