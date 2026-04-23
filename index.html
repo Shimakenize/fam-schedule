@@ -479,7 +479,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260430-18';
+    var __UI_BUILD__ = '20260430-19';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -2197,20 +2197,30 @@
       for (var u = 0; u < tp.length; u++) {
         if (u === 0 || tp[u] !== tp[u - 1]) uq.push(tp[u]);
       }
-      var s, segA, segB, wMin, g, endM, atEnd, pi, lab, cls;
+      var s, segA, segB, wMin, g, endM, startM, atEnd, atStart0, pi, lab, cls, labParts;
       for (s = 0; s < uq.length - 1; s++) {
         segA = Math.max(uq[s], preTop);
         segB = Math.min(uq[s + 1], preBot);
         if (segB <= segA) continue;
         wMin = segB - segA;
         g = Math.max(1, wMin);
+        startM = uq[s];
         endM = uq[s + 1];
         atEnd = [];
         for (pi = 0; pi < filt.length; pi++) {
           if (filt[pi].m === endM) atEnd.push(filt[pi]);
         }
-        lab = matchPreLabelsJoined(atEnd);
-        cls = matchPreClassFromMarkers(atEnd);
+        atStart0 = [];
+        if (s === 0) {
+          for (pi = 0; pi < filt.length; pi++) {
+            if (filt[pi].m === startM && startM >= preTop) atStart0.push(filt[pi]);
+          }
+        }
+        labParts = [];
+        if (atStart0.length) labParts.push(matchPreLabelsJoined(atStart0));
+        if (atEnd.length) labParts.push(matchPreLabelsJoined(atEnd));
+        lab = labParts.join(' ');
+        cls = matchPreClassFromMarkers(atStart0.concat(atEnd));
         h += '<div class="tl-block-seg ' + cls + '" style="flex:' + g + ' 1 0;min-height:0">' + esc(lab) + '</div>';
       }
       return h;
@@ -2227,7 +2237,7 @@
       var preMs = matchCollectPreMarkers(s1, mainStart);
       var postMs = matchCollectPostMarkers(s1, mainEnd);
       var hasSpectateDep = false;
-      for (i = 0; i < preMs.length; i++) {
+      for (var i = 0; i < preMs.length; i++) {
         if (preMs[i].role === 'spectate_dep') {
           hasSpectateDep = true;
           break;
