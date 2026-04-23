@@ -512,7 +512,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260430-38';
+    var __UI_BUILD__ = '20260430-39';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -1244,10 +1244,24 @@
 
     /** TR除去 + 集合/出発/試合前段がメインより前なら start を繰り上げ（過去日もタイムライン帯で省略されないよう日付で分岐しない） */
     function parseTimeRangeMinutesForDisplay(ev) {
+      var ymd = String(ev.event_date || '').slice(0, 10);
+      if (!ymd || ymd.length < 10) {
+        return parseTimeRangeMinutes(ev);
+      }
       var s1 = normalizeKickoffStripTR(String(ev.kickoff_primary || ev.time || '').trim());
       var tr = parseTimeRangeMinutesCoreNormalized(ev);
       if (!tr) return null;
-      return { start: tr.start, end: tr.end };
+      var preM = matchAllPreMinutes(s1, tr.start);
+      var newStart = tr.start;
+      for (var pi = 0; pi < preM.length; pi++) {
+        if (preM[pi] < newStart) newStart = preM[pi];
+      }
+      var newEnd = tr.end;
+      var postM = matchAllPostMinutes(s1, tr.end, ev);
+      for (var pj = 0; pj < postM.length; pj++) {
+        if (postM[pj] > newEnd) newEnd = postM[pj];
+      }
+      return { start: newStart, end: newEnd };
     }
 
     function eventDateOnOrAfterTodayJst(ev) {
