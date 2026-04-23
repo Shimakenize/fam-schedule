@@ -1038,6 +1038,50 @@
       return '([01]?\\d|2[0-3])\\s*[:：]\\s*([0-5]\\d)';
     }
 
+    function _trimFreeformAuxLabel(raw) {
+      var s = String(raw || '');
+      s = s.replace(/（[^（）]*）/g, ' ');
+      s = s.replace(/\([^()]*\)/g, ' ');
+      s = s.replace(/[\r\n\t]+/g, ' ');
+      s = s.replace(/\s+/g, ' ').trim();
+      s = s.replace(/^[\s·・、,，/／\-–—〜~:：]+/, '');
+      s = s.replace(/[\s·・、,，/／]+$/, '');
+      if (!s) return '';
+      if (/^[-–—〜~:：]+$/.test(s)) return '';
+      if (/^(k\s*[/／]?\s*o|ko)$/i.test(s)) return '';
+      if (/^まで[）)]?$/.test(s)) return '';
+      return s;
+    }
+
+    function collectFreeformTimeLabels(s1) {
+      var out = [];
+      var re = new RegExp(_matchHmRe(), 'g');
+      var m;
+      var hits = [];
+      while ((m = re.exec(s1)) !== null) {
+        hits.push({
+          start: m.index,
+          end: re.lastIndex,
+          mm: parseInt(m[1], 10) * 60 + parseInt(m[2], 10),
+        });
+      }
+      for (var i = 0; i < hits.length; i++) {
+        var cur = hits[i];
+        var prevEnd = i > 0 ? hits[i - 1].end : 0;
+        var nextStart = i + 1 < hits.length ? hits[i + 1].start : s1.length;
+        var after = _trimFreeformAuxLabel(s1.slice(cur.end, nextStart));
+        var before = _trimFreeformAuxLabel(s1.slice(prevEnd, cur.start));
+        if (before && before.indexOf(' ') >= 0) {
+          var parts = before.split(/\s+/);
+          before = parts[parts.length - 1] || '';
+        }
+        var label = after || before;
+        if (!label) continue;
+        out.push({ m: cur.mm, label: label });
+      }
+      return out;
+    }
+
     function matchPreTierFromRole(role) {
       if (role === 'bus_gather') return 2;
       if (role === 'onsite' || role === 'spectate_dep' || role === 'onsite_legacy') return 1;
@@ -1048,6 +1092,7 @@
     function matchCollectPreMarkers(s1, mainStart) {
       var out = [];
       var seen = {};
+      var seenLabel = {};
       var hm = _matchHmRe();
       function scan(re, label, role) {
         var m;
@@ -1058,6 +1103,7 @@
           var sk = M + ':' + role;
           if (seen[sk]) continue;
           seen[sk] = 1;
+          seenLabel[M + ':' + label] = 1;
           out.push({ m: M, label: label, role: role });
         }
       }
@@ -1074,6 +1120,7 @@
         if (seen[dm + ':shuppatsu_car'] || seen[dm + ':shuppatsu_train']) continue;
         if (seen[dm + ':shuppatsu_legacy']) continue;
         seen[dm + ':shuppatsu_legacy'] = 1;
+        seenLabel[dm + ':出発'] = 1;
         out.push({ m: dm, label: '出発', role: 'shuppatsu_legacy' });
       }
       var asmLegacy = collectShuGoMinutesBefore(s1, mainStart);
@@ -1082,7 +1129,20 @@
         if (seen[am + ':onsite'] || seen[am + ':bus_gather'] || seen[am + ':spectate_dep']) continue;
         if (seen[am + ':onsite_legacy']) continue;
         seen[am + ':onsite_legacy'] = 1;
+        seenLabel[am + ':集合'] = 1;
         out.push({ m: am, label: '集合', role: 'onsite_legacy' });
+      }
+      var free = collectFreeformTimeLabels(s1);
+      for (var fi = 0; fi < free.length; fi++) {
+        var fm = free[fi];
+        if (fm.m >= mainStart) continue;
+        var fsk = fm.m + ':freeform';
+        var flk = fm.m + ':' + fm.label;
+        if (seenLabel[flk]) continue;
+        if (seen[fsk] && seenLabel[flk]) continue;
+        seen[fsk] = 1;
+        seenLabel[flk] = 1;
+        out.push({ m: fm.m, label: fm.label, role: 'freeform' });
       }
       out.sort(function(a, b) { return a.m - b.m || String(a.role).localeCompare(String(b.role)); });
       return out;
@@ -1092,6 +1152,7 @@
     function matchCollectPostMarkers(s1, mainEnd) {
       var out = [];
       var seen = {};
+      var seenLabel = {};
       var hm = _matchHmRe();
       function one(re, label) {
         var m;
@@ -1102,6 +1163,7 @@
           var sk = M + ':' + label;
           if (seen[sk]) continue;
           seen[sk] = 1;
+          seenLabel[M + ':' + label] = 1;
           out.push({ m: M, label: label });
         }
       }
@@ -1119,7 +1181,17 @@
         var sk2 = M2 + ':解散';
         if (seen[sk2]) continue;
         seen[sk2] = 1;
+        seenLabel[M2 + ':バス到着'] = 1;
         out.push({ m: M2, label: 'バス到着' });
+      }
+      var free = collectFreeformTimeLabels(s1);
+      for (var fi = 0; fi < free.length; fi++) {
+        var fm = free[fi];
+        if (fm.m <= mainEnd) continue;
+        var flk = fm.m + ':' + fm.label;
+        if (seenLabel[flk]) continue;
+        seenLabel[flk] = 1;
+        out.push({ m: fm.m, label: fm.label });
       }
       out.sort(function(a, b) { return a.m - b.m; });
       return out;
