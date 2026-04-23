@@ -249,8 +249,9 @@
     .tl-day-body { flex: 1; min-width: 56px; height: 640px; position: relative; border-left: 1px solid #233041;
       background: repeating-linear-gradient(to bottom, #0f1419 0, #0f1419 calc(var(--tl-slot, 40px) - 1px), #1a2332 calc(var(--tl-slot, 40px) - 1px), #1a2332 var(--tl-slot, 40px)); }
     .tl-blocks-layer { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+    /* 予定ブロックより手前に出すと赤線が帯を「切る」ように見えるため、ブロック層(z-index:1)より下に置く */
     .tl-now-marker {
-      position: absolute; left: 0; right: 0; z-index: 4; pointer-events: none;
+      position: absolute; left: 0; right: 0; z-index: 0; pointer-events: none;
       height: 2px; margin-top: -1px; top: 0;
       background: linear-gradient(90deg, rgba(248, 113, 113, 0.15) 0%, #f87171 12%, #f87171 88%, rgba(248, 113, 113, 0.15) 100%);
       box-shadow: 0 0 6px rgba(248, 113, 113, 0.85);
@@ -304,10 +305,10 @@
       line-height: 1.15;
     }
     /* 積層·メイン外: .stack-aux 固定色（本番#より一段淡い srgb 線形ブレンドを事前計算。color-mix 非対応の LIFF WebView でも必ず乗る） */
-    .tl-block--stacked.tl-kind-match .tl-block-seg--stack-aux { background: #6f8199; color: #e8f0fa; }
+    .tl-block--stacked.tl-kind-match .tl-block-seg--stack-aux { background: #4e79af; color: #e8f0fa; }
     .tl-block--stacked.tl-kind-adhoc .tl-block-seg--stack-aux { background: #837797; color: #ede9fe; }
     .tl-block--stacked.tl-kind-tr .tl-block-seg--stack-aux { background: #699179; color: #ecfdf5; }
-    .tl-block--stacked.tl-kind-juku .tl-block-seg--stack-aux { background: #a1664f; color: #ffedd5; }
+    .tl-block--stacked.tl-kind-juku .tl-block-seg--stack-aux { background: #c4977d; color: #431407; }
     .tl-block--stacked.tl-kind-private .tl-block-seg--stack-aux { background: #736385; color: #ede9fe; }
     .tl-block--stacked.tl-kind-gasshuku .tl-block-seg--stack-aux { background: #867060; color: #fef3c7; }
     .tl-block--stacked.tl-kind-marinos .tl-block-seg--stack-aux { background: #5c84b4; color: #dbeafe; }
@@ -473,7 +474,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260430-29';
+    var __UI_BUILD__ = '20260430-30';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
