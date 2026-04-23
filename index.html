@@ -303,14 +303,14 @@
       border-top: 1px solid rgba(0, 0, 0, 0.28); font-size: 0.56rem; font-weight: 600; opacity: 0.95;
       line-height: 1.15;
     }
-    /* 積層·メイン外: JS が付与する .tl-block-seg--stack-aux のみで着色（--stack-* 変数は使わない＝前後同じ1段必ず一致） */
-    .tl-block--stacked.tl-kind-match .tl-block-seg--stack-aux { background: color-mix(in srgb, #1e3a5f 64%, white); color: #e8f0fa; }
-    .tl-block--stacked.tl-kind-adhoc .tl-block-seg--stack-aux { background: color-mix(in srgb, #3d2a5c 64%, white); color: #ede9fe; }
-    .tl-block--stacked.tl-kind-tr .tl-block-seg--stack-aux { background: color-mix(in srgb, #14532d 64%, white); color: #ecfdf5; }
-    .tl-block--stacked.tl-kind-juku .tl-block-seg--stack-aux { background: color-mix(in srgb, #7c2d12 72%, #fff7ed); color: #ffedd5; }
-    .tl-block--stacked.tl-kind-private .tl-block-seg--stack-aux { background: color-mix(in srgb, #3f2a56 72%, #faf5ff); color: #ede9fe; }
-    .tl-block--stacked.tl-kind-gasshuku .tl-block-seg--stack-aux { background: color-mix(in srgb, #422006 64%, white); color: #fef3c7; }
-    .tl-block--stacked.tl-kind-marinos .tl-block-seg--stack-aux { background: color-mix(in srgb, #003f8a 64%, white); color: #dbeafe; }
+    /* 積層·メイン外: .stack-aux 固定色（本番#より一段淡い srgb 線形ブレンドを事前計算。color-mix 非対応の LIFF WebView でも必ず乗る） */
+    .tl-block--stacked.tl-kind-match .tl-block-seg--stack-aux { background: #6f8199; color: #e8f0fa; }
+    .tl-block--stacked.tl-kind-adhoc .tl-block-seg--stack-aux { background: #837797; color: #ede9fe; }
+    .tl-block--stacked.tl-kind-tr .tl-block-seg--stack-aux { background: #699179; color: #ecfdf5; }
+    .tl-block--stacked.tl-kind-juku .tl-block-seg--stack-aux { background: #a1664f; color: #ffedd5; }
+    .tl-block--stacked.tl-kind-private .tl-block-seg--stack-aux { background: #736385; color: #ede9fe; }
+    .tl-block--stacked.tl-kind-gasshuku .tl-block-seg--stack-aux { background: #867060; color: #fef3c7; }
+    .tl-block--stacked.tl-kind-marinos .tl-block-seg--stack-aux { background: #5c84b4; color: #dbeafe; }
     .tl-match-spectate-lead-spacer {
       box-sizing: border-box; margin: 0; padding: 0; border: none; background: transparent;
       pointer-events: none; flex-shrink: 0;
@@ -473,7 +473,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260430-28';
+    var __UI_BUILD__ = '20260430-29';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
