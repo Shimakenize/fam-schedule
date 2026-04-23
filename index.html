@@ -1030,7 +1030,7 @@
       if (!k) return false;
       var ck = canonicalEventKind(k);
       if (ck === 'match') return true;
-      if (ck === 'TR' && isTimelineTrgEvent(ev)) return true;
+      if (ck === 'TR') return true;
       return false;
     }
 
