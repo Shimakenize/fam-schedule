@@ -328,6 +328,64 @@
       background: color-mix(in srgb, var(--stack-base, #1e3a5f) 48%, white);
       color: #f8fafc;
     }
+    /* 塾: 白混ぜを抑えて色相を残す。濃帯の字は本番（オレンジ系）に合わせ、薄帯の字は#0f172a（寒色）にしない */
+    .tl-block--stacked.tl-kind-juku .tl-block-seg--departure {
+      background: color-mix(in srgb, var(--stack-base) 52%, #fff7ed);
+      color: #ffedd5;
+    }
+    .tl-block--stacked.tl-kind-juku .tl-block-seg--assembly {
+      background: color-mix(in srgb, var(--stack-base) 64%, #fff7ed);
+      color: #ffedd5;
+    }
+    .tl-block--stacked.tl-kind-juku .tl-block-seg--match-pre1 {
+      background: color-mix(in srgb, var(--stack-base) 80%, #fff7ed);
+      color: #fff7ed;
+    }
+    .tl-block--stacked.tl-kind-juku .tl-block-seg--match-pre2 {
+      background: color-mix(in srgb, var(--stack-base) 66%, #fff7ed);
+      color: #ffedd5;
+    }
+    .tl-block--stacked.tl-kind-juku .tl-block-seg--match-pre3 {
+      background: color-mix(in srgb, var(--stack-base) 50%, #fff7ed);
+      color: #292524;
+    }
+    .tl-block--stacked.tl-kind-juku .tl-block-seg--match-post1 {
+      background: color-mix(in srgb, var(--stack-base) 72%, #fff7ed);
+      color: #ffedd5;
+    }
+    .tl-block--stacked.tl-kind-juku .tl-block-seg--match-post2 {
+      background: color-mix(in srgb, var(--stack-base) 58%, #fff7ed);
+      color: #ffedd5;
+    }
+    /* 私用: 紫味が白に潰れないよう段差を拡大。pre（薄）と post（本番に近い）の差をはっきり */
+    .tl-block--stacked.tl-kind-private .tl-block-seg--departure {
+      background: color-mix(in srgb, var(--stack-base) 48%, #faf5ff);
+      color: #ede9fe;
+    }
+    .tl-block--stacked.tl-kind-private .tl-block-seg--assembly {
+      background: color-mix(in srgb, var(--stack-base) 58%, #faf5ff);
+      color: #f5f3ff;
+    }
+    .tl-block--stacked.tl-kind-private .tl-block-seg--match-pre1 {
+      background: color-mix(in srgb, var(--stack-base) 74%, #faf5ff);
+      color: #f5f3ff;
+    }
+    .tl-block--stacked.tl-kind-private .tl-block-seg--match-pre2 {
+      background: color-mix(in srgb, var(--stack-base) 60%, #faf5ff);
+      color: #f5f3ff;
+    }
+    .tl-block--stacked.tl-kind-private .tl-block-seg--match-pre3 {
+      background: color-mix(in srgb, var(--stack-base) 32%, #faf5ff);
+      color: #1e0f32;
+    }
+    .tl-block--stacked.tl-kind-private .tl-block-seg--match-post1 {
+      background: color-mix(in srgb, var(--stack-base) 72%, #faf5ff);
+      color: #ede9fe;
+    }
+    .tl-block--stacked.tl-kind-private .tl-block-seg--match-post2 {
+      background: color-mix(in srgb, var(--stack-base) 54%, #faf5ff);
+      color: #f5f3ff;
+    }
     .tl-match-spectate-lead-spacer {
       box-sizing: border-box; margin: 0; padding: 0; border: none; background: transparent;
       pointer-events: none; flex-shrink: 0;
@@ -491,7 +549,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260430-24';
+    var __UI_BUILD__ = '20260430-25';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
