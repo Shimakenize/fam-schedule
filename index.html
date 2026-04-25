@@ -319,6 +319,13 @@
       font-size: 0.56rem; font-weight: 500; opacity: 0.9; line-height: 1.15;
       display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word;
     }
+    .tl-block-seg-venue {
+      font-size: 0.54rem; opacity: 0.65; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    /* 後段補助セグメント（到着・帰宅など）はラベルを下寄せ */
+    .tl-block--stacked .tl-block-seg--match-post1,
+    .tl-block--stacked .tl-block-seg--match-post2,
+    .tl-block--stacked .tl-block-seg--match-post3 { justify-content: flex-end; }
     /* 解散はタイムライン上の別枠ではなく、本番セグメント末尾の一行のみ */
     .tl-block-seg--main { justify-content: flex-start; }
     .tl-block-seg-body {
@@ -2485,6 +2492,7 @@
       h += '<div class="tl-block-seg-body">';
       h += '<span class="tl-block-seg-time">' + esc(mainTimeStr) + '</span>';
       if (sub) h += '<span class="tl-block-seg-sub">' + esc(sub) + '</span>';
+      if (ev.venue) h += '<span class="tl-block-seg-venue">' + esc(ev.venue) + '</span>';
       h += '</div></div>';
       hasAny = true;
 
@@ -2647,6 +2655,7 @@
       h += '<div class="tl-block-seg-body">';
       h += '<span class="tl-block-seg-time">' + esc(mainTimeStr) + '</span>';
       if (sub) h += '<span class="tl-block-seg-sub">' + esc(sub) + '</span>';
+      if (ev.venue) h += '<span class="tl-block-seg-venue">' + esc(ev.venue) + '</span>';
       h += '</div>';
       if (dismissStr) h += '<span class="tl-block-seg-tail">' + esc(dismissStr) + '</span>';
       h += '</div></div>';
@@ -3107,6 +3116,7 @@
                 if (keepIso) __tlAfterEditScrollIso = keepIso;
                 closeTimelineDetailPopup();
                 await refreshScheduleCacheFromServer().catch(function() {});
+                if (keepIso) __tlAfterEditScrollIso = keepIso;
                 return;
               }
               if (act === 'off' || act === 'reactivate') {
@@ -3126,6 +3136,7 @@
                 if (keepIsoOff) __tlAfterEditScrollIso = keepIsoOff;
                 closeTimelineDetailPopup();
                 await refreshScheduleCacheFromServer().catch(function() {});
+                if (keepIsoOff) __tlAfterEditScrollIso = keepIsoOff;
                 return;
               }
             } catch (err) {
@@ -3686,6 +3697,7 @@
       if (!todos || !todos.length) {
         return '<div class="todo-empty">まだタスクはありません。下の入力から追加できます。</div>';
       }
+      todos = todos.slice().sort(function(a, b) { return (a.done ? 1 : 0) - (b.done ? 1 : 0); });
       var h = '';
       var i;
       for (i = 0; i < todos.length; i++) {
