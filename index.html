@@ -558,7 +558,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260430-34';
+    var __UI_BUILD__ = '20260430-35';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -2763,7 +2763,7 @@
       var kick0 = opts.kickoffPrimary || '';
       var eid = ev ? String(ev.id || '') : '';
       var ds = ev ? String(ev.event_date || '').slice(0, 10) : dateIso;
-      var kick = ev ? timelineDetailTimeLine(ev) : kick0;
+      var kick = ev ? String(ev.kickoff_primary || ev.time || '').trim() : kick0;
       var lead = ev ? timelineEventPlainTitle(ev) : '新しい予定';
       var hist = '';
       if (ev && String(ev.status_history || '').trim()) {
