@@ -567,7 +567,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260430-43';
+    var __UI_BUILD__ = '20260430-44';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -3437,18 +3437,27 @@
       }
 
       for (var m = 0; m < marinos.length; m++) {
-        out.push({ item: marinos[m], lane: 0, lanes: 1, _marinosOverlay: true });
+        var mit = marinos[m];
+        var overlapsNormal = normal.some(function(nit) {
+          return nit.clip.ds < mit.clip.de && nit.clip.de > mit.clip.ds;
+        });
+        if (overlapsNormal) {
+          out.push({ item: mit, lane: 0, lanes: 1, _marinosOverlay: true });
+        } else {
+          out.push({ item: mit, lane: 0, lanes: 1 });
+        }
       }
       return out;
     }
 
-    function buildTimedBlocksLayerHtml(placements, rangeStart, rangeSpan, hasMarinosOv) {
+    function buildTimedBlocksLayerHtml(placements, rangeStart, rangeSpan) {
       var h = '<div class="tl-blocks-layer">';
       if (!placements.length) {
         h += '</div>';
         return h;
       }
       var span = Math.max(1, rangeSpan);
+      var marinosOverlays = placements.filter(function(pl) { return !!pl._marinosOverlay; });
       for (var p = 0; p < placements.length; p++) {
         var pl = placements[p];
         var ev = pl.item.ev;
@@ -3495,10 +3504,13 @@
         }
         var isMarinos = !!pl._marinosOverlay;
         var MARINOS_RESERVE = 48;
+        var overlapsMarinosOv = !isMarinos && marinosOverlays.some(function(mpl) {
+          return mpl.item.clip.ds < clip.de && mpl.item.clip.de > clip.ds;
+        });
         var blockStyle;
         if (isMarinos) {
           blockStyle = 'top:' + topPct.toFixed(2) + '%;height:' + hPct.toFixed(2) + '%;right:0.5%;width:46px;';
-        } else if (hasMarinosOv) {
+        } else if (overlapsMarinosOv) {
           blockStyle = 'top:' + topPct.toFixed(2) + '%;height:' + hPct.toFixed(2) + '%;'
             + 'left:calc((100% - ' + MARINOS_RESERVE + 'px) * ' + pl.lane + ' / ' + laneCount + ' + 2px);'
             + 'width:calc((100% - ' + MARINOS_RESERVE + 'px) / ' + laneCount + ' - 4px);';
@@ -3600,9 +3612,8 @@
         var dayEv3 = grouped[iso3] || [];
         var sp3 = splitDayEventsForTimeline(dayEv3, rs, re);
         var placements = assignTimelineLanesByGroup(sp3.timed);
-        var hasMarinosOv = placements.some(function(pl) { return !!pl._marinosOverlay; });
         h += '<div class="tl-day-body" data-date="' + escAttr(iso3) + '"' + (wideSet.has(iso3) ? ' data-wide' : '') + ' style="--tl-slot:' + slotPx.toFixed(2) + 'px">';
-        h += buildTimedBlocksLayerHtml(placements, tw.rangeStart, tw.rangeSpan, hasMarinosOv);
+        h += buildTimedBlocksLayerHtml(placements, tw.rangeStart, tw.rangeSpan);
         h += buildTimelineNowMarkerHtml(iso3, todayIso, tw.rangeStart, tw.rangeEnd, tw.rangeSpan);
         h += '</div>';
       }
