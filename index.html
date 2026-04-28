@@ -558,7 +558,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260430-39';
+    var __UI_BUILD__ = '20260430-40';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -611,6 +611,21 @@
     var TL_START_MIN = 6 * 60;
     var TL_END_MIN = 22 * 60;
     var __tlNowInterval = null;
+    var SCHED_CACHE_TTL = 3 * 60 * 1000;
+    function _saveScheduleCache(uid, data) {
+      if (!uid || !data) return;
+      try { localStorage.setItem('sched_v1_' + uid, JSON.stringify({ ts: Date.now(), data: data })); } catch(_) {}
+    }
+    function _loadScheduleCache(uid) {
+      if (!uid) return null;
+      try {
+        var raw = localStorage.getItem('sched_v1_' + uid);
+        if (!raw) return null;
+        var entry = JSON.parse(raw);
+        if (!entry || !entry.data || (Date.now() - entry.ts) > SCHED_CACHE_TTL) return null;
+        return entry.data;
+      } catch(_) { return null; }
+    }
 
     function readIdentityIdsPref() {
       if (!window.__SHOW_IDENTITY_UI__) return false;
@@ -838,8 +853,6 @@
           'LINE_LIFF_ID が未設定です。.env に LINE_LIFF_ID / LINE_CHANNEL_ID を設定してください。';
         throw new Error('no liff id');
       }
-      dbg('SDK読み込み中…');
-      await loadScript('https://static.line-scdn.net/liff/edge/2/sdk.js');
       var currentUrl = location.href;
       dbg('LIFF初期化中… (url=' + currentUrl + ')');
       await Promise.race([
@@ -1803,13 +1816,13 @@
       scheduleRerender();
     }
 
-    async function loadScheduleInitial() {
+    async function loadScheduleInitial(silent) {
       if (currentView === 'pending' || currentView === 'admin' || currentView === 'todo') return;
       var t = todayIsoJst();
       if (!t) t = toIsoDate(new Date());
       var from = addDaysIso(t, -2);
-      var to = addDaysIso(t, 28);
-      document.getElementById('viewContent').innerHTML = '<div class="empty">読み込み中…</div>';
+      var to = addDaysIso(t, 14);
+      if (!silent) document.getElementById('viewContent').innerHTML = '<div class="empty">読み込み中…</div>';
       var data = await fetchEventsRange(from, to);
       var evs = data.events || [];
       __cachedMonthData = {
@@ -1819,6 +1832,7 @@
         rangeFrom: data.from || from,
         rangeTo: data.to || to
       };
+      _saveScheduleCache(lineUserId, __cachedMonthData);
       updateToolbarForView();
       refreshScheduleView();
     }
@@ -4055,7 +4069,10 @@
         fetchWithAuth('api/admin/dev-access-notify', { method: 'GET' }).catch(function() {});
       }
       try {
-        await fetchConfig();
+        await Promise.all([
+          fetchConfig(),
+          IS_DEV_BYPASS ? Promise.resolve() : loadScript('https://static.line-scdn.net/liff/edge/2/sdk.js')
+        ]);
         applyVersionLabel();
         await ensureLiff();
         ensureGroupContext();
@@ -4074,8 +4091,17 @@
             applyView('admin');
           } else {
             currentView = urlTab === 'table' ? 'table' : 'timeline';
-            await loadMonth();
-            setViewTabsUI();
+            var lsCached = _loadScheduleCache(lineUserId);
+            if (lsCached) {
+              __cachedMonthData = lsCached;
+              updateToolbarForView();
+              refreshScheduleView();
+              setViewTabsUI();
+              loadScheduleInitial(true).catch(function() {});
+            } else {
+              await loadMonth();
+              setViewTabsUI();
+            }
           }
         } else {
           document.getElementById('viewContent').innerHTML =
