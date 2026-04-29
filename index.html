@@ -567,7 +567,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260430-44';
+    var __UI_BUILD__ = '20260430-45';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -1647,7 +1647,7 @@
 
     function titleCellHTML(ev) {
       var league = String(ev.league_or_competition || '').trim();
-      var curMain = String(ev.title || ev.opponent || '').trim() || '—';
+      var curMain = String(ev.title || '').trim() || '—';
       var pv = ev.prior_values || {};
       var pLeague = pv.league_or_competition;
       var pLeagueS = pLeague != null ? String(pLeague).trim() : '';
@@ -1657,7 +1657,7 @@
       } else if (league) {
         leagueBlock = '<div class="title-league">' + esc(league) + '</div>';
       }
-      var pt = pv.title != null && pv.title !== '' ? pv.title : (pv.opponent != null && pv.opponent !== '' ? pv.opponent : null);
+      var pt = pv.title != null && pv.title !== '' ? pv.title : null;
       var mainBlock;
       if (pt != null && pt !== '' && pt !== curMain) {
         mainBlock = '<span class="cell-old">' + esc(String(pt)) + '</span><span class="cell-new">' + esc(curMain) + '</span>';
@@ -1987,8 +1987,6 @@
         h += '<input type="text" class="pending-inp" data-f="league_or_competition" value="' + escAttr(ev.league_or_competition || '') + '" /></div>';
         h += '<div style="margin-bottom:4px;"><span style="font-size:0.72rem;color:#94a3b8;">タイトル</span><br>';
         h += '<input type="text" class="pending-inp" data-f="title" value="' + escAttr(ev.title || '') + '" /></div>';
-        h += '<div style="margin-bottom:4px;"><span style="font-size:0.72rem;color:#94a3b8;">対戦</span><br>';
-        h += '<input type="text" class="pending-inp" data-f="opponent" value="' + escAttr(ev.opponent || '') + '" /></div>';
         h += '<div><span style="font-size:0.72rem;color:#94a3b8;">メモ</span><br>';
         h += '<input type="text" class="pending-inp" data-f="notes" value="' + escAttr(ev.notes || '') + '" /></div>';
         h += '</td>';
@@ -2253,16 +2251,14 @@
     }
 
     function timelineEventMainLabel(ev) {
-      var opp = String(ev.opponent || '').trim();
-      if (isTimelineTrgEvent(ev) && opp) return 'TRG ' + opp;
-      return String(ev.title || opp).trim() || '—';
+      return String(ev.title || '').trim() || '—';
     }
 
     function marinosCompactLabel(ev) {
       var t = String(ev.kickoff_primary || ev.time || '').trim();
       var hmMatch = t.match(/(\d{1,2}):\d{2}/);
       var hour = hmMatch ? String(parseInt(hmMatch[1], 10)) : '';
-      var opp = String(ev.opponent || ev.title || '').trim()
+      var opp = String(ev.title || '').trim()
                   .replace(/^vs\s*/i, '').slice(0, 4);
       return [hour, opp].filter(Boolean).join(' ');
     }
@@ -2870,8 +2866,6 @@
         escAttr(ev ? (ev.league_or_competition || '') : '') + '" />' +
         '<label class="tl-edit-label">タイトル</label><input class="tl-edit-field" type="text" name="title" value="' +
         escAttr(ev ? (ev.title || '') : '') + '" />' +
-        '<label class="tl-edit-label">対戦</label><input class="tl-edit-field" type="text" name="opponent" value="' +
-        escAttr(ev ? (ev.opponent || '') : '') + '" />' +
         '<label class="tl-edit-label">時間（開始-終了 例 10:00-11:00）</label><input class="tl-edit-field" type="text" name="kickoff_primary" required placeholder="10:00-11:00" value="' +
         escAttr(kick) + '" />' +
         '<label class="tl-edit-label">補助イベント(前)（出発・集合など）</label><input class="tl-edit-field" type="text" name="kickoff_secondary" value="' +
@@ -2962,7 +2956,6 @@
         category_code: get('category_code'),
         league_or_competition: get('league_or_competition'),
         title: get('title'),
-        opponent: get('opponent'),
         kickoff_primary: get('kickoff_primary'),
         kickoff_secondary: get('kickoff_secondary'),
         kickoff_post: get('kickoff_post'),
@@ -3014,7 +3007,6 @@
         kickoff_secondary: formData.kickoff_secondary || '',
         kickoff_post: formData.kickoff_post || '',
         parent_time: formData.parent_time || '',
-        opponent: formData.opponent || '',
         venue: formData.venue || '',
         category_code: formData.category_code || '',
         league_or_competition: formData.league_or_competition || '',
@@ -3039,7 +3031,6 @@
       h += tlDetailPair('カテゴリ', ev.category_code);
       h += tlDetailPair('大会', ev.league_or_competition);
       h += tlDetailPair('タイトル', ev.title);
-      h += tlDetailPair('対戦', ev.opponent);
       h += tlDetailPair('時間', timelineDetailTimeLine(ev));
       h += tlDetailPair('会場', ev.venue);
       h += tlDetailPair('メモ', ev.notes);
@@ -3193,7 +3184,6 @@
                     category_code: data.category_code,
                     league_or_competition: data.league_or_competition,
                     title: data.title,
-                    opponent: data.opponent,
                     kickoff_primary: data.kickoff_primary,
                     kickoff_secondary: data.kickoff_secondary,
                     kickoff_post: data.kickoff_post,
@@ -3220,7 +3210,6 @@
                     category_code: data.category_code,
                     league_or_competition: data.league_or_competition,
                     title: data.title,
-                    opponent: data.opponent,
                     kickoff_primary: data.kickoff_primary,
                     kickoff_secondary: data.kickoff_secondary,
                     kickoff_post: data.kickoff_post,
