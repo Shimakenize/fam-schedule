@@ -522,6 +522,7 @@
     <button type="button" class="view-tab" data-view="admin" id="tabAdmin" hidden>管理</button>
     <button type="button" class="view-tab" data-view="todo" id="tabTodo" hidden>ToDo</button>
     <button type="button" class="view-tab" data-view="pending" id="tabPending" hidden>仮登録</button>
+    <button type="button" class="view-tab" data-view="import" id="tabImport" hidden>取り込み</button>
   </nav>
   <div class="filter-strip" id="filterStrip" style="display:none;" aria-label="絞り込み">
     <div class="filter-strip-filters">
@@ -567,7 +568,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260430-45';
+    var __UI_BUILD__ = '20260430-46';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -2011,6 +2012,94 @@
       } catch (e) {
         document.getElementById('viewContent').innerHTML = '<div class="error">' + esc(String(e.message || e)) + '</div>';
       }
+    }
+
+    function showImportPanel() {
+      var vc = document.getElementById('viewContent');
+      if (!vc) return;
+      vc.innerHTML =
+        '<div class="admin-section" style="max-width:720px;margin:0 auto;">' +
+        '<div class="admin-section-title">スケジュール取り込み</div>' +
+        '<p style="font-size:0.82rem;color:#94a3b8;margin:0 0 12px;">コーチからの月次スケジュールをそのまま貼り付けて仮登録できます。</p>' +
+        '<textarea id="importText" rows="18" style="width:100%;box-sizing:border-box;background:#0b1220;color:#e5e7eb;border:1px solid #233041;border-radius:6px;padding:10px;font-size:0.82rem;font-family:monospace;resize:vertical;" placeholder="【5月試合スケジュール】&#10;☆U-15&#10;・U-15リーグ2部&#10;5日(火)&#10;vs 相手チーム&#10;10:45K/O&#10;@会場名"></textarea>' +
+        '<div style="display:flex;align-items:center;gap:12px;margin:10px 0;">' +
+        '<label style="font-size:0.82rem;color:#94a3b8;">年 <input id="importYear" type="number" value="' + new Date().getFullYear() + '" style="width:72px;background:#0b1220;color:#e5e7eb;border:1px solid #233041;border-radius:4px;padding:3px 6px;" /></label>' +
+        '<label style="font-size:0.82rem;color:#94a3b8;">月 <input id="importMonth" type="number" min="1" max="12" value="" placeholder="自動" style="width:52px;background:#0b1220;color:#e5e7eb;border:1px solid #233041;border-radius:4px;padding:3px 6px;" /></label>' +
+        '</div>' +
+        '<div style="display:flex;gap:10px;flex-wrap:wrap;">' +
+        '<button type="button" id="btnImportPreview" class="btn btn-secondary">解析プレビュー</button>' +
+        '<button type="button" id="btnImportRegister" class="btn btn-primary" disabled>仮登録する（0件）</button>' +
+        '</div>' +
+        '<div id="importStatus" style="margin-top:10px;font-size:0.82rem;"></div>' +
+        '<div id="importPreviewTable" style="margin-top:14px;overflow-x:auto;"></div>' +
+        '</div>';
+      var _parsedEvents = [];
+      document.getElementById('btnImportPreview').onclick = async function() {
+        var text = (document.getElementById('importText').value || '').trim();
+        if (!text) { document.getElementById('importStatus').textContent = 'テキストを貼り付けてください。'; return; }
+        var yearVal = parseInt(document.getElementById('importYear').value) || null;
+        var monthVal = parseInt(document.getElementById('importMonth').value) || null;
+        document.getElementById('importStatus').textContent = '解析中…';
+        document.getElementById('btnImportPreview').disabled = true;
+        try {
+          var body = { text: text, dry_run: true };
+          if (yearVal) body.year = yearVal;
+          if (monthVal) body.month = monthVal;
+          var res = await apiPostJson('/api/admin/parse-bulk-match-schedule', body);
+          _parsedEvents = res.events || [];
+          var btn = document.getElementById('btnImportRegister');
+          btn.textContent = '仮登録する（' + _parsedEvents.length + '件）';
+          btn.disabled = _parsedEvents.length === 0;
+          document.getElementById('importStatus').textContent = _parsedEvents.length + '件をパースしました。';
+          document.getElementById('importPreviewTable').innerHTML = _buildImportPreviewTable(_parsedEvents);
+        } catch(e) {
+          document.getElementById('importStatus').textContent = 'エラー: ' + esc(String(e.message || e));
+        } finally {
+          document.getElementById('btnImportPreview').disabled = false;
+        }
+      };
+      document.getElementById('btnImportRegister').onclick = async function() {
+        if (!_parsedEvents.length) return;
+        if (!confirm(_parsedEvents.length + '件を仮登録します。よろしいですか？')) return;
+        var text = (document.getElementById('importText').value || '').trim();
+        var yearVal = parseInt(document.getElementById('importYear').value) || null;
+        var monthVal = parseInt(document.getElementById('importMonth').value) || null;
+        document.getElementById('importStatus').textContent = '登録中…';
+        document.getElementById('btnImportRegister').disabled = true;
+        try {
+          var body = { text: text };
+          if (yearVal) body.year = yearVal;
+          if (monthVal) body.month = monthVal;
+          var res = await apiPostJson('/api/admin/parse-bulk-match-schedule', body);
+          document.getElementById('importStatus').innerHTML = '<span style="color:#4ade80;">' + res.upserted + '件を仮登録しました。「仮登録」タブで確認できます。</span>';
+          _parsedEvents = [];
+          document.getElementById('btnImportRegister').disabled = true;
+          document.getElementById('btnImportRegister').textContent = '仮登録する（0件）';
+        } catch(e) {
+          document.getElementById('importStatus').textContent = 'エラー: ' + esc(String(e.message || e));
+          document.getElementById('btnImportRegister').disabled = false;
+        }
+      };
+    }
+
+    function _buildImportPreviewTable(events) {
+      if (!events.length) return '<p style="color:#94a3b8;font-size:0.82rem;">パース結果なし</p>';
+      var h = '<table class="data-table"><thead><tr>' +
+        '<th>日付</th><th>カテゴリ</th><th>大会</th><th>タイトル</th><th>時間</th><th>会場</th><th>メモ</th></tr></thead><tbody>';
+      for (var i = 0; i < events.length; i++) {
+        var ev = events[i];
+        h += '<tr>' +
+          '<td>' + esc(ev.event_date || '') + '</td>' +
+          '<td>' + esc(ev.category_code || '') + '</td>' +
+          '<td>' + esc(ev.league_or_competition || '') + '</td>' +
+          '<td>' + esc(ev.title || '') + '</td>' +
+          '<td>' + esc(ev.kickoff_primary || '') + '</td>' +
+          '<td>' + esc(ev.venue || '') + '</td>' +
+          '<td>' + esc(ev.notes || '') + '</td>' +
+          '</tr>';
+      }
+      h += '</tbody></table>';
+      return h;
     }
 
     function bindPendingPanel() {
@@ -3687,6 +3776,10 @@
         await showPendingPanel();
         return;
       }
+      if (currentView === 'import') {
+        showImportPanel();
+        return;
+      }
       if (currentView === 'todo') {
         await showTodoPanel();
         return;
@@ -4100,16 +4193,22 @@
       var tabAdmin = document.getElementById('tabAdmin');
       var tabTodo = document.getElementById('tabTodo');
       var tabPending = document.getElementById('tabPending');
+      var tabImport = document.getElementById('tabImport');
       if (me.is_admin) {
         tabAdmin.hidden = false;
         if (tabTodo) tabTodo.hidden = false;
-        if (tabPending) tabPending.hidden = false;
       } else {
         tabAdmin.hidden = true;
         if (tabTodo) tabTodo.hidden = true;
-        if (tabPending) tabPending.hidden = true;
       }
-      if ((currentView === 'admin' || currentView === 'pending' || currentView === 'todo') && !me.is_admin) {
+      if (me.access_granted) {
+        if (tabPending) tabPending.hidden = false;
+        if (tabImport) tabImport.hidden = false;
+      } else {
+        if (tabPending) tabPending.hidden = true;
+        if (tabImport) tabImport.hidden = true;
+      }
+      if ((currentView === 'admin' || currentView === 'todo') && !me.is_admin) {
         currentView = 'timeline';
         setViewTabsUI();
       }
