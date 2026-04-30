@@ -568,7 +568,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260430-47';
+    var __UI_BUILD__ = '20260430-48';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -2047,9 +2047,13 @@
           if (monthVal) body.month = monthVal;
           var res = await apiPostJson('/api/admin/parse-bulk-match-schedule', body);
           _parsedEvents = res.events || [];
+          var nNew = _parsedEvents.filter(function(e) { return e.diff_status === 'new'; }).length;
+          var nChanged = _parsedEvents.filter(function(e) { return e.diff_status === 'changed'; }).length;
+          var nUnchanged = _parsedEvents.filter(function(e) { return e.diff_status === 'unchanged'; }).length;
+          var nTarget = nNew + nChanged;
           var btn = document.getElementById('btnImportRegister');
-          btn.textContent = '仮登録する（' + _parsedEvents.length + '件）';
-          btn.disabled = _parsedEvents.length === 0;
+          btn.textContent = '仮登録する（新規' + nNew + '件 + 変更' + nChanged + '件）';
+          btn.disabled = nTarget === 0;
           document.getElementById('importStatus').textContent = _parsedEvents.length + '件をパースしました。';
           document.getElementById('importPreviewTable').innerHTML = _buildImportPreviewTable(_parsedEvents);
         } catch(e) {
@@ -2060,7 +2064,12 @@
       };
       document.getElementById('btnImportRegister').onclick = async function() {
         if (!_parsedEvents.length) return;
-        if (!confirm(_parsedEvents.length + '件を仮登録します。よろしいですか？')) return;
+        var nNew = _parsedEvents.filter(function(e) { return e.diff_status === 'new'; }).length;
+        var nChanged = _parsedEvents.filter(function(e) { return e.diff_status === 'changed'; }).length;
+        var nUnchanged = _parsedEvents.filter(function(e) { return e.diff_status === 'unchanged'; }).length;
+        var msg = '新規' + nNew + '件 + 変更' + nChanged + '件を仮登録します。';
+        if (nUnchanged > 0) msg += '\n（変更なし' + nUnchanged + '件は除外されます）';
+        if (!confirm(msg)) return;
         var text = (document.getElementById('importText').value || '').trim();
         var yearVal = parseInt(document.getElementById('importYear').value) || null;
         var monthVal = parseInt(document.getElementById('importMonth').value) || null;
@@ -2084,22 +2093,42 @@
 
     function _buildImportPreviewTable(events) {
       if (!events.length) return '<p style="color:#94a3b8;font-size:0.82rem;">パース結果なし</p>';
+      var nNew = events.filter(function(e) { return e.diff_status === 'new'; }).length;
+      var nChanged = events.filter(function(e) { return e.diff_status === 'changed'; }).length;
+      var nUnchanged = events.filter(function(e) { return e.diff_status === 'unchanged'; }).length;
+      var STATUS_BADGE = {
+        'new':       '<span style="background:#4caf50;color:#fff;padding:1px 6px;border-radius:3px;font-size:11px;white-space:nowrap;">新規</span>',
+        'changed':   '<span style="background:#ff9800;color:#fff;padding:1px 6px;border-radius:3px;font-size:11px;white-space:nowrap;">変更</span>',
+        'unchanged': '<span style="background:#9e9e9e;color:#fff;padding:1px 6px;border-radius:3px;font-size:11px;white-space:nowrap;">変更なし</span>',
+      };
+      var ROW_BG = { 'new': '#0d2a18', 'changed': '#2a1f00', 'unchanged': '' };
+      var FIELDS = ['event_date', 'category_code', 'league_or_competition', 'title', 'kickoff_primary', 'venue', 'notes'];
+      function cellHtml(ev, fn) {
+        var v = esc(ev[fn] || '');
+        if (ev.diff_status === 'changed' && ev.changed_fields && ev.changed_fields.indexOf(fn) >= 0) {
+          var old = esc((ev.existing && ev.existing[fn]) || '');
+          return '<td style="background:#3a2800;"><del style="color:#f87171;font-size:0.78rem;">' + old + '</del><br><strong>' + v + '</strong></td>';
+        }
+        return '<td>' + v + '</td>';
+      }
+      var summary = '<div style="font-size:0.8rem;color:#94a3b8;margin-bottom:8px;">' +
+        '新規: <strong style="color:#4caf50;">' + nNew + '件</strong>' +
+        ' ／ 変更あり: <strong style="color:#ff9800;">' + nChanged + '件</strong>' +
+        ' ／ 変更なし: <strong style="color:#9e9e9e;">' + nUnchanged + '件</strong>（仮登録対象外）</div>';
       var h = '<table class="data-table"><thead><tr>' +
-        '<th>日付</th><th>カテゴリ</th><th>大会</th><th>タイトル</th><th>時間</th><th>会場</th><th>メモ</th></tr></thead><tbody>';
+        '<th>状態</th><th>日付</th><th>カテゴリ</th><th>大会</th><th>タイトル</th><th>時間</th><th>会場</th><th>メモ</th></tr></thead><tbody>';
       for (var i = 0; i < events.length; i++) {
         var ev = events[i];
-        h += '<tr>' +
-          '<td>' + esc(ev.event_date || '') + '</td>' +
-          '<td>' + esc(ev.category_code || '') + '</td>' +
-          '<td>' + esc(ev.league_or_competition || '') + '</td>' +
-          '<td>' + esc(ev.title || '') + '</td>' +
-          '<td>' + esc(ev.kickoff_primary || '') + '</td>' +
-          '<td>' + esc(ev.venue || '') + '</td>' +
-          '<td>' + esc(ev.notes || '') + '</td>' +
+        var st = ev.diff_status || 'new';
+        var rowStyle = ROW_BG[st] ? 'background:' + ROW_BG[st] + ';' : '';
+        if (st === 'unchanged') rowStyle += 'opacity:0.45;';
+        h += '<tr style="' + rowStyle + '">' +
+          '<td>' + (STATUS_BADGE[st] || '') + '</td>' +
+          FIELDS.map(function(fn) { return cellHtml(ev, fn); }).join('') +
           '</tr>';
       }
       h += '</tbody></table>';
-      return h;
+      return summary + h;
     }
 
     function bindPendingPanel() {
