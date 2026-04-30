@@ -4088,7 +4088,7 @@
       if (view !== 'timeline') clearTimelineNowLineTimer();
       setViewTabsUI();
       var showScheduleChrome =
-        view !== 'admin' && view !== 'pending' && view !== 'todo' && __lastMe && __lastMe.access_granted;
+        view !== 'admin' && view !== 'pending' && view !== 'todo' && view !== 'import' && __lastMe && __lastMe.access_granted;
       var fsx = document.getElementById('filterStrip');
       if (fsx) fsx.style.display = showScheduleChrome ? 'flex' : 'none';
       if (view === 'admin') {
@@ -4097,13 +4097,18 @@
         return;
       }
       if (view === 'pending') {
-        if (__lastMe && __lastMe.is_admin) await showPendingPanel();
-        else document.getElementById('viewContent').innerHTML = '<div class="error">管理者のみ利用できます。</div>';
+        if (__lastMe && __lastMe.access_granted) await showPendingPanel();
+        else document.getElementById('viewContent').innerHTML = '<div class="error">アクセス権限がありません。</div>';
         return;
       }
       if (view === 'todo') {
         if (__lastMe && __lastMe.is_admin) await showTodoPanel();
         else document.getElementById('viewContent').innerHTML = '<div class="error">管理者のみ利用できます。</div>';
+        return;
+      }
+      if (view === 'import') {
+        if (__lastMe && __lastMe.access_granted) showImportPanel();
+        else document.getElementById('viewContent').innerHTML = '<div class="error">アクセス権限がありません。</div>';
         return;
       }
       updateToolbarForView();
@@ -4118,7 +4123,8 @@
       document.querySelectorAll('.view-tab').forEach(function(btn) {
         btn.addEventListener('click', function() {
           var v = btn.getAttribute('data-view');
-          if ((v === 'admin' || v === 'pending' || v === 'todo') && (!__lastMe || !__lastMe.is_admin)) return;
+          if ((v === 'admin' || v === 'todo') && (!__lastMe || !__lastMe.is_admin)) return;
+          if ((v === 'pending' || v === 'import') && (!__lastMe || !__lastMe.access_granted)) return;
           applyView(v).catch(function(e) {
             document.getElementById('viewContent').innerHTML = '<div class="error">' + esc(String(e.message || e)) + '</div>';
           });
