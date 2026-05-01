@@ -568,7 +568,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260501-49';
+    var __UI_BUILD__ = '20260501-50';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -2950,6 +2950,7 @@
       var ev = opts.ev;
       var dateIso = opts.dateIso || '';
       var kick0 = opts.kickoffPrimary || '';
+      var isAllDay = !!opts.allDay;
       var eid = ev ? String(ev.id || '') : '';
       var ds = ev ? String(ev.event_date || '').slice(0, 10) : dateIso;
       var kick = ev ? String(ev.kickoff_primary || ev.time || '').trim() : kick0;
@@ -2980,8 +2981,9 @@
         escAttr(ev ? (ev.league_or_competition || '') : '') + '" />' +
         '<label class="tl-edit-label">タイトル</label><input class="tl-edit-field" type="text" name="title" value="' +
         escAttr(ev ? (ev.title || '') : '') + '" />' +
-        '<label class="tl-edit-label">時間（開始-終了 例 10:00-11:00）</label><input class="tl-edit-field" type="text" name="kickoff_primary" required placeholder="10:00-11:00" value="' +
-        escAttr(kick) + '" />' +
+        (isAllDay
+          ? '<input type="hidden" name="kickoff_primary" value="" /><input type="hidden" name="all_day" value="true" />'
+          : '<label class="tl-edit-label">時間（開始-終了 例 10:00-11:00）</label><input class="tl-edit-field" type="text" name="kickoff_primary" required placeholder="10:00-11:00" value="' + escAttr(kick) + '" />') +
         '<label class="tl-edit-label">補助イベント(前)（出発・集合など）</label><input class="tl-edit-field" type="text" name="kickoff_secondary" value="' +
         escAttr(ev ? (ev.kickoff_secondary || '') : '') + '" />' +
         '<label class="tl-edit-label">補助イベント(後)（到着・帰宅など）</label><input class="tl-edit-field" type="text" name="kickoff_post" value="' +
@@ -3077,6 +3079,18 @@
         venue: get('venue'),
         notes: get('notes')
       };
+    }
+
+    function showTimelineCreateAllDay(alldayCell) {
+      if (!__lastMe || !__lastMe.access_granted) return;
+      var dateIso = alldayCell.getAttribute('data-date');
+      if (!dateIso) return;
+      var titleEl = document.getElementById('tlDetailTitle');
+      var body = document.getElementById('tlDetailBody');
+      if (!titleEl || !body) return;
+      titleEl.textContent = '終日の予定を追加';
+      body.innerHTML = buildTimelineEditorFormHTML({ mode: 'create', ev: null, dateIso: dateIso, allDay: true });
+      openTimelineDetailBackdrop();
     }
 
     function showTimelineCreateFromSlot(dayBody, clientY) {
@@ -3227,6 +3241,22 @@
         }, TL_LP_MS);
         return;
       }
+      var alldayCell = e.target && e.target.closest && e.target.closest('.tl-allday-cell');
+      if (alldayCell && vc.contains(alldayCell)) {
+        if (!__lastMe || !__lastMe.access_granted) return;
+        __clearTlLongPress();
+        __tlLP.pid = e.pointerId;
+        __tlLP.el = alldayCell;
+        __tlLP.x = e.clientX;
+        __tlLP.y = e.clientY;
+        var selfCell = alldayCell;
+        __tlLP.timer = setTimeout(function() {
+          __tlLP.timer = null; __tlLP.pid = null; __tlLP.el = null;
+          try { if (navigator.vibrate) navigator.vibrate(10); } catch(err) {}
+          showTimelineCreateAllDay(selfCell);
+        }, TL_LP_MS);
+        return;
+      }
       var dayBody = e.target && e.target.closest && e.target.closest('.tl-day-body');
       if (!dayBody || !vc.contains(dayBody)) return;
       if (!__lastMe || !__lastMe.access_granted) return;
@@ -3290,7 +3320,7 @@
                 if (!data) throw new Error('フォームがありません');
                 if (!data.event_kind) throw new Error('種別を選択してください');
                 if (!data.category_code) throw new Error('カテゴリを入力してください');
-                if (!data.kickoff_primary) throw new Error('時間を入力してください');
+                if (!data.kickoff_primary && !data.all_day) throw new Error('時間を入力してください');
                 if (data.event_id) {
                   var patchObj = normalizeTrgTrainingPatch({
                     event_date: data.event_date,
@@ -3438,6 +3468,7 @@
       var provisional = [];
       for (var i = 0; i < dayEv.length; i++) {
         var ev = dayEv[i];
+        if (ev.all_day) { allDay.push(ev); continue; }
         var tr = parseTimeRangeMinutesForDisplay(ev);
         if (!tr) {
           provisional.push(ev);
@@ -3706,7 +3737,7 @@
         var iso2 = dateIsos[c2];
         var dayEv = grouped[iso2] || [];
         var sp = splitDayEventsForTimeline(dayEv, rs, re);
-        h += '<div class="tl-allday-cell"' + (wideSet.has(iso2) ? ' data-wide' : '') + '>' + buildAllDayChipsFromList(sp.allDay) + '</div>';
+        h += '<div class="tl-allday-cell" data-date="' + escAttr(iso2) + '"' + (wideSet.has(iso2) ? ' data-wide' : '') + '>' + buildAllDayChipsFromList(sp.allDay) + '</div>';
       }
       h += '</div>';
       h += '<div class="tl-main-row"><div class="tl-days-strip">';
