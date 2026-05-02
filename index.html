@@ -299,6 +299,8 @@
       background: #1e3a5f; color: #e5e7eb; font-size: 0.62rem; line-height: 1.25; overflow: hidden; border: 1px solid #334155;
       box-shadow: 0 1px 2px rgba(0,0,0,0.35); }
     .tl-block-inner { position: relative; z-index: 1; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
+    .tl-block--compact { padding: 1px 3px !important; }
+    .tl-block-inner--compact { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.6rem; line-height: 1.35; font-weight: 600; }
     .tl-block-inner--stack {
       display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden;
       -webkit-line-clamp: unset; -webkit-box-orient: unset;
@@ -568,7 +570,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260501-52';
+    var __UI_BUILD__ = '20260501-53';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -3586,7 +3588,18 @@
       return out;
     }
 
-    function buildTimedBlocksLayerHtml(placements, rangeStart, rangeSpan) {
+    function buildCompactBlockInnerHtml(ev) {
+      var tr = parseTimeRangeMinutesForDisplay(ev);
+      var timePart = tr ? formatMinutesHm(tr.start) : (String(ev.kickoff_primary || ev.time || '').match(/\d{1,2}:\d{2}/) || [''])[0];
+      var title = timelineEventSubtitleInBlock(ev);
+      var venue = (ev.venue || '').trim();
+      var text = timePart;
+      if (title) text += (text ? ' ' : '') + title;
+      if (venue) text += ' @' + venue;
+      return '<span class="tl-block-inner tl-block-inner--compact">' + esc(text) + '</span>';
+    }
+
+    function buildTimedBlocksLayerHtml(placements, rangeStart, rangeSpan, slotPx) {
       var h = '<div class="tl-blocks-layer">';
       if (!placements.length) {
         h += '</div>';
@@ -3612,7 +3625,10 @@
         var titBase = timelineEventTitleAttr(ev);
         var tit = escAttr(titBase + (prov ? '（時刻なし・30分仮表示）' : ''));
         var bSpan = clip.de - clip.ds;
-        var stackedInner = (!prov && bSpan > 0) ? buildTimelineStackedInnerHtml(ev, clip) : '';
+        var blockHeightPx = (bSpan / 30) * (slotPx || 40);
+        var compact = (!prov && bSpan > 0 && blockHeightPx < 48);
+        var compactCls = compact ? ' tl-block--compact' : '';
+        var stackedInner = (!prov && !compact && bSpan > 0) ? buildTimelineStackedInnerHtml(ev, clip) : '';
         var useStack = stackedInner !== '';
         var stackCls = useStack ? ' tl-block--stacked' : '';
         var emHtml = '';
@@ -3657,8 +3673,10 @@
           h += '<div class="tl-block ' + kcls + ' tl-block--marinos-compact' + (rowCls ? ' ' + rowCls : '') + mcls + '" data-tl-ev-id="' + escAttr(String(ev.id || '')) + '" style="' + blockStyle + '" title="' + tit + '">';
           h += '<span class="tl-block-inner">' + esc(marinosCompactLabel(ev)) + '</span></div>';
         } else {
-          h += '<div class="tl-block ' + kcls + stackCls + (rowCls ? ' ' + rowCls : '') + provCls + mcls + '" data-tl-ev-id="' + escAttr(String(ev.id || '')) + '" style="' + blockStyle + '" title="' + tit + '">';
-          if (useStack) {
+          h += '<div class="tl-block ' + kcls + stackCls + compactCls + (rowCls ? ' ' + rowCls : '') + provCls + mcls + '" data-tl-ev-id="' + escAttr(String(ev.id || '')) + '" style="' + blockStyle + '" title="' + tit + '">';
+          if (compact) {
+            h += buildCompactBlockInnerHtml(ev) + '</div>';
+          } else if (useStack) {
             h += stackedInner + '</div>';
           } else {
             h += emHtml + '<span class="tl-block-inner">' + lab + '</span></div>';
@@ -3749,7 +3767,7 @@
         var sp3 = splitDayEventsForTimeline(dayEv3, rs, re);
         var placements = assignTimelineLanesByGroup(sp3.timed);
         h += '<div class="tl-day-body" data-date="' + escAttr(iso3) + '"' + (wideSet.has(iso3) ? ' data-wide' : '') + ' style="--tl-slot:' + slotPx.toFixed(2) + 'px">';
-        h += buildTimedBlocksLayerHtml(placements, tw.rangeStart, tw.rangeSpan);
+        h += buildTimedBlocksLayerHtml(placements, tw.rangeStart, tw.rangeSpan, slotPx);
         h += buildTimelineNowMarkerHtml(iso3, todayIso, tw.rangeStart, tw.rangeEnd, tw.rangeSpan);
         h += '</div>';
       }
