@@ -298,6 +298,12 @@
     .tl-block { position: absolute; pointer-events: auto; box-sizing: border-box; padding: 2px 4px; border-radius: 6px;
       background: #1e3a5f; color: #e5e7eb; font-size: 0.62rem; line-height: 1.25; overflow: hidden; border: 1px solid #334155;
       box-shadow: 0 1px 2px rgba(0,0,0,0.35); }
+    .tl-cat-u13 { border: 2px solid rgba(255,255,255,0.55) !important; }
+    .tl-cat-u14 { border: 2px solid #22d3ee !important; }
+    .tl-cat-u15 { border: 2px solid #f472b6 !important; }
+    .tl-chip.tl-cat-u13 { border: 1px solid rgba(255,255,255,0.45); }
+    .tl-chip.tl-cat-u14 { border: 1px solid #22d3ee; }
+    .tl-chip.tl-cat-u15 { border: 1px solid #f472b6; }
     .tl-block-inner { position: relative; z-index: 1; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
     .tl-block--compact { padding: 1px 3px !important; }
     .tl-block-inner--compact { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.6rem; line-height: 1.35; font-weight: 600; }
@@ -570,7 +576,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260507-57';
+    var __UI_BUILD__ = '20260507-58';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -3638,6 +3644,8 @@
         var prov = !!pl.item._provisional;
         var provCls = prov ? ' tl-block--provisional' : '';
         var kcls = timelineKindClass(ev);
+        var tier = categoryTier(ev.category_code);
+        var catCls = (tier === 'u13' || tier === 'u14' || tier === 'u15') ? ' tl-cat-' + tier : '';
         var lab = esc(timelineEventPlainTitle(ev));
         var titBase = timelineEventTitleAttr(ev);
         var tit = escAttr(titBase + (prov ? '（時刻なし・30分仮表示）' : ''));
@@ -3690,7 +3698,7 @@
           h += '<div class="tl-block ' + kcls + ' tl-block--marinos-compact' + (rowCls ? ' ' + rowCls : '') + mcls + '" data-tl-ev-id="' + escAttr(String(ev.id || '')) + '" style="' + blockStyle + '" title="' + tit + '">';
           h += '<span class="tl-block-inner">' + esc(marinosCompactLabel(ev)) + '</span></div>';
         } else {
-          h += '<div class="tl-block ' + kcls + stackCls + compactCls + (rowCls ? ' ' + rowCls : '') + provCls + mcls + '" data-tl-ev-id="' + escAttr(String(ev.id || '')) + '" style="' + blockStyle + '" title="' + tit + '">';
+          h += '<div class="tl-block ' + kcls + stackCls + compactCls + catCls + (rowCls ? ' ' + rowCls : '') + provCls + mcls + '" data-tl-ev-id="' + escAttr(String(ev.id || '')) + '" style="' + blockStyle + '" title="' + tit + '">';
           if (compact) {
             h += buildCompactBlockInnerHtml(ev) + '</div>';
           } else if (useStack) {
@@ -3710,7 +3718,9 @@
       for (var i = 0; i < events.length; i++) {
         var ev = events[i];
         var m = (isVoidRow(ev) || isPastEventDate(ev)) ? ' tl-chip--muted' : '';
-        h += '<div class="tl-chip' + m + '" data-tl-ev-id="' + escAttr(String(ev.id || '')) + '" title="' + escAttr(timelineEventTitleAttr(ev)) + '">' + esc(timelineEventPlainTitle(ev)) + '</div>';
+        var ct = categoryTier(ev.category_code);
+        var cc = (ct === 'u13' || ct === 'u14' || ct === 'u15') ? ' tl-cat-' + ct : '';
+        h += '<div class="tl-chip' + m + cc + '" data-tl-ev-id="' + escAttr(String(ev.id || '')) + '" title="' + escAttr(timelineEventTitleAttr(ev)) + '">' + esc(timelineEventPlainTitle(ev)) + '</div>';
       }
       return h;
     }
