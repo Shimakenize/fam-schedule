@@ -2135,10 +2135,11 @@
         var st = ev.diff_status || 'new';
         var rowStyle = ROW_BG[st] ? 'background:' + ROW_BG[st] + ';' : '';
         if (st === 'unchanged') rowStyle += 'opacity:0.45;';
+        var debugCell = (st === 'new' && ev._debug) ? '<td colspan="7" style="font-size:0.7rem;color:#f87171;font-family:monospace;word-break:break-all;">' + esc(JSON.stringify(ev._debug)) + '</td>' : FIELDS.map(function(fn) { return cellHtml(ev, fn); }).join('');
         h += '<tr style="' + rowStyle + '">' +
           '<td><input type="checkbox" class="import-row-chk" data-idx="' + i + '"' + (st !== 'unchanged' ? ' checked' : '') + '></td>' +
           '<td>' + (STATUS_BADGE[st] || '') + '</td>' +
-          FIELDS.map(function(fn) { return cellHtml(ev, fn); }).join('') +
+          debugCell +
           '</tr>';
       }
       h += '</tbody></table>';
