@@ -545,8 +545,8 @@
         <option value="マリノス戦">マリノス戦</option>
       </select>
       <label class="cat-filter-item"><input type="checkbox" id="filterCatU13" checked /><span class="cat-filter-label">U-13</span></label>
-      <label class="cat-filter-item"><input type="checkbox" id="filterCatU14" /><span class="cat-filter-label">U-14</span></label>
-      <label class="cat-filter-item"><input type="checkbox" id="filterCatU15" /><span class="cat-filter-label">U-15</span></label>
+      <label class="cat-filter-item"><input type="checkbox" id="filterCatU14" checked /><span class="cat-filter-label">U-14</span></label>
+      <label class="cat-filter-item"><input type="checkbox" id="filterCatU15" checked /><span class="cat-filter-label">U-15</span></label>
     </div>
     <div class="filter-strip-actions">
       <span id="weekLoadStatus" class="filter-strip-status"></span>
@@ -576,7 +576,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260507-58';
+    var __UI_BUILD__ = '20260507-59';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -620,7 +620,7 @@
     var currentView = 'timeline';
     var WEEKDAY_JA = ['日', '月', '火', '水', '木', '金', '土'];
     var _filterKind = '';
-    var _filterCategoryChecks = { u13: true, u14: false, u15: false };
+    var _filterCategoryChecks = { u13: true, u14: true, u15: true };
     var __filterStripBound = false;
     var _showIdentityIds = false;
     var _cachedHeaderWithIds = '';
