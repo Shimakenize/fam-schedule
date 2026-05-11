@@ -576,7 +576,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260509-3';
+    var __UI_BUILD__ = '20260511-1';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -2681,6 +2681,26 @@
       return h;
     }
 
+    /** 保護者時刻列（メイン・後段用）: parent_time マーカーをフレックス帯として表示 */
+    function buildParentTimeColumnHtml(timeMs, top, bot) {
+      if (!timeMs.length) return '';
+      var sm = timeMs.slice().sort(function(a, b) { return a.m - b.m; });
+      var h = '';
+      var lead = Math.max(0, sm[0].m - top);
+      if (lead > 0) h += '<div class="tl-match-spectate-lead-spacer" style="flex:' + lead + ' 1 0;min-height:0"></div>';
+      var rows = [], ri, t0, t1;
+      for (ri = 0; ri < sm.length; ri++) {
+        t0 = sm[ri].m;
+        t1 = ri + 1 < sm.length ? sm[ri + 1].m : bot;
+        if (t1 <= t0) continue;
+        rows.push({ g: Math.max(1, t1 - t0), lab: formatMinutesHm(t0) + sm[ri].label });
+      }
+      for (ri = 0; ri < rows.length; ri++) {
+        h += '<div class="tl-block-seg ' + matchPreClassFromProximity(ri, rows.length) + '" style="flex:' + rows[ri].g + ' 1 0;min-height:0">' + esc(rows[ri].lab) + '</div>';
+      }
+      return h;
+    }
+
     /** 試合: §1.0.1 トークンに基づく積層（他種別は buildTimelineStackedInnerHtml 従来） */
     function buildMatchTimelineStackedInnerHtml(ev, clip) {
       if (!ev || !clip || clip.de <= clip.ds) return '';
@@ -2704,14 +2724,13 @@
         }
       }
       var parentTimeStr = String(ev.parent_time || '').trim();
-      var parentTimeMs = [];
-      if (parentTimeStr) {
-        var ptFree = collectFreeformTimeLabels(parentTimeStr);
-        for (var pti = 0; pti < ptFree.length; pti++) {
-          if (ptFree[pti].m < mainStart) parentTimeMs.push(ptFree[pti]);
-        }
-      }
-      var hasDualPre = hasSpectateDep || parentTimeMs.length > 0;
+      var parentAllMs  = parentTimeStr ? collectFreeformTimeLabels(parentTimeStr) : [];
+      var parentPreMs  = parentAllMs.filter(function(fm) { return fm.m < mainStart; });
+      var parentMainMs = parentAllMs.filter(function(fm) { return fm.m >= mainStart && fm.m < mainEnd; });
+      var parentPostMs = parentAllMs.filter(function(fm) { return fm.m >= mainEnd; });
+      var hasDualPre  = hasSpectateDep || parentPreMs.length > 0;
+      var hasDualMain = parentMainMs.length > 0;
+      var hasDualPost = parentPostMs.length > 0;
       var h = '<div class="tl-block-inner tl-block-inner--stack">';
       var hasAny = false;
       var segA, segB, wMin, g, cls, lab, mk, i, j, tp, uq, u, s;
@@ -2724,7 +2743,7 @@
           if (hasDualPre) {
             h += '<div class="tl-match-pre-dual" style="flex:' + totalPre + ' 1 0;min-height:0">';
             h += '<div class="tl-match-pre-col">' + buildMatchPreColumnStackedHtml(preMs, preTop, preBot, false) + '</div>';
-            h += '<div class="tl-match-pre-col">' + buildParentRightPreColumnHtml(preMs, parentTimeMs, preTop, preBot) + '</div>';
+            h += '<div class="tl-match-pre-col">' + buildParentRightPreColumnHtml(preMs, parentPreMs, preTop, preBot) + '</div>';
             h += '</div>';
           } else {
             h += buildMatchPreColumnStackedHtml(preMs, preTop, preBot, null);
@@ -2741,106 +2760,126 @@
         ? (formatMinutesHm(core.start) + '-' + formatMinutesHm(core.end))
         : formatMinutesHm(core.start);
       var sub = timelineEventSubtitleInBlock(ev);
-      h += '<div class="tl-block-seg tl-block-seg--main" style="flex:' + gMain + ' 1 0;min-height:0">';
+      if (hasDualMain) {
+        h += '<div class="tl-match-pre-dual" style="flex:' + gMain + ' 1 0;min-height:0">';
+        h += '<div class="tl-match-pre-col">';
+      }
+      h += '<div class="tl-block-seg tl-block-seg--main" style="flex:' + (hasDualMain ? 1 : gMain) + ' 1 0;min-height:0">';
       h += '<div class="tl-block-seg-body">';
       h += '<span class="tl-block-seg-time">' + esc(mainTimeStr) + '</span>';
       if (sub) h += '<span class="tl-block-seg-sub">' + esc(sub) + '</span>';
       if (ev.venue) h += '<span class="tl-block-seg-venue">' + esc(ev.venue) + '</span>';
       h += '</div></div>';
+      if (hasDualMain) {
+        h += '</div>';
+        h += '<div class="tl-match-pre-col">' + buildParentTimeColumnHtml(parentMainMs, mainS, mainE) + '</div>';
+        h += '</div>';
+      }
       hasAny = true;
 
       /* メイン後: 区間終端 uq[s+1] のマーカー＝終了時刻。ラベル無し区間は前の帯にマージ（空の細枠を出さない） */
-      if (mainEnd < clip.de && postMs.length) {
-        tp = [Math.max(mainEnd, clip.ds)];
-        for (j = 0; j < postMs.length; j++) {
-          if (postMs[j].m > mainEnd && postMs[j].m < clip.de) tp.push(postMs[j].m);
+      if (mainEnd < clip.de) {
+        var postSecFlex = Math.max(1, clip.de - Math.max(mainEnd, clip.ds));
+        if (hasDualPost) {
+          h += '<div class="tl-match-pre-dual" style="flex:' + postSecFlex + ' 1 0;min-height:0">';
+          h += '<div class="tl-match-pre-col">';
         }
-        tp.push(clip.de);
-        tp.sort(function(x2, y2) { return x2 - y2; });
-        uq = [];
-        for (u = 0; u < tp.length; u++) {
-          if (u === 0 || tp[u] !== tp[u - 1]) uq.push(tp[u]);
-        }
-        var postRows = [];
-        var pendingLead = 0;
-        for (s = 0; s < uq.length - 1; s++) {
-          segA = Math.max(uq[s], clip.ds, mainEnd);
-          segB = Math.min(uq[s + 1], clip.de);
-          if (segB <= segA) continue;
-          wMin = segB - segA;
-          g = Math.max(1, wMin);
-          mk = null;
+        if (postMs.length) {
+          tp = [Math.max(mainEnd, clip.ds)];
           for (j = 0; j < postMs.length; j++) {
-            if (postMs[j].m === uq[s + 1]) { mk = postMs[j]; break; }
+            if (postMs[j].m > mainEnd && postMs[j].m < clip.de) tp.push(postMs[j].m);
           }
-          lab = mk ? (formatMinutesHm(mk.m) + mk.label) : '';
-          if (!lab) {
-            if (postRows.length) postRows[postRows.length - 1].g += g;
-            else pendingLead += g;
-            continue;
+          tp.push(clip.de);
+          tp.sort(function(x2, y2) { return x2 - y2; });
+          uq = [];
+          for (u = 0; u < tp.length; u++) {
+            if (u === 0 || tp[u] !== tp[u - 1]) uq.push(tp[u]);
           }
-          postRows.push({ g: g + pendingLead, lab: lab, postLabel: mk.label });
-          pendingLead = 0;
-        }
-        if (pendingLead > 0 && postRows.length) postRows[postRows.length - 1].g += pendingLead;
-        var pr, rw, pCls, chunks, curNarrow, chi, ch, ls, idxClr, postRi;
-        if (hasSpectateDep) {
-          chunks = [];
-          curNarrow = [];
-          for (pr = 0; pr < postRows.length; pr++) {
-            rw = postRows[pr];
-            if (isMatchPostSharedJitakaCar(rw)) {
-              if (curNarrow.length) {
-                chunks.push({ type: 'dual', rows: curNarrow });
-                curNarrow = [];
-              }
-              chunks.push({ type: 'wide', row: rw });
-            } else {
-              curNarrow.push(rw);
+          var postRows = [];
+          var pendingLead = 0;
+          for (s = 0; s < uq.length - 1; s++) {
+            segA = Math.max(uq[s], clip.ds, mainEnd);
+            segB = Math.min(uq[s + 1], clip.de);
+            if (segB <= segA) continue;
+            wMin = segB - segA;
+            g = Math.max(1, wMin);
+            mk = null;
+            for (j = 0; j < postMs.length; j++) {
+              if (postMs[j].m === uq[s + 1]) { mk = postMs[j]; break; }
             }
+            lab = mk ? (formatMinutesHm(mk.m) + mk.label) : '';
+            if (!lab) {
+              if (postRows.length) postRows[postRows.length - 1].g += g;
+              else pendingLead += g;
+              continue;
+            }
+            postRows.push({ g: g + pendingLead, lab: lab, postLabel: mk.label });
+            pendingLead = 0;
           }
-          if (curNarrow.length) chunks.push({ type: 'dual', rows: curNarrow });
-          postRi = 0;
-          for (chi = 0; chi < chunks.length; chi++) {
-            ch = chunks[chi];
-            if (ch.type === 'dual') {
-              ls = 0;
-              for (idxClr = 0; idxClr < ch.rows.length; idxClr++) ls += ch.rows[idxClr].g;
-              ls = Math.max(1, ls);
-              h += '<div class="tl-match-pre-dual" style="flex:' + ls + ' 1 0;min-height:0">';
-              h += '<div class="tl-match-pre-col">';
-              for (idxClr = 0; idxClr < ch.rows.length; idxClr++) {
-                rw = ch.rows[idxClr];
+          if (pendingLead > 0 && postRows.length) postRows[postRows.length - 1].g += pendingLead;
+          var pr, rw, pCls, chunks, curNarrow, chi, ch, ls, idxClr, postRi;
+          if (hasSpectateDep) {
+            chunks = [];
+            curNarrow = [];
+            for (pr = 0; pr < postRows.length; pr++) {
+              rw = postRows[pr];
+              if (isMatchPostSharedJitakaCar(rw)) {
+                if (curNarrow.length) {
+                  chunks.push({ type: 'dual', rows: curNarrow });
+                  curNarrow = [];
+                }
+                chunks.push({ type: 'wide', row: rw });
+              } else {
+                curNarrow.push(rw);
+              }
+            }
+            if (curNarrow.length) chunks.push({ type: 'dual', rows: curNarrow });
+            postRi = 0;
+            for (chi = 0; chi < chunks.length; chi++) {
+              ch = chunks[chi];
+              if (ch.type === 'dual') {
+                ls = 0;
+                for (idxClr = 0; idxClr < ch.rows.length; idxClr++) ls += ch.rows[idxClr].g;
+                ls = Math.max(1, ls);
+                h += '<div class="tl-match-pre-dual" style="flex:' + ls + ' 1 0;min-height:0">';
+                h += '<div class="tl-match-pre-col">';
+                for (idxClr = 0; idxClr < ch.rows.length; idxClr++) {
+                  rw = ch.rows[idxClr];
+                  pCls = matchPostClassFromProximity(postRi, postRows.length);
+                  postRi++;
+                  h += '<div class="tl-block-seg ' + pCls + '" style="flex:' + rw.g + ' 1 0;min-height:0">' + esc(rw.lab) + '</div>';
+                }
+                h += '</div>';
+                h += '<div class="tl-match-pre-col"><div class="tl-match-post-rail-spacer" aria-hidden="true"></div></div>';
+                h += '</div>';
+              } else {
+                rw = ch.row;
                 pCls = matchPostClassFromProximity(postRi, postRows.length);
                 postRi++;
-                h += '<div class="tl-block-seg ' + pCls + '" style="flex:' + rw.g + ' 1 0;min-height:0">' + esc(rw.lab) + '</div>';
+                h += '<div class="tl-block-seg ' + pCls + ' tl-block-seg--match-post-wide" style="flex:' + rw.g + ' 1 0;min-height:0">' + esc(rw.lab) + '</div>';
               }
-              h += '</div>';
-              h += '<div class="tl-match-pre-col"><div class="tl-match-post-rail-spacer" aria-hidden="true"></div></div>';
-              h += '</div>';
-            } else {
-              rw = ch.row;
-              pCls = matchPostClassFromProximity(postRi, postRows.length);
-              postRi++;
-              h += '<div class="tl-block-seg ' + pCls + ' tl-block-seg--match-post-wide" style="flex:' + rw.g + ' 1 0;min-height:0">' + esc(rw.lab) + '</div>';
+            }
+          } else {
+            for (pr = 0; pr < postRows.length; pr++) {
+              rw = postRows[pr];
+              pCls = matchPostClassFromProximity(pr, postRows.length);
+              h += '<div class="tl-block-seg ' + pCls + '" style="flex:' + rw.g + ' 1 0;min-height:0">' + esc(rw.lab) + '</div>';
             }
           }
         } else {
-          for (pr = 0; pr < postRows.length; pr++) {
-            rw = postRows[pr];
-            pCls = matchPostClassFromProximity(pr, postRows.length);
-            h += '<div class="tl-block-seg ' + pCls + '" style="flex:' + rw.g + ' 1 0;min-height:0">' + esc(rw.lab) + '</div>';
+          segA = Math.max(mainEnd, clip.ds);
+          segB = clip.de;
+          if (segB > segA) {
+            g = Math.max(1, segB - segA);
+            h += '<div class="tl-block-seg tl-block-seg--match-post3" style="flex:' + g + ' 1 0;min-height:0"></div>';
           }
         }
-        hasAny = true;
-      } else if (mainEnd < clip.de) {
-        segA = Math.max(mainEnd, clip.ds);
-        segB = clip.de;
-        if (segB > segA) {
-          g = Math.max(1, segB - segA);
-          h += '<div class="tl-block-seg tl-block-seg--match-post3" style="flex:' + g + ' 1 0;min-height:0"></div>';
-          hasAny = true;
+        if (hasDualPost) {
+          h += '</div>';
+          h += '<div class="tl-match-pre-col">' + buildParentTimeColumnHtml(parentPostMs, mainEnd, clip.de) + '</div>';
+          h += '</div>';
         }
+        hasAny = true;
       }
 
       h += '</div>';
