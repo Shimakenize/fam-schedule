@@ -576,7 +576,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260511-1';
+    var __UI_BUILD__ = '20260514-1';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -2682,13 +2682,27 @@
     }
 
     /** 保護者時刻列（メイン・後段用）: parent_time マーカーをフレックス帯として表示 */
-    function buildParentTimeColumnHtml(timeMs, top, bot) {
+    function buildParentTimeColumnHtml(timeMs, top, bot, isPost) {
       if (!timeMs.length) return '';
       var sm = timeMs.slice().sort(function(a, b) { return a.m - b.m; });
-      var h = '';
+      var h = '', rows = [], ri;
+      if (isPost) {
+        // post: ブロックは prev→マーカー時刻でスパン（ラベルは終端時刻付き）
+        var prev = top;
+        for (ri = 0; ri < sm.length; ri++) {
+          rows.push({ g: Math.max(1, sm[ri].m - prev), lab: formatMinutesHm(sm[ri].m) + sm[ri].label });
+          prev = sm[ri].m;
+        }
+        for (ri = 0; ri < rows.length; ri++) {
+          h += '<div class="tl-block-seg ' + matchPostClassFromProximity(ri, rows.length) + '" style="flex:' + rows[ri].g + ' 1 0;min-height:0">' + esc(rows[ri].lab) + '</div>';
+        }
+        if (prev < bot) h += '<div class="tl-match-spectate-lead-spacer" style="flex:' + Math.max(1, bot - prev) + ' 1 0;min-height:0"></div>';
+        return h;
+      }
+      // pre/main: ラベルはマーカー時刻で始まる（従来通り）
       var lead = Math.max(0, sm[0].m - top);
       if (lead > 0) h += '<div class="tl-match-spectate-lead-spacer" style="flex:' + lead + ' 1 0;min-height:0"></div>';
-      var rows = [], ri, t0, t1;
+      var t0, t1;
       for (ri = 0; ri < sm.length; ri++) {
         t0 = sm[ri].m;
         t1 = ri + 1 < sm.length ? sm[ri + 1].m : bot;
@@ -2876,7 +2890,7 @@
         }
         if (hasDualPost) {
           h += '</div>';
-          h += '<div class="tl-match-pre-col">' + buildParentTimeColumnHtml(parentPostMs, mainEnd, clip.de) + '</div>';
+          h += '<div class="tl-match-pre-col">' + buildParentTimeColumnHtml(parentPostMs, mainEnd, clip.de, true) + '</div>';
           h += '</div>';
         }
         hasAny = true;
