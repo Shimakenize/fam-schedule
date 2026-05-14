@@ -576,7 +576,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260514-2';
+    var __UI_BUILD__ = '20260514-3';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -3060,6 +3060,9 @@
           offRow = '<button type="button" class="btn btn-secondary" data-tl-act="off">削除</button>';
         } else {
           offRow = '<button type="button" class="btn btn-secondary" data-tl-act="reactivate">削除を戻す</button>';
+          if (__lastMe && __lastMe.is_admin) {
+            offRow += '<button type="button" class="btn btn-warn" data-tl-act="purge">完全削除</button>';
+          }
         }
       }
       return '<p class="tl-detail-lead">' + esc(lead) + '</p>' + hist +
@@ -3469,6 +3472,20 @@
                 closeTimelineDetailPopup();
                 await refreshScheduleCacheFromServer().catch(function() {});
                 if (keepIso) __tlAfterEditScrollIso = keepIso;
+                return;
+              }
+              if (act === 'purge') {
+                if (!data || !data.event_id) throw new Error('event_id がありません');
+                if (!confirm('DBから完全に削除します。この操作は元に戻せません。よろしいですか？')) return;
+                await apiPostJson('/api/admin/schedule/delete-pending', { event_ids: [data.event_id] });
+                if (__cachedMonthData && __cachedMonthData.events) {
+                  __cachedMonthData.events = __cachedMonthData.events.filter(function(e) { return String(e.id || '') !== String(data.event_id || ''); });
+                }
+                var keepIsoPurge = data.event_date && String(data.event_date).length >= 10 ? String(data.event_date).slice(0, 10) : '';
+                if (keepIsoPurge) __tlAfterEditScrollIso = keepIsoPurge;
+                closeTimelineDetailPopup();
+                await refreshScheduleCacheFromServer().catch(function() {});
+                if (keepIsoPurge) __tlAfterEditScrollIso = keepIsoPurge;
                 return;
               }
               if (act === 'off' || act === 'reactivate') {
