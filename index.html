@@ -576,7 +576,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260514-9';
+    var __UI_BUILD__ = '20260514-10';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -2651,7 +2651,7 @@
       return h;
     }
 
-    /** 保護者列（右列）: spectate_dep マーカー + parent_time マーカーを統合して表示 */
+    /** 保護者列（右列）: spectate_dep + parent_time マーカーを絶対配置で表示（flex丸め誤差を回避） */
     function buildParentRightPreColumnHtml(preMs, parentTimeMs, preTop, preBot) {
       var sm = [];
       var si, pi;
@@ -2663,26 +2663,20 @@
       }
       if (!sm.length) return '';
       sm.sort(function(a, b) { return a.m - b.m; });
+      var totalPre = Math.max(1, preBot - preTop);
       var h = '';
-      var firstM = sm[0].m;
-      var lead = Math.max(0, firstM - preTop);
-      if (lead > 0) {
-        h += '<div class="tl-block-seg" style="flex:' + lead + ' 1 0;min-height:0;padding:0" aria-hidden="true"></div>';
-      }
-      var sk2, t0, t1, gSeg, labS, clsS, spRows2, si2;
-      spRows2 = [];
+      var sk2, t0, t1, t0c, t1c, topPct, heightPct, labS, clsS;
       for (sk2 = 0; sk2 < sm.length; sk2++) {
         t0 = sm[sk2].m;
         t1 = sk2 + 1 < sm.length ? sm[sk2 + 1].m : preBot;
-        if (t1 <= t0) continue;
-        gSeg = Math.max(1, t1 - t0);
+        t0c = Math.max(preTop, t0);
+        t1c = Math.min(preBot, t1);
+        if (t1c <= t0c) continue;
+        topPct = ((t0c - preTop) / totalPre * 100).toFixed(2);
+        heightPct = ((t1c - t0c) / totalPre * 100).toFixed(2);
         labS = formatMinutesHm(sm[sk2].m) + sm[sk2].label;
-        spRows2.push({ g: gSeg, lab: labS });
-      }
-      for (si2 = 0; si2 < spRows2.length; si2++) {
-        clsS = matchPreClassFromProximity(si2, spRows2.length);
-        h += '<div class="tl-block-seg ' + clsS + '" style="flex:' + spRows2[si2].g + ' 1 0;min-height:0">' +
-          esc(spRows2[si2].lab) + '</div>';
+        clsS = matchPreClassFromProximity(sk2, sm.length);
+        h += '<div class="tl-block-seg ' + clsS + '" style="position:absolute;top:' + topPct + '%;height:' + heightPct + '%;left:0;right:0;min-height:0">' + esc(labS) + '</div>';
       }
       return h;
     }
@@ -2763,7 +2757,7 @@
           if (hasDualPre) {
             h += '<div class="tl-match-pre-dual" style="flex:' + totalPre + ' 1 0;min-height:0">';
             h += '<div class="tl-match-pre-col">' + buildMatchPreColumnStackedHtml(preMs, preTop, preBot, false) + '</div>';
-            h += '<div class="tl-match-pre-col">' + buildParentRightPreColumnHtml(preMs, parentPreMs, preTop, preBot) + '</div>';
+            h += '<div class="tl-match-pre-col" style="position:relative">' + buildParentRightPreColumnHtml(preMs, parentPreMs, preTop, preBot) + '</div>';
             h += '</div>';
           } else {
             h += buildMatchPreColumnStackedHtml(preMs, preTop, preBot, null);
