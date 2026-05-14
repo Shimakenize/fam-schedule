@@ -576,7 +576,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260514-1';
+    var __UI_BUILD__ = '20260514-2';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -2527,6 +2527,10 @@
       return parts.join(' ');
     }
 
+    // 集合・出発・解散系 = 補助イベント枠（右カラム）へ移す役割
+    var _GATHER_ROLES_OBJ = {onsite_legacy:1, shuppatsu_legacy:1, onsite:1, bus_gather:1, freeform:1};
+    function _isGatherRole(role) { return !!_GATHER_ROLES_OBJ[role]; }
+
     /**
      * メイン直前の帯ほど match-pre1（濃）。上から i 番目 / 可視区間内の帯が n 本のとき
      * tier = min(3, max(1, n - i))（ロールではなく本番に近い順で 1→2→3）
@@ -2556,7 +2560,7 @@
         if (lane == null) filt.push(preMs[fi]);
         else {
           var isSp = preMs[fi].role === 'spectate_dep';
-          if (lane ? isSp : !isSp) filt.push(preMs[fi]);
+          if (lane ? isSp : (!isSp && !_isGatherRole(preMs[fi].role))) filt.push(preMs[fi]);
         }
       }
       var earlyFilt = [];
@@ -2650,7 +2654,7 @@
       var sm = [];
       var si, pi;
       for (si = 0; si < preMs.length; si++) {
-        if (preMs[si].role === 'spectate_dep') sm.push({ m: preMs[si].m, label: preMs[si].label });
+        if (preMs[si].role === 'spectate_dep' || _isGatherRole(preMs[si].role)) sm.push({ m: preMs[si].m, label: preMs[si].label });
       }
       for (pi = 0; pi < parentTimeMs.length; pi++) {
         sm.push({ m: parentTimeMs[pi].m, label: parentTimeMs[pi].label });
@@ -2742,7 +2746,9 @@
       var parentPreMs  = parentAllMs.filter(function(fm) { return fm.m < mainStart; });
       var parentMainMs = parentAllMs.filter(function(fm) { return fm.m >= mainStart && fm.m < mainEnd; });
       var parentPostMs = parentAllMs.filter(function(fm) { return fm.m >= mainEnd; });
-      var hasDualPre  = hasSpectateDep || parentPreMs.length > 0;
+      var hasGatherPre = false;
+      for (var gpi = 0; gpi < preMs.length; gpi++) { if (_isGatherRole(preMs[gpi].role)) { hasGatherPre = true; break; } }
+      var hasDualPre  = hasSpectateDep || parentPreMs.length > 0 || hasGatherPre;
       var hasDualMain = parentMainMs.length > 0;
       var hasDualPost = parentPostMs.length > 0;
       var h = '<div class="tl-block-inner tl-block-inner--stack">';
