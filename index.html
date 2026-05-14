@@ -576,7 +576,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260514-4';
+    var __UI_BUILD__ = '20260514-5';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -4004,25 +4004,7 @@
         '<div class="admin-section-title">承認済みユーザー（DB）</div>' +
         '<div class="sub-hint">環境変数の許可リストのみの利用者はここに出ません</div>' +
         '<div id="adminApprovedInner">読み込み中…</div>' +
-        '<div style="margin-top:14px;padding-top:12px;border-top:1px solid #233041;">' +
-        '<div class="admin-section-title">バンドル取込（2026年4月）</div>' +
-        '<p class="sub-hint" style="padding:0;">同梱テキストを DB に UPSERT（再実行可）</p>' +
-        '<button type="button" class="btn btn-primary" id="btnSeedBundled">バンドルデータを DB に取込</button>' +
-        '<span id="seedResult" style="margin-left:12px;"></span></div>' +
-        '<div style="margin-top:14px;padding-top:12px;border-top:1px solid #233041;">' +
-        '<div class="admin-section-title">平日定期（TR・ルール展開）</div>' +
-        '<p class="sub-hint" style="padding:0;">WeeklyPracticeSchedule.txt 相当の曜日・会場・時間を event_kind=TR で、既定 2026-04-01〜2026-09-30 に UPSERT（再実行可）</p>' +
-        '<button type="button" class="btn btn-primary" id="btnSeedWeeklyPractice">平日定期(TR)を DB に展開</button>' +
-        '<span id="seedWeeklyResult" style="margin-left:12px;"></span></div>' +
-        '<div style="margin-top:14px;padding-top:12px;border-top:1px solid #233041;">' +
-        '<div class="admin-section-title">スケジュールイベント操作（履歴）</div>' +
-        '<p class="sub-hint" style="padding:0;">schedule_events.id を指定。OFF・削除(一覧に訂正線で残す)・復帰(active)</p>' +
-        '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px;">' +
-        '<input type="text" id="adminEventId" placeholder="event id" style="flex:1;min-width:200px;padding:8px;border-radius:8px;border:1px solid #2b4258;background:#0b1220;color:#e5e7eb;" />' +
-        '<select id="adminEventAction" style="padding:8px;border-radius:8px;border:1px solid #2b4258;background:#0b1220;color:#e5e7eb;">' +
-        '<option value="off">OFF</option><option value="removed">削除(履歴)</option><option value="reactivate">復帰</option></select>' +
-        '<button type="button" class="btn btn-primary" id="btnScheduleEventAction">実行</button></div>' +
-        '<span id="scheduleEventActionResult" class="sub-hint" style="display:block;margin-top:8px;"></span></div></div>';
+        '</div>';
       try {
         var pendingRes = await apiGet('/api/access/pending');
         var approvedRes = await apiGet('/api/access/approved');
@@ -4057,57 +4039,6 @@
           ah += '</tbody></table>';
           apprEl.innerHTML = ah;
         }
-        document.getElementById('btnSeedBundled').addEventListener('click', async function() {
-          var out = document.getElementById('seedResult');
-          out.textContent = '実行中…';
-          try {
-            var res = await apiPostJson('/api/admin/seed-bundled-april-2026', {});
-            out.textContent = '完了: ' + (res.upserted != null ? res.upserted : '') + ' 件';
-            if (__lastMe && __lastMe.access_granted) {
-              await refreshScheduleCacheFromServer().catch(function() {});
-            }
-          } catch (e) {
-            out.textContent = '';
-            alert(esc(String(e.message || e)));
-          }
-        });
-        document.getElementById('btnSeedWeeklyPractice').addEventListener('click', async function() {
-          var out = document.getElementById('seedWeeklyResult');
-          out.textContent = '実行中…';
-          try {
-            var res = await apiPostJson('/api/admin/seed-weekly-practice', {});
-            out.textContent = '完了: ' + (res.upserted != null ? res.upserted : '') + ' 件（生成 ' +
-              (res.total_generated != null ? res.total_generated : '—') + '）';
-            if (__lastMe && __lastMe.access_granted) {
-              await refreshScheduleCacheFromServer().catch(function() {});
-            }
-          } catch (e) {
-            out.textContent = '';
-            alert(esc(String(e.message || e)));
-          }
-        });
-        document.getElementById('btnScheduleEventAction').addEventListener('click', async function() {
-          var eidEl = document.getElementById('adminEventId');
-          var actEl = document.getElementById('adminEventAction');
-          var out = document.getElementById('scheduleEventActionResult');
-          var eid = eidEl ? String(eidEl.value || '').trim() : '';
-          var act = actEl ? String(actEl.value || '') : '';
-          if (!eid) {
-            alert('event id を入力してください');
-            return;
-          }
-          out.textContent = '実行中…';
-          try {
-            var res = await apiPostJson('/api/admin/schedule/event-action', { event_id: eid, action: act });
-            out.textContent = '完了: display_status=' + (res.event && res.event.display_status != null ? res.event.display_status : '');
-            if (__lastMe && __lastMe.access_granted) {
-              await refreshScheduleCacheFromServer().catch(function() {});
-            }
-          } catch (err) {
-            out.textContent = '';
-            alert(esc(String(err.message || err)));
-          }
-        });
       } catch (e) {
         mount.innerHTML = '<div class="error">' + esc(String(e.message || e)) + '</div>';
       }
