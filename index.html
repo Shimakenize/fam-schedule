@@ -225,7 +225,11 @@
     .seg-toggle .seg-btn:hover { color: #1a2535; }
     .seg-toggle .seg-btn.active { background: #2563eb; color: #fff; font-weight: 600; }
     .tl-filter-chrome { margin-bottom: 4px; }
-    .tl-wrap { padding: 0 12px 16px 0; overflow-x: auto; flex: 1; min-width: 0; }
+    .tl-wrap { padding: 0 12px 16px 0; overflow-x: auto; flex: 1; min-width: 0; scrollbar-width: thin; scrollbar-color: #a09890 #ede8dc; }
+    .tl-wrap::-webkit-scrollbar { height: 8px; }
+    .tl-wrap::-webkit-scrollbar-track { background: #ede8dc; border-radius: 4px; }
+    .tl-wrap::-webkit-scrollbar-thumb { background: #a09890; border-radius: 4px; }
+    .tl-wrap::-webkit-scrollbar-thumb:hover { background: #7a716a; }
     .tl-scroll-inner { min-width: 520px; display: flex; flex-direction: column; align-items: stretch; }
     .tl-root--fixed-cols { --tl-day-col: 150px; }
     .tl-root--fixed-cols .tl-scroll-inner { min-width: 0; width: max-content; }
@@ -297,7 +301,7 @@
     }
     .tl-block { position: absolute; pointer-events: auto; box-sizing: border-box; padding: 2px 4px; border-radius: 6px;
       background: #1e3a5f; color: #e5e7eb; font-size: 0.62rem; line-height: 1.25; overflow: hidden; border: 1px solid #334155;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.35); }
+      box-shadow: 0 1px 2px rgba(0,0,0,0.35); filter: saturate(0.82) brightness(1.14); }
     .tl-cat-u13 { border: 2px solid rgba(80,100,120,0.7) !important; }
     .tl-cat-u14 { border: 2px solid #22d3ee !important; background: #1a2535 !important; color: #e5e7eb !important; }
     .tl-cat-u14 .tl-block-seg { background: #1a2535 !important; color: #e5e7eb !important; }
@@ -580,7 +584,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260520-2';
+    var __UI_BUILD__ = '20260520-3';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
