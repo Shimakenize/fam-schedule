@@ -230,6 +230,11 @@
     .tl-wrap::-webkit-scrollbar-track { background: #ede8dc; border-radius: 4px; }
     .tl-wrap::-webkit-scrollbar-thumb { background: #a09890; border-radius: 4px; }
     .tl-wrap::-webkit-scrollbar-thumb:hover { background: #7a716a; }
+    .tl-hscroll-mirror { overflow-x: auto; overflow-y: hidden; background: #ede8dc; border-bottom: 1px solid #d4ccc0; scrollbar-width: thin; scrollbar-color: #a09890 #ede8dc; }
+    .tl-hscroll-mirror::-webkit-scrollbar { height: 8px; }
+    .tl-hscroll-mirror::-webkit-scrollbar-track { background: #ede8dc; }
+    .tl-hscroll-mirror::-webkit-scrollbar-thumb { background: #a09890; border-radius: 4px; }
+    .tl-hscroll-mirror::-webkit-scrollbar-thumb:hover { background: #7a716a; }
     .tl-scroll-inner { min-width: 520px; display: flex; flex-direction: column; align-items: stretch; }
     .tl-root--fixed-cols { --tl-day-col: 150px; }
     .tl-root--fixed-cols .tl-scroll-inner { min-width: 0; width: max-content; }
@@ -584,7 +589,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260520-3';
+    var __UI_BUILD__ = '20260520-4';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -3839,6 +3844,30 @@
       return h;
     }
 
+    function setupTimelineMirrorScroll() {
+      var wrap = document.getElementById('tlMonthScroll');
+      if (!wrap) return;
+      var splitRoot = wrap.closest('.tl-root--split');
+      if (!splitRoot || !splitRoot.parentNode) return;
+      var old = document.getElementById('tlHScrollMirror');
+      if (old && old.parentNode) old.parentNode.removeChild(old);
+      if (wrap.scrollWidth <= wrap.clientWidth) return;
+      var mirror = document.createElement('div');
+      mirror.id = 'tlHScrollMirror';
+      mirror.className = 'tl-hscroll-mirror';
+      var ghost = document.createElement('div');
+      ghost.style.cssText = 'height:1px;width:' + wrap.scrollWidth + 'px;';
+      mirror.appendChild(ghost);
+      splitRoot.parentNode.insertBefore(mirror, splitRoot);
+      var syncing = false;
+      mirror.addEventListener('scroll', function() {
+        if (syncing) return; syncing = true; wrap.scrollLeft = mirror.scrollLeft; syncing = false;
+      });
+      wrap.addEventListener('scroll', function() {
+        if (syncing) return; syncing = true; mirror.scrollLeft = wrap.scrollLeft; syncing = false;
+      });
+    }
+
     function buildTimelineForDates(dateIsos, grouped, selectedYear, scrollWrapId, holidayIsos) {
       var todayIso = todayIsoJst();
       var tw = computeTimelineViewWindow(dateIsos, grouped);
@@ -3945,6 +3974,7 @@
           else scrollTimelineMonthToToday();
           updateTimelineNowLineMarkers();
           startTimelineNowLineTimer();
+          setupTimelineMirrorScroll();
         });
       });
     }
