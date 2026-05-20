@@ -225,7 +225,7 @@
     .seg-toggle .seg-btn:hover { color: #1a2535; }
     .seg-toggle .seg-btn.active { background: #2563eb; color: #fff; font-weight: 600; }
     .tl-filter-chrome { margin-bottom: 4px; }
-    .tl-wrap { padding: 0 12px 16px 0; overflow-x: scroll; -webkit-overflow-scrolling: touch; flex: 1; min-width: 0; scrollbar-width: thin; scrollbar-color: #a09890 #ede8dc; }
+    .tl-wrap { padding: 0 12px 16px 0; overflow-x: auto; flex: 1; min-width: 0; scrollbar-width: thin; scrollbar-color: #a09890 #ede8dc; }
     .tl-wrap::-webkit-scrollbar { height: 8px; }
     .tl-wrap::-webkit-scrollbar-track { background: #ede8dc; border-radius: 4px; }
     .tl-wrap::-webkit-scrollbar-thumb { background: #a09890; border-radius: 4px; }
@@ -263,7 +263,7 @@
       background: #f5f0e8; border-right: 1px solid #d4ccc0; z-index: 2; box-sizing: border-box;
     }
     .tl-left-rail .tl-corner {
-      width: 100%; min-height: 48px; box-sizing: border-box; border-bottom: 1px solid #d4ccc0;
+      width: 100%; min-height: 48px; box-sizing: border-box; border-bottom: 1px solid #d4ccc0; background: #ede8dc;
     }
     .tl-left-rail-spacer {
       flex-shrink: 0; min-height: 36px; background: #ede8dc; border-bottom: 1px solid #d4ccc0; box-sizing: border-box;
@@ -589,7 +589,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260520-6';
+    var __UI_BUILD__ = '20260520-7';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -3845,6 +3845,7 @@
     }
 
     function setupTimelineMirrorScroll() {
+      if ('ontouchstart' in window) return;
       var wrap = document.getElementById('tlMonthScroll');
       if (!wrap) return;
       var splitRoot = wrap.closest('.tl-root--split');
