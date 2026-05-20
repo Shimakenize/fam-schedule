@@ -225,7 +225,7 @@
     .seg-toggle .seg-btn:hover { color: #1a2535; }
     .seg-toggle .seg-btn.active { background: #2563eb; color: #fff; font-weight: 600; }
     .tl-filter-chrome { margin-bottom: 4px; }
-    .tl-wrap { padding: 0 12px 16px 0; overflow-x: auto; flex: 1; min-width: 0; scrollbar-width: thin; scrollbar-color: #a09890 #ede8dc; }
+    .tl-wrap { padding: 0 12px 16px 0; overflow-x: auto; overflow-y: auto; flex: 1; min-width: 0; scrollbar-width: thin; scrollbar-color: #a09890 #ede8dc; }
     .tl-wrap::-webkit-scrollbar { height: 8px; }
     .tl-wrap::-webkit-scrollbar-track { background: #ede8dc; border-radius: 4px; }
     .tl-wrap::-webkit-scrollbar-thumb { background: #a09890; border-radius: 4px; }
@@ -257,11 +257,15 @@
       width: calc(var(--tl-day-col) * 2);
     }
     .tl-root--fixed-cols .tl-days-strip { flex: 0 0 auto; min-width: 0; }
-    .tl-root--split { display: flex; flex-direction: row; align-items: stretch; padding: 0 12px 16px; }
+    .tl-root--split { display: flex; flex-direction: row; align-items: stretch; padding: 0 12px 16px; max-height: calc(100vh - 200px); min-height: 300px; overflow: hidden; }
     .tl-left-rail {
       flex: 0 0 48px; width: 48px; display: flex; flex-direction: column; flex-shrink: 0;
-      background: #f5f0e8; border-right: 1px solid #d4ccc0; z-index: 2; box-sizing: border-box;
+      background: #f5f0e8; border-right: 1px solid #d4ccc0; z-index: 2; box-sizing: border-box; overflow: hidden;
     }
+    .tl-left-rail-head { flex: 0 0 auto; }
+    .tl-left-rail-body { flex: 1; overflow-y: hidden; }
+    .tl-right-col { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+    .tl-head-wrap { flex: 0 0 auto; overflow: hidden; }
     .tl-left-rail .tl-corner {
       width: 100%; min-height: 48px; box-sizing: border-box; border-bottom: 1px solid #d4ccc0; background: #ede8dc;
     }
@@ -589,7 +593,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260520-7';
+    var __UI_BUILD__ = '20260520-8';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -3845,31 +3849,50 @@
     }
 
     function setupTimelineMirrorScroll() {
-      if ('ontouchstart' in window) return;
       var wrap = document.getElementById('tlMonthScroll');
       if (!wrap) return;
       var splitRoot = wrap.closest('.tl-root--split');
-      if (!splitRoot || !splitRoot.parentNode) return;
-      var old = document.getElementById('tlHScrollMirror');
-      if (old && old.parentNode) old.parentNode.removeChild(old);
-      if (wrap.scrollWidth <= wrap.clientWidth) return;
-      var mirror = document.createElement('div');
-      mirror.id = 'tlHScrollMirror';
-      mirror.className = 'tl-hscroll-mirror';
-      var ghost = document.createElement('div');
-      ghost.style.cssText = 'height:1px;width:' + wrap.scrollWidth + 'px;';
-      mirror.appendChild(ghost);
-      splitRoot.parentNode.insertBefore(mirror, splitRoot);
+      if (!splitRoot) return;
+      var headWrap = splitRoot.querySelector('.tl-head-wrap');
+      var leftRailBody = splitRoot.querySelector('.tl-left-rail-body');
       var syncing = false;
       var rafId = null;
-      mirror.addEventListener('scroll', function() {
-        if (syncing) return; syncing = true; wrap.scrollLeft = mirror.scrollLeft; syncing = false;
-      });
+      var mirror = null;
+
+      // Desktop-only mirror scrollbar above the timeline
+      if (!('ontouchstart' in window) && splitRoot.parentNode) {
+        var old = document.getElementById('tlHScrollMirror');
+        if (old && old.parentNode) old.parentNode.removeChild(old);
+        if (wrap.scrollWidth > wrap.clientWidth) {
+          mirror = document.createElement('div');
+          mirror.id = 'tlHScrollMirror';
+          mirror.className = 'tl-hscroll-mirror';
+          var ghost = document.createElement('div');
+          ghost.style.cssText = 'height:1px;width:' + wrap.scrollWidth + 'px;';
+          mirror.appendChild(ghost);
+          splitRoot.parentNode.insertBefore(mirror, splitRoot);
+          mirror.addEventListener('scroll', function() {
+            if (syncing) return;
+            syncing = true;
+            wrap.scrollLeft = mirror.scrollLeft;
+            if (headWrap) headWrap.scrollLeft = mirror.scrollLeft;
+            syncing = false;
+          });
+        }
+      }
+
+      // Sync body scroll → head-wrap (horizontal) + left-rail-body (vertical)
       wrap.addEventListener('scroll', function() {
         if (rafId) return;
         rafId = requestAnimationFrame(function() {
           rafId = null;
-          if (!syncing) { syncing = true; mirror.scrollLeft = wrap.scrollLeft; syncing = false; }
+          if (!syncing) {
+            syncing = true;
+            if (mirror) mirror.scrollLeft = wrap.scrollLeft;
+            if (headWrap) headWrap.scrollLeft = wrap.scrollLeft;
+            if (leftRailBody) leftRailBody.scrollTop = wrap.scrollTop;
+            syncing = false;
+          }
         });
       }, { passive: true });
     }
@@ -3892,12 +3915,18 @@
         }
       }
       var h = '<div class="tl-root tl-root--fixed-cols tl-root--split" data-tl-range-start="' + escAttr(String(tw.rangeStart)) + '" data-tl-range-end="' + escAttr(String(tw.rangeEnd)) + '" data-tl-range-span="' + escAttr(String(tw.rangeSpan)) + '">';
-      h += '<div class="tl-left-rail"><div class="tl-corner"><span class="tl-tz">JST</span></div>';
-      h += '<div class="tl-left-rail-spacer"></div>';
+      // Left rail: fixed header part + scrollable body part (synced via JS)
+      h += '<div class="tl-left-rail">';
+      h += '<div class="tl-left-rail-head"><div class="tl-corner"><span class="tl-tz">JST</span></div>';
+      h += '<div class="tl-left-rail-spacer"></div></div>';
+      h += '<div class="tl-left-rail-body">';
       h += buildTimeRulerHTML(tw.rangeStart, tw.rangeEnd);
       h += '<div class="tl-left-rail-footer-spacer" aria-hidden="true"></div>';
-      h += '</div>';
-      h += '<div class="tl-wrap"' + wrapId + '><div class="tl-scroll-inner">';
+      h += '</div></div>';
+      // Right column: fixed header + scrollable body
+      h += '<div class="tl-right-col">';
+      // Fixed header section (day names + all-day row)
+      h += '<div class="tl-head-wrap" id="tlHeadWrap"><div class="tl-scroll-inner">';
       h += '<div class="tl-header-row">' + buildTimelineDayHeadCellsHtml(dateIsos, todayIso, wideSet) + '</div>';
       h += '<div class="tl-allday-row">';
       for (var c2 = 0; c2 < dateIsos.length; c2++) {
@@ -3906,7 +3935,9 @@
         var sp = splitDayEventsForTimeline(dayEv, rs, re);
         h += '<div class="tl-allday-cell" data-date="' + escAttr(iso2) + '"' + (wideSet.has(iso2) ? ' data-wide' : '') + '>' + buildAllDayChipsFromList(sp.allDay) + '</div>';
       }
-      h += '</div>';
+      h += '</div></div></div>';
+      // Scrollable body section (time axis only)
+      h += '<div class="tl-wrap"' + wrapId + '><div class="tl-scroll-inner">';
       h += '<div class="tl-main-row"><div class="tl-days-strip">';
       for (var c3 = 0; c3 < dateIsos.length; c3++) {
         var iso3 = dateIsos[c3];
@@ -3920,17 +3951,19 @@
       }
       h += '</div></div>';
       h += '<div class="tl-footer-row" aria-hidden="true">' + buildTimelineDayHeadCellsHtml(dateIsos, todayIso, wideSet) + '</div>';
-      h += '</div></div></div>';
+      h += '</div></div>';
+      h += '</div></div>';
       return h;
     }
 
     function scrollTimelineMonthToToday() {
       var wrap = document.getElementById('tlMonthScroll');
       if (!wrap) return;
-      var head = wrap.querySelector('.tl-day-head--today');
+      var headWrap = document.getElementById('tlHeadWrap');
+      var head = (headWrap || wrap).querySelector('.tl-day-head--today');
       if (!head) return;
       var headCenter = head.getBoundingClientRect().left + head.getBoundingClientRect().width / 2;
-      var box = wrap.getBoundingClientRect();
+      var box = (headWrap || wrap).getBoundingClientRect();
       var targetScroll = wrap.scrollLeft + (headCenter - (box.left + box.width / 2));
       wrap.scrollLeft = Math.max(0, Math.round(targetScroll));
     }
