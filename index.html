@@ -13,9 +13,9 @@
     .auth-banner .relogin-inner { max-width: 560px; margin: 0 auto; line-height: 1.5; }
     .auth-banner .relogin-actions { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
     /* 駐車場アプリに合わせたコンパクトヘッダ（タイトル1行） */
-    .app-header { background: #ede8dc; color: #1a2535; padding: 10px 16px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #d4ccc0; }
-    .app-header-logo { height: 36px; width: auto; margin-right: 10px; }
-    .app-header-icon { width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0; object-fit: cover; border: 1px solid #233041; }
+    .app-header { background: #ede8dc; color: #1a2535; padding: 5px 12px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #d4ccc0; }
+    .app-header-logo { height: 24px; width: auto; margin-right: 6px; }
+    .app-header-icon { width: 26px; height: 26px; border-radius: 6px; flex-shrink: 0; object-fit: cover; border: 1px solid #233041; }
     .header-main { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
     .header-title-line { font-size: 1rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .header-title-line .ver { font-weight: 600; opacity: 0.9; font-size: 0.92rem; }
@@ -28,9 +28,9 @@
     .id-toggle-label input:focus-visible + .id-toggle-slider { outline: 2px solid #2ed3c6; outline-offset: 2px; }
     .id-toggle-label input:checked + .id-toggle-slider { background: #0d9488; }
     .id-toggle-label input:checked + .id-toggle-slider::after { transform: translateX(16px); background: #fff; }
-    /* ビュータブ（Monthly / Week / Weekend / 管理） */
+    /* ビュータブ（管理・仮登録・取り込み） */
     .view-tabs { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0; background: #ede8dc; border-bottom: 1px solid #d4ccc0; padding: 0 8px; }
-    .view-tab { background: transparent; border: none; color: #6b7280; padding: 11px 14px; font-size: 0.88rem; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -1px; font-family: inherit; }
+    .view-tab { background: transparent; border: none; color: #6b7280; padding: 6px 10px; font-size: 0.82rem; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -1px; font-family: inherit; }
     .view-tab:hover { color: #1a2535; }
     .view-tab.active { color: #1a2535; border-bottom-color: #2ed3c6; font-weight: 600; }
     .view-tab[hidden] { display: none !important; }
@@ -45,8 +45,8 @@
     .table-wrap-main { max-height: calc(100vh - 200px); overflow-y: auto; overflow-x: auto; }
     .data-table thead th { position: static; background: #ede8dc; box-shadow: 0 1px 0 #d4ccc0; }
     .filter-strip {
-      display: none; flex-wrap: nowrap; align-items: center; gap: 10px;
-      padding: 8px 16px; background: #ede8dc; border-bottom: 1px solid #d4ccc0;
+      display: none; flex-wrap: nowrap; align-items: center; gap: 6px;
+      padding: 4px 10px; background: #ede8dc; border-bottom: 1px solid #d4ccc0;
       overflow-x: auto;
     }
     .filter-strip-filters {
@@ -61,8 +61,8 @@
       min-width: 5.8em; font-size: 0.74rem; color: #94a3b8; text-align: right;
     }
     .filter-strip-icon-btn {
-      width: 38px; height: 38px; padding: 0; border: 1px solid #c8c4b8; border-radius: 8px;
-      background: #f5f0e8; color: #2ed3c6; font-size: 1.15rem; font-weight: 700;
+      width: 30px; height: 30px; padding: 0; border: 1px solid #c8c4b8; border-radius: 6px;
+      background: #f5f0e8; color: #2ed3c6; font-size: 0.95rem; font-weight: 700;
       cursor: pointer; flex-shrink: 0; line-height: 1; font-family: inherit;
       display: inline-flex; align-items: center; justify-content: center;
     }
@@ -165,37 +165,6 @@
     .identity-panel .value { word-break: break-all; font-family: ui-monospace, monospace; font-size: 0.82rem; color: #1a2535; }
     .btn-sm { padding: 4px 10px; font-size: 0.78rem; margin-right: 6px; }
     .btn-warn { background: #b45309; color: #fff; }
-    .todo-panel { margin: 0; padding: 14px 16px 24px; font-size: 0.88rem; color: #1a2535; max-width: 720px; }
-    .todo-header { margin-bottom: 14px; }
-    .todo-title { margin: 0; font-size: 1.05rem; font-weight: 700; color: #1a2535; }
-    .todo-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
-    .todo-add-status { flex: 0 0 auto; min-width: 4.5em; color: #0d9488; font-size: 0.82rem; font-weight: 500; }
-    .todo-new-input {
-      flex: 1 1 200px; min-width: 160px; padding: 10px 12px; border-radius: 8px; border: 1px solid #c8c4b8;
-      background: #f5f0e8; color: #1a2535; font-size: 0.88rem; font-family: inherit;
-    }
-    .todo-list { border-top: 1px solid #d4ccc0; }
-    .todo-row {
-      display: flex; align-items: center; gap: 12px; padding: 12px 4px; border-bottom: 1px solid #d4ccc0;
-      min-height: 48px; box-sizing: border-box;
-    }
-    .todo-check {
-      flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%; border: 2px solid #2ed3c6; background: transparent;
-      color: transparent; cursor: pointer; padding: 0; font-size: 0.75rem; line-height: 1; font-family: inherit;
-    }
-    .todo-check--done { background: #2ed3c6; color: #06212b; font-weight: 800; }
-    .todo-text { flex: 1 1 auto; min-width: 0; word-break: break-word; }
-    .todo-text--done { opacity: 0.45; text-decoration: line-through; color: #94a3b8; }
-    .todo-del {
-      flex: 0 0 auto; border: none; background: transparent; color: #64748b; font-size: 1.25rem; line-height: 1;
-      cursor: pointer; padding: 4px 8px; font-family: inherit;
-    }
-    .todo-del:hover { color: #fca5a5; }
-    .todo-row--busy { opacity: 0.92; }
-    .todo-check:disabled { opacity: 0.55; cursor: wait; }
-    .todo-del:disabled { opacity: 0.4; cursor: wait; }
-    .todo-row-status { flex: 0 0 auto; min-width: 3.8em; font-size: 0.74rem; color: #5eead4; font-weight: 500; align-self: center; }
-    .todo-empty { padding: 20px 8px; color: #94a3b8; font-size: 0.86rem; }
     .filter-strip.disabled { opacity: 0.45; pointer-events: none; }
     .week-block-title { font-size: 0.9rem; font-weight: 600; color: #2563eb; margin: 16px 0 8px; padding: 0 16px; }
     .week-block-title:first-of-type { margin-top: 8px; }
@@ -267,10 +236,10 @@
     .tl-right-col { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
     .tl-head-wrap { flex: 0 0 auto; overflow: hidden; }
     .tl-left-rail .tl-corner {
-      width: 100%; min-height: 48px; box-sizing: border-box; border-bottom: 1px solid #d4ccc0; background: #ede8dc;
+      width: 100%; min-height: 34px; box-sizing: border-box; border-bottom: 1px solid #d4ccc0; background: #ede8dc;
     }
     .tl-left-rail-spacer {
-      flex-shrink: 0; min-height: 36px; background: #ede8dc; border-bottom: 1px solid #d4ccc0; box-sizing: border-box;
+      flex-shrink: 0; min-height: 24px; background: #ede8dc; border-bottom: 1px solid #d4ccc0; box-sizing: border-box;
     }
     .tl-left-rail .tl-time-ruler {
       width: 100%; flex: 0 0 auto; min-height: 640px; height: 640px; border-right: none;
@@ -278,20 +247,20 @@
     .tl-left-rail-footer-spacer {
       flex-shrink: 0; min-height: 48px; box-sizing: border-box; background: #f5f0e8;
     }
-    .tl-header-row { display: flex; align-items: stretch; border-bottom: 1px solid #d4ccc0; min-height: 48px; flex: 0 0 auto; background: #ede8dc; }
+    .tl-header-row { display: flex; align-items: stretch; border-bottom: 1px solid #d4ccc0; min-height: 34px; flex: 0 0 auto; background: #ede8dc; }
     .tl-footer-row {
-      display: flex; align-items: stretch; border-top: 1px solid #d4ccc0; min-height: 48px;
+      display: flex; align-items: stretch; border-top: 1px solid #d4ccc0; min-height: 34px;
       background: #f5f0e8; flex: 0 0 auto;
     }
-    .tl-corner { width: 48px; flex-shrink: 0; padding: 8px 4px; font-size: 0.65rem; color: #7a8899; display: flex; align-items: flex-end; }
+    .tl-corner { width: 48px; flex-shrink: 0; padding: 4px 4px; font-size: 0.62rem; color: #7a8899; display: flex; align-items: flex-end; }
     .tl-tz { line-height: 1.2; }
-    .tl-day-head { flex: 1; min-width: 56px; text-align: center; padding: 8px 4px; font-size: 0.8rem; color: #2563eb; border-left: 1px solid #d4ccc0; }
-    .tl-day-head--today .tl-dom-wrap { display: inline-block; background: #2563eb; color: #fff; border-radius: 999px; padding: 2px 8px; }
-    .tl-dow { color: #6b7280; font-size: 0.72rem; }
+    .tl-day-head { flex: 1; min-width: 56px; text-align: center; padding: 4px 3px; font-size: 0.72rem; color: #2563eb; border-left: 1px solid #d4ccc0; }
+    .tl-day-head--today .tl-dom-wrap { display: inline-block; background: #2563eb; color: #fff; border-radius: 999px; padding: 1px 6px; }
+    .tl-dow { color: #6b7280; font-size: 0.66rem; }
     .tl-dom { font-weight: 700; }
-    .tl-allday-row { display: flex; border-bottom: 1px solid #d4ccc0; background: #ede8dc; min-height: 36px; flex: 0 0 auto; }
+    .tl-allday-row { display: flex; border-bottom: 1px solid #d4ccc0; background: #ede8dc; min-height: 24px; flex: 0 0 auto; }
     .tl-gutter-spacer { width: 48px; flex-shrink: 0; }
-    .tl-allday-cell { flex: 1; min-width: 56px; border-left: 1px solid #d4ccc0; padding: 4px; min-height: 28px; display: flex; flex-wrap: wrap; gap: 4px; align-content: flex-start; }
+    .tl-allday-cell { flex: 1; min-width: 56px; border-left: 1px solid #d4ccc0; padding: 2px; min-height: 20px; display: flex; flex-wrap: wrap; gap: 2px; align-content: flex-start; }
     .tl-chip { font-size: 0.65rem; padding: 3px 6px; border-radius: 6px; background: #1e3a5f; color: #bfdbfe; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .tl-chip--muted { opacity: 0.7; background: #c8c4b8; color: #4a5568; }
     .tl-block--marinos-compact { font-size: 0.58rem; padding: 2px 3px; line-height: 1.3; word-break: break-all; white-space: normal; }
@@ -542,10 +511,7 @@
   </header>
 
   <nav class="view-tabs" id="viewTabs" aria-label="表示切替" style="display:none;">
-    <button type="button" class="view-tab active" data-view="timeline" id="tabTimeline">タイムライン</button>
-    <button type="button" class="view-tab" data-view="table" id="tabTable">テーブル</button>
     <button type="button" class="view-tab" data-view="admin" id="tabAdmin" hidden>管理</button>
-    <button type="button" class="view-tab" data-view="todo" id="tabTodo" hidden>ToDo</button>
     <button type="button" class="view-tab" data-view="pending" id="tabPending" hidden>仮登録</button>
     <button type="button" class="view-tab" data-view="import" id="tabImport" hidden>取り込み</button>
   </nav>
@@ -567,7 +533,8 @@
     </div>
     <div class="filter-strip-actions">
       <span id="weekLoadStatus" class="filter-strip-status"></span>
-      <button type="button" class="filter-strip-icon-btn" id="btnTodayJump" title="本日へジャンプ" aria-label="本日へジャンプ" style="font-size:0.86rem;">今日</button>
+      <button type="button" class="filter-strip-icon-btn" id="btnViewToggle" title="タイムライン/テーブル切替" aria-label="表示切替" style="font-size:0.7rem;font-weight:700;width:30px;">TL</button>
+      <button type="button" class="filter-strip-icon-btn" id="btnTodayJump" title="本日へジャンプ" aria-label="本日へジャンプ" style="font-size:0.72rem;">今日</button>
       <button type="button" class="filter-strip-icon-btn" id="btnWeekPrev" title="前の1週間を読み込み" aria-label="前の1週間を読み込み">←</button>
       <button type="button" class="filter-strip-icon-btn" id="btnWeekNext" title="次の1週間を読み込み" aria-label="次の1週間を読み込み">→</button>
     </div>
@@ -593,7 +560,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260521-4';
+    var __UI_BUILD__ = '20260521-5';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -1809,6 +1776,11 @@
       if (c13) c13.checked = !!_filterCategoryChecks.u13;
       if (c14) c14.checked = !!_filterCategoryChecks.u14;
       if (c15) c15.checked = !!_filterCategoryChecks.u15;
+      var vt = document.getElementById('btnViewToggle');
+      if (vt) {
+        vt.textContent = currentView === 'table' ? 'TL' : '表';
+        vt.title = currentView === 'table' ? 'タイムライン表示に切替' : 'テーブル表示に切替';
+      }
     }
 
     function bindFilterStripOnce() {
@@ -1833,6 +1805,15 @@
           scheduleRerender();
         });
       });
+      var vt = document.getElementById('btnViewToggle');
+      if (vt) {
+        vt.addEventListener('click', function() {
+          var newView = currentView === 'timeline' ? 'table' : 'timeline';
+          applyView(newView).catch(function(e) {
+            document.getElementById('viewContent').innerHTML = '<div class="error">' + esc(String(e.message || e)) + '</div>';
+          });
+        });
+      }
     }
 
     async function fetchEventsRange(fromIso, toIso) {
@@ -1866,7 +1847,7 @@
     }
 
     async function loadScheduleInitial(silent) {
-      if (currentView === 'pending' || currentView === 'admin' || currentView === 'todo') return;
+      if (currentView === 'pending' || currentView === 'admin') return;
       var t = todayIsoJst();
       if (!t) t = toIsoDate(new Date());
       var from = addDaysIso(t, -2);
@@ -1902,7 +1883,7 @@
       __cachedMonthData.rangeTo = data.to || to;
       __cachedMonthData.year = parseInt(String(__cachedMonthData.rangeFrom).slice(0, 4), 10);
       __cachedMonthData.month = parseInt(String(__cachedMonthData.rangeFrom).slice(5, 7), 10);
-      if (currentView !== 'admin' && currentView !== 'pending' && currentView !== 'todo') {
+      if (currentView !== 'admin' && currentView !== 'pending') {
         updateToolbarForView();
         scheduleRerender();
       }
@@ -1913,7 +1894,7 @@
     }
 
     function scheduleRerender() {
-      if (currentView === 'admin' || currentView === 'pending' || currentView === 'todo') return;
+      if (currentView === 'admin' || currentView === 'pending') return;
       if (!__cachedMonthData) return;
       var el = document.getElementById('viewContent');
         var all = __cachedMonthData.events || [];
@@ -4044,10 +4025,6 @@
         showImportPanel();
         return;
       }
-      if (currentView === 'todo') {
-        await showTodoPanel();
-        return;
-      }
       if (currentView === 'admin') return;
       await loadScheduleInitial();
     }
@@ -4142,148 +4119,12 @@
       loadAdminTabContent();
     }
 
-    function buildTodoRowsHtml(todos) {
-      if (!todos || !todos.length) {
-        return '<div class="todo-empty">まだタスクはありません。下の入力から追加できます。</div>';
-      }
-      todos = todos.slice().sort(function(a, b) { return (a.done ? 1 : 0) - (b.done ? 1 : 0); });
-      var h = '';
-      var i;
-      for (i = 0; i < todos.length; i++) {
-        var t = todos[i];
-        var done = !!t.done;
-        h += '<div class="todo-row" data-todo-id="' + escAttr(t.id) + '">';
-        h += '<button type="button" class="todo-check' + (done ? ' todo-check--done' : '') + '" data-todo-toggle="' + escAttr(t.id) + '" aria-label="' + (done ? '未完了に戻す' : '完了にする') + '">';
-        if (done) h += '✓';
-        h += '</button>';
-        h += '<span class="todo-row-status" role="status" aria-live="polite"></span>';
-        h += '<span class="todo-text' + (done ? ' todo-text--done' : '') + '">' + esc(t.text) + '</span>';
-        h += '<button type="button" class="todo-del" data-todo-del="' + escAttr(t.id) + '" aria-label="削除">×</button>';
-        h += '</div>';
-      }
-      return h;
-    }
-
-    async function reloadTodoListMount() {
-      var mount = document.getElementById('todoListMount');
-      if (!mount) return;
-      try {
-        var res = await apiGet('/api/admin/app-todos');
-        if (res.error) throw new Error(res.error);
-        mount.innerHTML = buildTodoRowsHtml(res.todos || []);
-      } catch (e) {
-        mount.innerHTML = '<div class="error">' + esc(String(e.message || e)) + '</div>';
-      }
-    }
-
-    async function todoPanelSubmitAdd() {
-      var inp = document.getElementById('todoNewInput');
-      var btn = document.getElementById('btnTodoAdd');
-      var statusEl = document.getElementById('todoAddStatus');
-      var tx = (inp && inp.value || '').trim();
-      if (!tx) {
-        alert('内容を入力してください');
-        return;
-      }
-      function setTodoAddBusy(on) {
-        if (statusEl) {
-          statusEl.textContent = on ? '更新中…' : '';
-          statusEl.setAttribute('aria-busy', on ? 'true' : 'false');
-        }
-        if (btn) btn.disabled = !!on;
-        if (inp) inp.disabled = !!on;
-      }
-      setTodoAddBusy(true);
-      try {
-        await apiPostJson('/api/admin/app-todo-create', { text: tx });
-        inp.value = '';
-        await reloadTodoListMount();
-      } catch (e) {
-        alert(esc(String(e.message || e)));
-      } finally {
-        setTodoAddBusy(false);
-      }
-    }
-
-    async function showTodoPanel() {
-      var el = document.getElementById('viewContent');
-      el.innerHTML =
-        '<div class="todo-panel">' +
-        '<div class="todo-header">' +
-        '<h2 class="todo-title">ToDo</h2>' +
-        '</div>' +
-        '<div class="todo-toolbar">' +
-        '<input type="text" id="todoNewInput" class="todo-new-input" placeholder="新しいタスク…" />' +
-        '<button type="button" class="btn btn-primary" id="btnTodoAdd">追加</button>' +
-        '<span id="todoAddStatus" class="todo-add-status" role="status" aria-live="polite" aria-busy="false"></span>' +
-        '</div>' +
-        '<div id="todoListMount" class="todo-list">読み込み中…</div></div>';
-      document.getElementById('btnTodoAdd').addEventListener('click', todoPanelSubmitAdd);
-      var inp0 = document.getElementById('todoNewInput');
-      if (inp0) {
-        inp0.addEventListener('keydown', function(ev) {
-          if (ev.key === 'Enter') todoPanelSubmitAdd();
-        });
-      }
-      var mount = document.getElementById('todoListMount');
-      mount.addEventListener('click', async function(ev) {
-        var tg = ev.target.closest('[data-todo-toggle]');
-        var del = ev.target.closest('[data-todo-del]');
-        if (tg) {
-          if (tg.disabled) return;
-          var id = tg.getAttribute('data-todo-toggle');
-          var isDone = tg.classList.contains('todo-check--done');
-          var row = tg.closest('.todo-row');
-          var st = row && row.querySelector('.todo-row-status');
-          var delBtn = row && row.querySelector('[data-todo-del]');
-          tg.disabled = true;
-          if (delBtn) delBtn.disabled = true;
-          if (row) row.classList.add('todo-row--busy');
-          if (st) st.textContent = '更新中…';
-          try {
-            await apiPostJson('/api/admin/app-todo-update', { id: id, done: !isDone });
-            await reloadTodoListMount();
-          } catch (e) {
-            alert(esc(String(e.message || e)));
-            tg.disabled = false;
-            if (delBtn) delBtn.disabled = false;
-            if (row) row.classList.remove('todo-row--busy');
-            if (st) st.textContent = '';
-          }
-          return;
-        }
-        if (del) {
-          if (del.disabled) return;
-          var did = del.getAttribute('data-todo-del');
-          if (!confirm('このタスクを削除しますか？')) return;
-          var rowD = del.closest('.todo-row');
-          var stD = rowD && rowD.querySelector('.todo-row-status');
-          var chk = rowD && rowD.querySelector('[data-todo-toggle]');
-          del.disabled = true;
-          if (chk) chk.disabled = true;
-          if (rowD) rowD.classList.add('todo-row--busy');
-          if (stD) stD.textContent = '更新中…';
-          try {
-            await apiPostJson('/api/admin/app-todo-delete', { id: did });
-            await reloadTodoListMount();
-          } catch (e) {
-            alert(esc(String(e.message || e)));
-            del.disabled = false;
-            if (chk) chk.disabled = false;
-            if (rowD) rowD.classList.remove('todo-row--busy');
-            if (stD) stD.textContent = '';
-          }
-        }
-      });
-      await reloadTodoListMount();
-    }
-
     async function applyView(view) {
       currentView = view;
       if (view !== 'timeline') clearTimelineNowLineTimer();
       setViewTabsUI();
       var showScheduleChrome =
-        view !== 'admin' && view !== 'pending' && view !== 'todo' && view !== 'import' && __lastMe && __lastMe.access_granted;
+        view !== 'admin' && view !== 'pending' && view !== 'import' && __lastMe && __lastMe.access_granted;
       var fsx = document.getElementById('filterStrip');
       if (fsx) fsx.style.display = showScheduleChrome ? 'flex' : 'none';
       if (view === 'admin') {
@@ -4294,11 +4135,6 @@
       if (view === 'pending') {
         if (__lastMe && __lastMe.access_granted) await showPendingPanel();
         else document.getElementById('viewContent').innerHTML = '<div class="error">アクセス権限がありません。</div>';
-        return;
-      }
-      if (view === 'todo') {
-        if (__lastMe && __lastMe.is_admin) await showTodoPanel();
-        else document.getElementById('viewContent').innerHTML = '<div class="error">管理者のみ利用できます。</div>';
         return;
       }
       if (view === 'import') {
@@ -4318,7 +4154,7 @@
       document.querySelectorAll('.view-tab').forEach(function(btn) {
         btn.addEventListener('click', function() {
           var v = btn.getAttribute('data-view');
-          if ((v === 'admin' || v === 'todo') && (!__lastMe || !__lastMe.is_admin)) return;
+          if (v === 'admin' && (!__lastMe || !__lastMe.is_admin)) return;
           if ((v === 'pending' || v === 'import') && (!__lastMe || !__lastMe.access_granted)) return;
           applyView(v).catch(function(e) {
             document.getElementById('viewContent').innerHTML = '<div class="error">' + esc(String(e.message || e)) + '</div>';
@@ -4342,7 +4178,7 @@
       if (!me.require_approval || me.access_granted) {
         el.style.display = 'none';
         if (fsStrip) fsStrip.classList.remove('disabled');
-        tabs.style.display = 'flex';
+        tabs.style.display = me.is_admin ? 'flex' : 'none';
         var fs = document.getElementById('filterStrip');
         if (fs) fs.style.display = 'flex';
         bindFilterStripOnce();
@@ -4392,15 +4228,12 @@
       _cachedHeaderNoIds = parts.length ? parts.join(' · ') : '—';
       updateMetaStrip(me);
       var tabAdmin = document.getElementById('tabAdmin');
-      var tabTodo = document.getElementById('tabTodo');
       var tabPending = document.getElementById('tabPending');
       var tabImport = document.getElementById('tabImport');
       if (me.is_admin) {
         tabAdmin.hidden = false;
-        if (tabTodo) tabTodo.hidden = false;
       } else {
         tabAdmin.hidden = true;
-        if (tabTodo) tabTodo.hidden = true;
       }
       if (me.access_granted) {
         if (tabPending) tabPending.hidden = false;
@@ -4409,7 +4242,7 @@
         if (tabPending) tabPending.hidden = true;
         if (tabImport) tabImport.hidden = true;
       }
-      if ((currentView === 'admin' || currentView === 'todo') && !me.is_admin) {
+      if (currentView === 'admin' && !me.is_admin) {
         currentView = 'timeline';
         setViewTabsUI();
       }
@@ -4436,14 +4269,11 @@
         document.getElementById('loading').textContent = '';
         var me = await refreshMeAndPanels();
         var wantAdmin = readUrlTab() === 'admin' && me.is_admin;
-        var wantTodo = readUrlTab() === 'todo' && me.is_admin;
         var wantPending = readUrlTab() === 'pending' && me.is_admin;
         var urlTab = readUrlTab();
         if (me.access_granted) {
           if (wantPending) {
             applyView('pending');
-          } else if (wantTodo) {
-            applyView('todo');
           } else if (wantAdmin) {
             applyView('admin');
           } else {
