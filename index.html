@@ -593,7 +593,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260520-9';
+    var __UI_BUILD__ = '20260521-1';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -3633,7 +3633,7 @@
 
     function assignTimelineLanes(timedItems) {
       timedItems.sort(function(a, b) {
-        return a.clip.ds - b.clip.ds || a.clip.de - b.clip.de || _tlTierOrd(a) - _tlTierOrd(b);
+        return _tlTierOrd(a) - _tlTierOrd(b) || a.clip.ds - b.clip.ds || a.clip.de - b.clip.de;
       });
       var laneEnds = [];
       var placements = [];
@@ -3669,7 +3669,7 @@
       var marinos = timedItems.filter(function(it) { return it.ev.event_kind === 'マリノス戦'; });
 
       var sorted = normal.slice().sort(function(a, b) {
-        return a.clip.ds - b.clip.ds || a.clip.de - b.clip.de || _tlTierOrd(a) - _tlTierOrd(b);
+        return a.clip.ds - b.clip.ds || a.clip.de - b.clip.de;
       });
       var groups = [];
       var cur = [];
