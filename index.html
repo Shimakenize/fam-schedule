@@ -560,7 +560,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260521-5';
+    var __UI_BUILD__ = '20260522-1';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -2084,7 +2084,17 @@
           var res = await apiPostJson('/api/admin/parse-bulk-match-schedule', body);
           _parsedEvents = res.events || [];
           var nUnchanged = _parsedEvents.filter(function(e) { return e.diff_status === 'unchanged'; }).length;
-          document.getElementById('importStatus').textContent = _parsedEvents.length + '件をパースしました。';
+          var monthLabel = (res.year_resolved || '') + '年' + (res.month_resolved || '') + '月';
+          var monthWarn = '';
+          if (res.month_source === 'fallback') {
+            monthWarn = ' ⚠️ 月が自動検出できず現在月(' + (res.month_resolved || '') + '月)を使用。月フィールドを手動指定してください。';
+          } else if (res.month_source === 'text') {
+            monthWarn = '（テキストから ' + monthLabel + ' を検出）';
+          } else {
+            monthWarn = '（手動指定: ' + monthLabel + '）';
+          }
+          var statusEl = document.getElementById('importStatus');
+          statusEl.innerHTML = esc(_parsedEvents.length + '件をパースしました。') + '<span style="color:' + (res.month_source === 'fallback' ? '#fbbf24' : '#4ade80') + ';margin-left:8px;">' + esc(monthWarn) + '</span>';
           document.getElementById('importPreviewTable').innerHTML = _buildImportPreviewTable(_parsedEvents);
           _updateImportRegisterBtn();
         } catch(e) {
