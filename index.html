@@ -561,7 +561,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260522-2';
+    var __UI_BUILD__ = '20260522-3';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -921,7 +921,11 @@
     }
 
     async function apiGet(path) {
-      var r = await fetchWithAuthRetry(path, { method: 'GET' });
+      var fullPath = path;
+      if (fullPath.indexOf('_t=') === -1) {
+        fullPath += (fullPath.indexOf('?') === -1 ? '?' : '&') + '_t=' + Date.now();
+      }
+      var r = await fetchWithAuthRetry(fullPath, { method: 'GET' });
       return readApiErrorOrJson(r);
     }
 
@@ -942,6 +946,7 @@
         if (v == null) return;
         usp.set(k, String(v));
       });
+      usp.set('_t', String(Date.now())); // cache-buster
       var q = usp.toString();
       return apiGet(path + (q ? ('?' + q) : ''));
     }
@@ -2095,7 +2100,7 @@
             monthWarn = '（手動指定: ' + monthLabel + '）';
           }
           var statusEl = document.getElementById('importStatus');
-          statusEl.innerHTML = esc(_parsedEvents.length + '件をパースしました。') + '<span style="color:' + (res.month_source === 'fallback' ? '#fbbf24' : '#4ade80') + ';margin-left:8px;">' + esc(monthWarn) + '</span>';
+          statusEl.innerHTML = esc(_parsedEvents.length + '件をパースしました。') + '<span style="color:' + (res.month_source === 'fallback' ? '#d97706;font-weight:bold;' : '#16a34a') + ';margin-left:8px;">' + esc(monthWarn) + '</span>';
           document.getElementById('importPreviewTable').innerHTML = _buildImportPreviewTable(_parsedEvents);
           _updateImportRegisterBtn();
         } catch(e) {
@@ -2120,7 +2125,7 @@
         try {
           var body = { events: toImport };
           var res = await apiPostJson('/api/admin/parse-bulk-match-schedule', body);
-          document.getElementById('importStatus').innerHTML = '<span style="color:#4ade80;">' + res.upserted + '件を仮登録しました。「仮登録」タブで確認できます。</span>';
+          document.getElementById('importStatus').innerHTML = '<span style="color:#16a34a;font-weight:bold;">' + res.upserted + '件を仮登録しました。「仮登録」タブで確認できます。</span>';
           _parsedEvents = [];
           document.getElementById('btnImportRegister').disabled = true;
           document.getElementById('btnImportRegister').textContent = '仮登録する（0件）';
@@ -2141,20 +2146,20 @@
         'changed':   '<span style="background:#ff9800;color:#fff;padding:1px 6px;border-radius:3px;font-size:11px;white-space:nowrap;">変更</span>',
         'unchanged': '<span style="background:#9e9e9e;color:#fff;padding:1px 6px;border-radius:3px;font-size:11px;white-space:nowrap;">変更なし</span>',
       };
-      var ROW_BG = { 'new': '#0d2a18', 'changed': '#2a1f00', 'unchanged': '' };
+      var ROW_BG = { 'new': '#e8f5e9', 'changed': '#fff3e0', 'unchanged': '' };
       var FIELDS = ['event_date', 'category_code', 'league_or_competition', 'title', 'kickoff_primary', 'venue', 'notes'];
       function cellHtml(ev, fn) {
         var v = esc(ev[fn] || '');
         if (ev.diff_status === 'changed' && ev.changed_fields && ev.changed_fields.indexOf(fn) >= 0) {
           var old = esc((ev.existing && ev.existing[fn]) || '');
-          return '<td style="background:#3a2800;"><del style="color:#f87171;font-size:0.78rem;">' + old + '</del><br><strong>' + v + '</strong></td>';
+          return '<td style="background:#ffecb3;"><del style="color:#d32f2f;font-size:0.78rem;">' + old + '</del><br><strong>' + v + '</strong></td>';
         }
         return '<td>' + v + '</td>';
       }
-      var summary = '<div style="font-size:0.8rem;color:#94a3b8;margin-bottom:8px;">' +
-        '新規: <strong style="color:#4caf50;">' + nNew + '件</strong>' +
-        ' ／ 変更あり: <strong style="color:#ff9800;">' + nChanged + '件</strong>' +
-        ' ／ 変更なし: <strong style="color:#9e9e9e;">' + nUnchanged + '件</strong>（仮登録対象外）</div>';
+      var summary = '<div style="font-size:0.8rem;color:#64748b;margin-bottom:8px;">' +
+        '新規: <strong style="color:#16a34a;">' + nNew + '件</strong>' +
+        ' ／ 変更あり: <strong style="color:#d97706;">' + nChanged + '件</strong>' +
+        ' ／ 変更なし: <strong style="color:#64748b;">' + nUnchanged + '件</strong>（仮登録対象外）</div>';
       var h = '<table class="data-table"><thead><tr>' +
         '<th>登録</th><th>状態</th><th>日付</th><th>カテゴリ</th><th>大会</th><th>タイトル</th><th>時間</th><th>会場</th><th>メモ</th></tr></thead><tbody>';
       for (var i = 0; i < events.length; i++) {
@@ -2206,6 +2211,7 @@
             var msg = '本登録 ' + (res.approved != null ? res.approved : '') + ' 件';
             if (res.skipped && res.skipped.length) msg += '（スキップ ' + res.skipped.length + '）';
             if (out) out.textContent = msg;
+            __cachedMonthData = null; // force refresh for timeline
             try {
               if (__lastMe && __lastMe.access_granted) {
                 await loadMonth();
@@ -2242,6 +2248,7 @@
             var msg = '削除 ' + (res.deleted != null ? res.deleted : '') + ' 件';
             if (res.skipped && res.skipped.length) msg += '（対象外 ' + res.skipped.length + '）';
             if (out) out.textContent = msg;
+            __cachedMonthData = null; // force refresh for timeline
             try {
               if (__lastMe && __lastMe.access_granted) {
                 await loadMonth();
