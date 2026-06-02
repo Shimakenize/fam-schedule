@@ -561,7 +561,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260522-3';
+    var __UI_BUILD__ = '20260602-1';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -2046,7 +2046,10 @@
       vc.innerHTML =
         '<div class="admin-section" style="max-width:720px;margin:0 auto;">' +
         '<div class="admin-section-title">スケジュール取り込み</div>' +
-        '<p style="font-size:0.82rem;color:#94a3b8;margin:0 0 12px;">コーチからの月次スケジュールをそのまま貼り付けて仮登録できます。</p>' +
+        '<div style="display:flex;gap:20px;margin:0 0 12px;">' +
+        '<label style="font-size:0.82rem;color:#e5e7eb;cursor:pointer;"><input type="radio" name="importMode" value="structured" checked style="margin-right:4px;">週末・月間試合</label>' +
+        '<label style="font-size:0.82rem;color:#e5e7eb;cursor:pointer;"><input type="radio" name="importMode" value="free" style="margin-right:4px;">フリー（コーチ連絡など）</label>' +
+        '</div>' +
         '<textarea id="importText" rows="18" style="width:100%;box-sizing:border-box;background:#0b1220;color:#e5e7eb;border:1px solid #233041;border-radius:6px;padding:10px;font-size:0.82rem;font-family:monospace;resize:vertical;" placeholder="【5月試合スケジュール】&#10;☆U-15&#10;・U-15リーグ2部&#10;5日(火)&#10;vs 相手チーム&#10;10:45K/O&#10;@会場名"></textarea>' +
         '<div style="display:flex;align-items:center;gap:12px;margin:10px 0;">' +
         '<label style="font-size:0.82rem;color:#94a3b8;">年 <input id="importYear" type="number" value="' + new Date().getFullYear() + '" style="width:72px;background:#0b1220;color:#e5e7eb;border:1px solid #233041;border-radius:4px;padding:3px 6px;" /></label>' +
@@ -2084,9 +2087,11 @@
         document.getElementById('importStatus').textContent = '解析中…';
         document.getElementById('btnImportPreview').disabled = true;
         try {
+          var parseMode = (document.querySelector('input[name="importMode"]:checked') || {}).value || 'structured';
           var body = { text: text, dry_run: true };
           if (yearVal) body.year = yearVal;
           if (monthVal) body.month = monthVal;
+          if (parseMode === 'free') body.parse_mode = 'free';
           var res = await apiPostJson('/api/admin/parse-bulk-match-schedule', body);
           _parsedEvents = res.events || [];
           var nUnchanged = _parsedEvents.filter(function(e) { return e.diff_status === 'unchanged'; }).length;
