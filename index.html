@@ -561,7 +561,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260603-1';
+    var __UI_BUILD__ = '20260603-2';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -2146,7 +2146,7 @@
         'unchanged': '<span style="background:#9e9e9e;color:#fff;padding:1px 6px;border-radius:3px;font-size:11px;white-space:nowrap;">変更なし</span>',
       };
       var ROW_BG = { 'new': '#e8f5e9', 'changed': '#fff3e0', 'unchanged': '' };
-      var FIELDS = ['event_date', 'category_code', 'league_or_competition', 'title', 'event_time', 'venue', 'notes'];
+      var FIELDS = ['event_date', 'category_code', 'league_or_competition', 'title', 'opponent', 'event_time', 'venue', 'pre_event_coach', 'post_event_coach', 'notes'];
       function cellHtml(ev, fn) {
         var v = esc(ev[fn] || '');
         if (ev.diff_status === 'changed' && ev.changed_fields && ev.changed_fields.indexOf(fn) >= 0) {
@@ -2160,7 +2160,7 @@
         ' ／ 変更あり: <strong style="color:#d97706;">' + nChanged + '件</strong>' +
         ' ／ 変更なし: <strong style="color:#64748b;">' + nUnchanged + '件</strong>（仮登録対象外）</div>';
       var h = '<table class="data-table"><thead><tr>' +
-        '<th>登録</th><th>状態</th><th>日付</th><th>カテゴリ</th><th>大会</th><th>タイトル</th><th>時間</th><th>会場</th><th>メモ</th></tr></thead><tbody>';
+        '<th>登録</th><th>状態</th><th>日付</th><th>カテゴリ</th><th>大会</th><th>タイトル</th><th>対戦相手</th><th>時間</th><th>会場</th><th>前段(コーチ)</th><th>後段(コーチ)</th><th>メモ</th></tr></thead><tbody>';
       for (var i = 0; i < events.length; i++) {
         var ev = events[i];
         var st = ev.diff_status || 'new';
