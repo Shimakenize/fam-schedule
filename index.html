@@ -561,7 +561,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260603-3';
+    var __UI_BUILD__ = '20260603-4';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -3087,13 +3087,13 @@
         (isAllDay
           ? '<input type="hidden" name="event_time" value="" /><input type="hidden" name="all_day" value="true" />'
           : '<label class="tl-edit-label">時間（開始-終了 例 10:00-11:00）</label><input class="tl-edit-field" type="text" name="event_time" required placeholder="10:00-11:00" value="' + escAttr(kick) + '" />') +
-        '<label class="tl-edit-label">補助イベント(前)（出発・集合など）</label><input class="tl-edit-field" type="text" name="pre_event_coach" value="' +
+        '<label class="tl-edit-label">集合・出発（コーチ）</label><input class="tl-edit-field" type="text" name="pre_event_coach" value="' +
         escAttr(ev ? (ev.pre_event_coach || '') : '') + '" />' +
-        '<label class="tl-edit-label">前段・ユーザー</label><input class="tl-edit-field" type="text" name="pre_event_user" placeholder="17:15出発" value="' +
+        '<label class="tl-edit-label">出発（自分）（例: 17:15出発）</label><input class="tl-edit-field" type="text" name="pre_event_user" value="' +
         escAttr(ev ? (ev.pre_event_user || '') : '') + '" />' +
-        '<label class="tl-edit-label">補助イベント(後)（到着・帰宅など）</label><input class="tl-edit-field" type="text" name="post_event_coach" value="' +
+        '<label class="tl-edit-label">解散（コーチ）</label><input class="tl-edit-field" type="text" name="post_event_coach" value="' +
         escAttr(ev ? (ev.post_event_coach || '') : '') + '" />' +
-        '<label class="tl-edit-label">後段・ユーザー</label><input class="tl-edit-field" type="text" name="post_event_user" placeholder="21:30バス到着" value="' +
+        '<label class="tl-edit-label">帰宅（自分）（例: 21:30バス到着）</label><input class="tl-edit-field" type="text" name="post_event_user" value="' +
         escAttr(ev ? (ev.post_event_user || '') : '') + '" />' +
         '<label class="tl-edit-label">保護者時間（保護者のみの予定）</label><input class="tl-edit-field" type="text" name="parent_time" value="' +
         escAttr(ev ? (ev.parent_time || '') : '') + '" />' +
