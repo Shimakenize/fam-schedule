@@ -289,7 +289,7 @@
       pointer-events: none;
     }
     .tl-claude-reset-marker--plain::after { content: none; }
-    /* Claude weekly reset — Sat 19:00 JST; dotted amber (vs dashed violet / solid red now) */
+    /* Claude weekly reset — Sun 19:00 JST; dotted amber (vs dashed violet / solid red now) */
     .tl-weekly-reset-marker {
       position: absolute; left: 0; right: 0; z-index: 3; pointer-events: none;
       height: 0; margin-top: 0; top: 0; border-top: 2px dotted rgba(217, 119, 6, 0.88);
@@ -585,7 +585,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260605-2';
+    var __UI_BUILD__ = '20260606-1';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -639,8 +639,8 @@
     var TL_END_MIN = 22 * 60;
     /** Claude usage window reset (approx. 04:50 cycle → simplified to :00) */
     var TL_CLAUDE_RESET_HOURS = [5, 10, 15, 20];
-    /** Claude weekly usage reset — Saturday 19:00 JST */
-    var TL_WEEKLY_RESET_DOW = 6;
+    /** Claude weekly usage reset — Sunday 19:00 JST */
+    var TL_WEEKLY_RESET_DOW = 0;
     var TL_WEEKLY_RESET_MIN = 19 * 60;
     var __tlNowInterval = null;
     var SCHED_CACHE_TTL = 3 * 60 * 1000;
@@ -2396,7 +2396,7 @@
       var span = Math.max(1, rangeSpan);
       var topPct = (TL_WEEKLY_RESET_MIN - rangeStart) / span * 100;
       var cls = 'tl-weekly-reset-marker' + (showLabel ? '' : ' tl-weekly-reset-marker--plain');
-      return '<div class="' + cls + '" style="top:' + topPct.toFixed(3) + '%" data-tl-weekly-reset="1" aria-hidden="true" title="Claude weekly reset (Sat 19:00 JST)"></div>';
+      return '<div class="' + cls + '" style="top:' + topPct.toFixed(3) + '%" data-tl-weekly-reset="1" aria-hidden="true" title="Claude weekly reset (Sun 19:00 JST)"></div>';
     }
 
     function updateTimelineNowLineMarkers() {
