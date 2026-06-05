@@ -278,6 +278,14 @@
       background: linear-gradient(90deg, rgba(248, 113, 113, 0.15) 0%, #f87171 12%, #f87171 88%, rgba(248, 113, 113, 0.15) 100%);
       box-shadow: 0 0 6px rgba(248, 113, 113, 0.85);
     }
+    .tl-now-marker .tl-now-cursor-usage {
+      position: absolute; left: 2px; top: -14px; z-index: 6;
+      font-size: 0.62rem; line-height: 1.15; font-weight: 700;
+      letter-spacing: 0.01em; white-space: nowrap; pointer-events: none;
+      color: #1d4ed8; background: rgba(245, 240, 232, 0.98); padding: 1px 5px; border-radius: 3px;
+      box-shadow: 0 0 0 1px rgba(29, 78, 216, 0.18);
+    }
+    .tl-now-marker .tl-now-cursor-usage.is-unavailable { color: #374151; box-shadow: 0 0 0 1px rgba(55, 65, 81, 0.15); }
     .tl-now-marker .tl-now-usage-bar {
       position: absolute; left: 2px; top: 3px; z-index: 6;
       display: inline-flex; flex-wrap: nowrap; align-items: center; gap: 6px;
@@ -600,7 +608,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260606-7';
+    var __UI_BUILD__ = '20260606-8';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -660,6 +668,8 @@
     var __tlNowInterval = null;
     var __claudeUsageCache = null;
     var __claudeUsageFetchTs = 0;
+    var __cursorUsageCache = null;
+    var __cursorUsageFetchTs = 0;
     var CLAUDE_USAGE_POLL_MS = 60000;
     var SCHED_CACHE_TTL = 3 * 60 * 1000;
     function _saveScheduleCache(uid, data) {
@@ -2393,6 +2403,42 @@
       return data.note || 'scripts/sync_claude_oauth_to_gas.py で OAuth を同期してください';
     }
 
+    function formatCursorUsageLabel(data) {
+      if (!data || data.source !== 'oauth') return 'Cursor: --';
+      if (data.pct == null) return 'Cursor: n/a';
+      var days = data.cycle_days_elapsed;
+      if (days == null) return 'Cursor: ' + data.pct + '%';
+      return 'Cursor: ' + data.pct + '% (' + days + 'days)';
+    }
+
+    function cursorUsageTooltip(data) {
+      if (!data) return '';
+      if (data.source === 'oauth') {
+        var tip = 'Cursor 請求周期利用率（GetCurrentPeriodUsage）';
+        if (data.cycle_days_total != null && data.cycle_days_elapsed != null) {
+          tip += ' · day ' + data.cycle_days_elapsed + '/' + data.cycle_days_total;
+        }
+        if (data.display_message) tip += ' · ' + data.display_message;
+        return tip;
+      }
+      if (data.error) return 'Cursor OAuth 取得失敗: ' + data.error;
+      return data.note || 'scripts/sync_cursor_oauth_to_gas.py で OAuth を同期してください';
+    }
+
+    function applyCursorUsageToNowMarkers(data) {
+      if (!canShowClaudeUsage()) return;
+      var label = formatCursorUsageLabel(data);
+      var tip = cursorUsageTooltip(data);
+      var unavailable = !data || data.source !== 'oauth';
+      document.querySelectorAll('.tl-now-marker[data-tl-now="1"]').forEach(function(n) {
+        var el = n.querySelector('[data-tl-usage-cursor]');
+        if (!el) return;
+        el.textContent = label;
+        el.className = 'tl-now-cursor-usage' + (unavailable ? ' is-unavailable' : '');
+        el.title = tip;
+      });
+    }
+
     function applyClaudeUsageToNowMarkers(data) {
       if (!data || !canShowClaudeUsage()) return;
       var src = data.source || '';
@@ -2431,14 +2477,36 @@
       }
     }
 
+    async function fetchCursorUsage() {
+      if (!canShowClaudeUsage()) return null;
+      if (__cursorUsageCache && (Date.now() - __cursorUsageFetchTs) < CLAUDE_USAGE_POLL_MS) {
+        return __cursorUsageCache;
+      }
+      try {
+        var r = await fetchWithAuth('/api/cursor-usage');
+        var data = await readApiErrorOrJson(r);
+        __cursorUsageCache = data;
+        __cursorUsageFetchTs = Date.now();
+        return data;
+      } catch (e) {
+        return __cursorUsageCache;
+      }
+    }
+
+    async function refreshNowLineUsageLabels() {
+      var results = await Promise.all([fetchClaudeUsage(), fetchCursorUsage()]);
+      if (results[0]) applyClaudeUsageToNowMarkers(results[0]);
+      applyCursorUsageToNowMarkers(results[1]);
+    }
+
     async function refreshClaudeUsageLabels() {
-      var data = await fetchClaudeUsage();
-      if (data) applyClaudeUsageToNowMarkers(data);
+      await refreshNowLineUsageLabels();
     }
 
     function buildTimelineNowMarkerInnerHtml() {
       if (!canShowClaudeUsage()) return '';
-      return '<div class="tl-now-usage-bar">' +
+      return '<span class="tl-now-cursor-usage" data-tl-usage-cursor></span>' +
+        '<div class="tl-now-usage-bar">' +
         '<span class="tl-now-usage-left" data-tl-usage-5h></span>' +
         '<span class="tl-now-usage-right" data-tl-usage-week></span>' +
         '</div>';
@@ -2514,6 +2582,7 @@
         '<div class="tl-now-marker" style="top:' + topPct.toFixed(3) + '%" data-tl-now="1" aria-hidden="true">' +
         buildTimelineNowMarkerInnerHtml() + '</div>');
       applyClaudeUsageToNowMarkers(__claudeUsageCache);
+      applyCursorUsageToNowMarkers(__cursorUsageCache);
     }
 
     function startTimelineNowLineTimer() {
