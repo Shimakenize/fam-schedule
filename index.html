@@ -277,6 +277,30 @@
       background: linear-gradient(90deg, rgba(248, 113, 113, 0.15) 0%, #f87171 12%, #f87171 88%, rgba(248, 113, 113, 0.15) 100%);
       box-shadow: 0 0 6px rgba(248, 113, 113, 0.85);
     }
+    /* Claude 5h reset (simplified 5:00/10:00/15:00/20:00 JST) — dashed, no glow */
+    .tl-claude-reset-marker {
+      position: absolute; left: 0; right: 0; z-index: 3; pointer-events: none;
+      height: 0; margin-top: 0; top: 0; border-top: 1px dashed rgba(124, 58, 237, 0.72);
+    }
+    .tl-claude-reset-marker::after {
+      content: 'Claude'; position: absolute; left: 2px; top: -8px;
+      font-size: 0.5rem; line-height: 1; font-weight: 700; letter-spacing: 0.02em;
+      color: #6d28d9; background: rgba(245, 240, 232, 0.92); padding: 0 2px; border-radius: 2px;
+      pointer-events: none;
+    }
+    .tl-claude-reset-marker--plain::after { content: none; }
+    /* Claude weekly reset — Sat 19:00 JST; dotted amber (vs dashed violet / solid red now) */
+    .tl-weekly-reset-marker {
+      position: absolute; left: 0; right: 0; z-index: 3; pointer-events: none;
+      height: 0; margin-top: 0; top: 0; border-top: 2px dotted rgba(217, 119, 6, 0.88);
+    }
+    .tl-weekly-reset-marker::after {
+      content: 'Weekly'; position: absolute; left: 2px; top: -8px;
+      font-size: 0.5rem; line-height: 1; font-weight: 700; letter-spacing: 0.02em;
+      color: #b45309; background: rgba(245, 240, 232, 0.92); padding: 0 2px; border-radius: 2px;
+      pointer-events: none;
+    }
+    .tl-weekly-reset-marker--plain::after { content: none; }
     .tl-block { position: absolute; pointer-events: auto; box-sizing: border-box; padding: 2px 4px; border-radius: 6px;
       background: #1e3a5f; color: #e5e7eb; font-size: 0.62rem; line-height: 1.25; overflow: hidden; border: 1px solid #334155;
       box-shadow: 0 1px 2px rgba(0,0,0,0.35); }
@@ -561,7 +585,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260603-4';
+    var __UI_BUILD__ = '20260605-2';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -613,6 +637,11 @@
     var _cachedMetaText = '';
     var TL_START_MIN = 6 * 60;
     var TL_END_MIN = 22 * 60;
+    /** Claude usage window reset (approx. 04:50 cycle → simplified to :00) */
+    var TL_CLAUDE_RESET_HOURS = [5, 10, 15, 20];
+    /** Claude weekly usage reset — Saturday 19:00 JST */
+    var TL_WEEKLY_RESET_DOW = 6;
+    var TL_WEEKLY_RESET_MIN = 19 * 60;
     var __tlNowInterval = null;
     var SCHED_CACHE_TTL = 3 * 60 * 1000;
     function _saveScheduleCache(uid, data) {
@@ -2343,6 +2372,33 @@
       return '<div class="tl-now-marker" style="top:' + topPct.toFixed(3) + '%" data-tl-now="1" aria-hidden="true"></div>';
     }
 
+    function buildTimelineClaudeResetMarkersHtml(rangeStart, rangeEnd, rangeSpan, showLabel) {
+      var h = '';
+      var span = Math.max(1, rangeSpan);
+      for (var i = 0; i < TL_CLAUDE_RESET_HOURS.length; i++) {
+        var resetMin = TL_CLAUDE_RESET_HOURS[i] * 60;
+        if (resetMin < rangeStart || resetMin > rangeEnd) continue;
+        var topPct = (resetMin - rangeStart) / span * 100;
+        var cls = 'tl-claude-reset-marker' + (showLabel ? '' : ' tl-claude-reset-marker--plain');
+        h += '<div class="' + cls + '" style="top:' + topPct.toFixed(3) + '%" data-tl-claude-reset="1" aria-hidden="true" title="Claude 5h reset (' + TL_CLAUDE_RESET_HOURS[i] + ':00 JST)"></div>';
+      }
+      return h;
+    }
+
+    function isWeeklyResetDayIso(isoDate) {
+      var d = parseLocalDate(isoDate);
+      return !!(d && d.getDay() === TL_WEEKLY_RESET_DOW);
+    }
+
+    function buildTimelineWeeklyResetMarkerHtml(isoDate, rangeStart, rangeEnd, rangeSpan, showLabel) {
+      if (!isWeeklyResetDayIso(isoDate)) return '';
+      if (TL_WEEKLY_RESET_MIN < rangeStart || TL_WEEKLY_RESET_MIN > rangeEnd) return '';
+      var span = Math.max(1, rangeSpan);
+      var topPct = (TL_WEEKLY_RESET_MIN - rangeStart) / span * 100;
+      var cls = 'tl-weekly-reset-marker' + (showLabel ? '' : ' tl-weekly-reset-marker--plain');
+      return '<div class="' + cls + '" style="top:' + topPct.toFixed(3) + '%" data-tl-weekly-reset="1" aria-hidden="true" title="Claude weekly reset (Sat 19:00 JST)"></div>';
+    }
+
     function updateTimelineNowLineMarkers() {
       if (currentView !== 'timeline') {
         clearTimelineNowLineTimer();
@@ -3956,13 +4012,18 @@
       // Scrollable body section (time axis only)
       h += '<div class="tl-wrap"' + wrapId + '><div class="tl-scroll-inner">';
       h += '<div class="tl-main-row"><div class="tl-days-strip">';
+      var weeklyLabelShown = false;
       for (var c3 = 0; c3 < dateIsos.length; c3++) {
         var iso3 = dateIsos[c3];
         var dayEv3 = grouped[iso3] || [];
         var sp3 = splitDayEventsForTimeline(dayEv3, rs, re);
         var placements = assignTimelineLanesByGroup(sp3.timed);
+        var showWeeklyLabel = isWeeklyResetDayIso(iso3) && !weeklyLabelShown;
+        if (showWeeklyLabel) weeklyLabelShown = true;
         h += '<div class="tl-day-body" data-date="' + escAttr(iso3) + '"' + (wideSet.has(iso3) ? ' data-wide' : '') + ' style="--tl-slot:' + slotPx.toFixed(2) + 'px">';
         h += buildTimedBlocksLayerHtml(placements, tw.rangeStart, tw.rangeSpan, slotPx);
+        h += buildTimelineClaudeResetMarkersHtml(tw.rangeStart, tw.rangeEnd, tw.rangeSpan, c3 === 0);
+        h += buildTimelineWeeklyResetMarkerHtml(iso3, tw.rangeStart, tw.rangeEnd, tw.rangeSpan, showWeeklyLabel);
         h += buildTimelineNowMarkerHtml(iso3, todayIso, tw.rangeStart, tw.rangeEnd, tw.rangeSpan);
         h += '</div>';
       }
