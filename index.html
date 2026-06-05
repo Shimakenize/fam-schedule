@@ -277,18 +277,16 @@
       background: linear-gradient(90deg, rgba(248, 113, 113, 0.15) 0%, #f87171 12%, #f87171 88%, rgba(248, 113, 113, 0.15) 100%);
       box-shadow: 0 0 6px rgba(248, 113, 113, 0.85);
     }
-    .tl-now-marker::before,
-    .tl-now-marker::after {
+    .tl-now-marker .tl-now-usage-left,
+    .tl-now-marker .tl-now-usage-right {
       position: absolute; top: -9px; font-size: 0.48rem; line-height: 1; font-weight: 600;
       letter-spacing: 0.01em; white-space: nowrap; pointer-events: none;
       color: #b91c1c; background: rgba(245, 240, 232, 0.94); padding: 0 3px; border-radius: 2px;
     }
-    .tl-now-marker::before {
-      content: 'claude usage for 5h'; left: 2px; text-align: left;
-    }
-    .tl-now-marker::after {
-      content: 'claude usage for week'; right: 2px; text-align: right;
-    }
+    .tl-now-marker .tl-now-usage-left { left: 2px; text-align: left; }
+    .tl-now-marker .tl-now-usage-right { right: 2px; text-align: right; }
+    .tl-now-marker .tl-now-usage-left.is-elapsed,
+    .tl-now-marker .tl-now-usage-right.is-elapsed { color: #9a3412; }
     /* Claude 5h reset (simplified 5:00/10:00/15:00/20:00 JST) — dashed, no glow */
     .tl-claude-reset-marker {
       position: absolute; left: 0; right: 0; z-index: 3; pointer-events: none;
@@ -597,7 +595,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260606-2';
+    var __UI_BUILD__ = '20260606-3';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -655,6 +653,9 @@
     var TL_WEEKLY_RESET_DOW = 0;
     var TL_WEEKLY_RESET_MIN = 19 * 60;
     var __tlNowInterval = null;
+    var __claudeUsageCache = null;
+    var __claudeUsageFetchTs = 0;
+    var CLAUDE_USAGE_POLL_MS = 60000;
     var SCHED_CACHE_TTL = 3 * 60 * 1000;
     function _saveScheduleCache(uid, data) {
       if (!uid || !data) return;
@@ -2367,6 +2368,67 @@
       }
     }
 
+    function canShowClaudeUsage() {
+      return IS_DEV_BYPASS || (__lastMe && __lastMe.is_admin);
+    }
+
+    function formatClaudeUsageSide(prefix, pct, source) {
+      var p = Math.round(Number(pct) || 0);
+      if (source === 'window_elapsed') return prefix + ': ~' + p + '%';
+      return prefix + ': ' + p + '%';
+    }
+
+    function applyClaudeUsageToNowMarkers(data) {
+      if (!data || !canShowClaudeUsage()) return;
+      var src = data.source || '';
+      var left = formatClaudeUsageSide('5h', data.five_hour_pct, src);
+      var right = formatClaudeUsageSide('week', data.seven_day_pct, src);
+      var tip = src === 'window_elapsed'
+        ? 'ウィンドウ経過率（実際の利用率ではありません）'
+        : 'Claude Pro/Max 利用率（OAuth usage API）';
+      document.querySelectorAll('.tl-now-marker[data-tl-now="1"]').forEach(function(n) {
+        var el5 = n.querySelector('[data-tl-usage-5h]');
+        var elW = n.querySelector('[data-tl-usage-week]');
+        if (el5) {
+          el5.textContent = left;
+          el5.className = 'tl-now-usage-left' + (src === 'window_elapsed' ? ' is-elapsed' : '');
+          el5.title = tip;
+        }
+        if (elW) {
+          elW.textContent = right;
+          elW.className = 'tl-now-usage-right' + (src === 'window_elapsed' ? ' is-elapsed' : '');
+          elW.title = tip;
+        }
+      });
+    }
+
+    async function fetchClaudeUsage() {
+      if (!canShowClaudeUsage()) return null;
+      if (__claudeUsageCache && (Date.now() - __claudeUsageFetchTs) < CLAUDE_USAGE_POLL_MS) {
+        return __claudeUsageCache;
+      }
+      try {
+        var r = await fetchWithAuth('/api/claude-usage');
+        var data = await readApiErrorOrJson(r);
+        __claudeUsageCache = data;
+        __claudeUsageFetchTs = Date.now();
+        return data;
+      } catch (e) {
+        return __claudeUsageCache;
+      }
+    }
+
+    async function refreshClaudeUsageLabels() {
+      var data = await fetchClaudeUsage();
+      if (data) applyClaudeUsageToNowMarkers(data);
+    }
+
+    function buildTimelineNowMarkerInnerHtml() {
+      if (!canShowClaudeUsage()) return '';
+      return '<span class="tl-now-usage-left" data-tl-usage-5h></span>' +
+        '<span class="tl-now-usage-right" data-tl-usage-week"></span>';
+    }
+
     function clearTimelineNowLineTimer() {
       if (__tlNowInterval) {
         clearInterval(__tlNowInterval);
@@ -2381,7 +2443,8 @@
       if (nowMin < rangeStart || nowMin > rangeEnd) return '';
       var span = Math.max(1, rangeSpan);
       var topPct = (nowMin - rangeStart) / span * 100;
-      return '<div class="tl-now-marker" style="top:' + topPct.toFixed(3) + '%" data-tl-now="1" aria-hidden="true"></div>';
+      return '<div class="tl-now-marker" style="top:' + topPct.toFixed(3) + '%" data-tl-now="1" aria-hidden="true">' +
+        buildTimelineNowMarkerInnerHtml() + '</div>';
     }
 
     function buildTimelineClaudeResetMarkersHtml(rangeStart, rangeEnd, rangeSpan, showLabel) {
@@ -2432,12 +2495,17 @@
       if (nowMin < 0 || nowMin < rs || nowMin > re) return;
       var topPct = (nowMin - rs) / Math.max(1, rsp) * 100;
       bodyToday.insertAdjacentHTML('beforeend',
-        '<div class="tl-now-marker" style="top:' + topPct.toFixed(3) + '%" data-tl-now="1" aria-hidden="true"></div>');
+        '<div class="tl-now-marker" style="top:' + topPct.toFixed(3) + '%" data-tl-now="1" aria-hidden="true">' +
+        buildTimelineNowMarkerInnerHtml() + '</div>');
+      applyClaudeUsageToNowMarkers(__claudeUsageCache);
     }
 
     function startTimelineNowLineTimer() {
       clearTimelineNowLineTimer();
-      __tlNowInterval = setInterval(updateTimelineNowLineMarkers, 60000);
+      __tlNowInterval = setInterval(function() {
+        updateTimelineNowLineMarkers();
+        refreshClaudeUsageLabels();
+      }, 60000);
     }
 
     function groupEventsByIsoDate(rows) {
@@ -4102,6 +4170,7 @@
           if (anchorIso) scrollTimelineMonthToDate(anchorIso);
           else scrollTimelineMonthToToday();
           updateTimelineNowLineMarkers();
+          refreshClaudeUsageLabels();
           startTimelineNowLineTimer();
           setupTimelineMirrorScroll();
         });
