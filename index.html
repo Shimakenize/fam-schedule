@@ -292,12 +292,17 @@
       max-width: calc(100% - 4px); pointer-events: none;
     }
     .tl-now-marker .tl-now-usage-left,
-    .tl-now-marker .tl-now-usage-right {
+    .tl-now-marker .tl-now-usage-right,
+    .tl-now-marker .tl-now-usage-extra {
       position: static; font-size: 0.62rem; line-height: 1.15; font-weight: 700;
       letter-spacing: 0.01em; white-space: nowrap;
       color: #b91c1c; background: rgba(245, 240, 232, 0.98); padding: 1px 5px; border-radius: 3px;
       box-shadow: 0 0 0 1px rgba(185, 28, 28, 0.18);
     }
+    .tl-now-marker .tl-now-usage-extra {
+      color: #b45309; box-shadow: 0 0 0 1px rgba(180, 83, 9, 0.22);
+    }
+    .tl-now-marker .tl-now-usage-extra.is-hidden { display: none; }
     .tl-now-marker .tl-now-usage-left.is-unavailable,
     .tl-now-marker .tl-now-usage-right.is-unavailable { color: #374151; box-shadow: 0 0 0 1px rgba(55, 65, 81, 0.15); }
     /* Claude 5h reset (simplified 5:00/10:00/15:00/20:00 JST) — dashed, no glow */
@@ -608,7 +613,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260606-8';
+    var __UI_BUILD__ = '20260606-9';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -2396,9 +2401,32 @@
       return prefix + ': ' + p + '%';
     }
 
+    function formatClaudeExtraSpend(data, source) {
+      if (source !== 'oauth' || !data || !data.extra_enabled) return '';
+      var usd = Number(data.extra_spend_usd);
+      if (!isFinite(usd) || usd <= 0) return '';
+      var cur = String(data.extra_currency || 'USD').toUpperCase();
+      var sym = cur === 'EUR' ? '€' : '$';
+      if (usd >= 100) return '+' + sym + Math.round(usd);
+      if (usd >= 10) return '+' + sym + (Math.round(usd * 10) / 10);
+      return '+' + sym + (Math.round(usd * 100) / 100);
+    }
+
     function claudeUsageTooltip(data) {
       if (!data) return '';
-      if (data.source === 'oauth') return 'Claude Pro/Max 利用率（OAuth usage API）';
+      if (data.source === 'oauth') {
+        var tip = 'Claude Pro/Max 利用率（OAuth usage API）';
+        if (data.extra_enabled && Number(data.extra_spend_usd) > 0) {
+          tip += ' · 月枠超過 extra/on-demand: $' + data.extra_spend_usd;
+          if (data.extra_monthly_limit_usd != null) {
+            tip += ' / cap $' + data.extra_monthly_limit_usd;
+          }
+          if (data.extra_utilization_pct != null) {
+            tip += ' (' + data.extra_utilization_pct + '% of extra cap)';
+          }
+        }
+        return tip;
+      }
       if (data.error) return 'OAuth 取得失敗: ' + data.error;
       return data.note || 'scripts/sync_claude_oauth_to_gas.py で OAuth を同期してください';
     }
@@ -2443,15 +2471,22 @@
       if (!data || !canShowClaudeUsage()) return;
       var src = data.source || '';
       var left = formatClaudeUsageSide('5h', data.five_hour_pct, src);
+      var extra = formatClaudeExtraSpend(data, src);
       var right = formatClaudeUsageSide('week', data.seven_day_pct, src);
       var tip = claudeUsageTooltip(data);
       document.querySelectorAll('.tl-now-marker[data-tl-now="1"]').forEach(function(n) {
         var el5 = n.querySelector('[data-tl-usage-5h]');
+        var elX = n.querySelector('[data-tl-usage-extra]');
         var elW = n.querySelector('[data-tl-usage-week]');
         if (el5) {
           el5.textContent = left;
           el5.className = 'tl-now-usage-left' + (src === 'oauth' ? '' : ' is-unavailable');
           el5.title = tip;
+        }
+        if (elX) {
+          elX.textContent = extra;
+          elX.className = 'tl-now-usage-extra' + (extra ? '' : ' is-hidden');
+          elX.title = extra ? tip : '';
         }
         if (elW) {
           elW.textContent = right;
@@ -2508,6 +2543,7 @@
       return '<span class="tl-now-cursor-usage" data-tl-usage-cursor></span>' +
         '<div class="tl-now-usage-bar">' +
         '<span class="tl-now-usage-left" data-tl-usage-5h></span>' +
+        '<span class="tl-now-usage-extra is-hidden" data-tl-usage-extra></span>' +
         '<span class="tl-now-usage-right" data-tl-usage-week></span>' +
         '</div>';
     }
