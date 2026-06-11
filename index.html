@@ -490,6 +490,7 @@
     .tl-block.tl-block--provisional { border-style: dashed; border-width: 2px; border-color: rgba(226, 232, 240, 0.45); }
     .tl-block.tl-kind-match { background: #1e3a5f; border-color: #334e6f; }
     .tl-block.tl-kind-adhoc { background: #3d2a5c; border-color: #5b3d7a; }
+    .tl-block.tl-kind-wc2026 { background: #6240a0; border-color: #8660c4; }
     .tl-block.tl-kind-tr { background: #14532d; border-color: #166534; }
     .tl-block.tl-kind-juku { background: #7c2d12; border-color: #9a3412; }
     .tl-block.tl-kind-private { background: #3f2a56; border-color: #5c3d75; }
@@ -613,7 +614,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260611-11';
+    var __UI_BUILD__ = '20260611-12';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -3806,7 +3807,10 @@
 
     function timelineKindClass(ev) {
       var k = canonicalEventKind(ev.event_kind);
-      if (k === 'adhoc') return 'tl-kind-adhoc';
+      if (k === 'adhoc') {
+        if (/WC\s*2026/i.test(String(ev.league_or_competition || ''))) return 'tl-kind-wc2026';
+        return 'tl-kind-adhoc';
+      }
       if (k === 'TR') return 'tl-kind-tr';
       if (k === '塾') return 'tl-kind-juku';
       if (k === '私用') return 'tl-kind-private';
@@ -3908,12 +3912,14 @@
         return _tlTierOrd(a) - _tlTierOrd(b) || a.clip.ds - b.clip.ds || a.clip.de - b.clip.de;
       });
       var laneEnds = [];
+      var lanePriority = []; // min tier (highest priority) ever placed — higher-tier events cannot reclaim lower-tier lanes
       var placements = [];
       for (var i = 0; i < timedItems.length; i++) {
         var it = timedItems[i];
+        var itTier = _tlTierOrd(it);
         var lane = -1;
         for (var L = 0; L < laneEnds.length; L++) {
-          if (laneEnds[L] <= it.clip.ds) {
+          if (laneEnds[L] <= it.clip.ds && lanePriority[L] >= itTier) {
             lane = L;
             laneEnds[L] = it.clip.de;
             break;
@@ -3922,6 +3928,7 @@
         if (lane < 0) {
           lane = laneEnds.length;
           laneEnds.push(it.clip.de);
+          lanePriority.push(itTier);
         }
         placements.push({ item: it, lane: lane });
       }
