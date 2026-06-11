@@ -613,7 +613,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260606-9';
+    var __UI_BUILD__ = '20260611-10';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -670,6 +670,9 @@
     /** Claude weekly usage reset — Sunday 19:00 JST */
     var TL_WEEKLY_RESET_DOW = 0;
     var TL_WEEKLY_RESET_MIN = 19 * 60;
+    /** display toggles — set false to hide without removing implementation */
+    var SHOW_USAGE_ON_NOW_LINE = false;
+    var SHOW_WEEKLY_RESET_MARKER = false;
     var __tlNowInterval = null;
     var __claudeUsageCache = null;
     var __claudeUsageFetchTs = 0;
@@ -2389,6 +2392,7 @@
     }
 
     function canShowClaudeUsage() {
+      if (!SHOW_USAGE_ON_NOW_LINE) return false;
       return IS_DEV_BYPASS || (__lastMe && __lastMe.is_admin);
     }
 
@@ -2585,6 +2589,7 @@
     }
 
     function buildTimelineWeeklyResetMarkerHtml(isoDate, rangeStart, rangeEnd, rangeSpan, showLabel) {
+      if (!SHOW_WEEKLY_RESET_MARKER) return '';
       if (!isWeeklyResetDayIso(isoDate)) return '';
       if (TL_WEEKLY_RESET_MIN < rangeStart || TL_WEEKLY_RESET_MIN > rangeEnd) return '';
       var span = Math.max(1, rangeSpan);
