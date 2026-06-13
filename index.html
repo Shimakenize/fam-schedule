@@ -226,6 +226,15 @@
       max-width: calc(var(--tl-day-col) * 2);
       width: calc(var(--tl-day-col) * 2);
     }
+    /* W杯期間(2026-06-12〜07-19)の土日: 現行weekend(2x)の1.5倍 = 3x */
+    .tl-root--fixed-cols .tl-day-head[data-wide="wc"],
+    .tl-root--fixed-cols .tl-allday-cell[data-wide="wc"],
+    .tl-root--fixed-cols .tl-day-body[data-wide="wc"] {
+      flex: 0 0 calc(var(--tl-day-col) * 3);
+      min-width: calc(var(--tl-day-col) * 3);
+      max-width: calc(var(--tl-day-col) * 3);
+      width: calc(var(--tl-day-col) * 3);
+    }
     .tl-root--fixed-cols .tl-days-strip { flex: 0 0 auto; min-width: 0; }
     .tl-root--split { display: flex; flex-direction: row; align-items: stretch; padding: 0 12px 16px; max-height: calc(100vh - 200px); min-height: 300px; overflow: hidden; }
     .tl-left-rail {
@@ -630,7 +639,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260613-14';
+    var __UI_BUILD__ = '20260613-15';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -2770,6 +2779,9 @@
       m = Math.max(0, Math.min(24 * 60 - 1, Math.round(m)));
       return String(Math.floor(m / 60)) + ':' + pad2(m % 60);
     }
+    function isWcPeriodIso(iso) {
+      return iso >= '2026-06-12' && iso <= '2026-07-19';
+    }
 
     /** 出発・集合がメインより前なら時刻順で「… · メイン」、それ以外は生の event_time */
     function formatKickoffAssemblyThenMain(ev) {
@@ -4144,7 +4156,7 @@
       return h;
     }
 
-    function buildTimelineDayHeadCellsHtml(dateIsos, todayIso, wideSet) {
+    function buildTimelineDayHeadCellsHtml(dateIsos, todayIso, wideSet, wcWideSet) {
       var h = '';
       for (var c = 0; c < dateIsos.length; c++) {
         var isoDate = dateIsos[c];
@@ -4152,8 +4164,8 @@
         var wd = d ? WEEKDAY_JA[d.getDay()] : '';
         var dom = d ? String(d.getDate()) : '';
         var isToday = todayIso && isoDate === todayIso;
-        var isWide = wideSet && wideSet.has(isoDate);
-        h += '<div class="tl-day-head' + (isToday ? ' tl-day-head--today' : '') + '"' + (isWide ? ' data-wide' : '') + '><span class="tl-dow">' + esc(wd) + '</span> <span class="tl-dom-wrap"><span class="tl-dom">' + esc(dom) + '</span></span></div>';
+        var wideAttr = (wcWideSet && wcWideSet.has(isoDate)) ? ' data-wide="wc"' : ((wideSet && wideSet.has(isoDate)) ? ' data-wide' : '');
+        h += '<div class="tl-day-head' + (isToday ? ' tl-day-head--today' : '') + '"' + wideAttr + '><span class="tl-dow">' + esc(wd) + '</span> <span class="tl-dom-wrap"><span class="tl-dom">' + esc(dom) + '</span></span></div>';
       }
       return h;
     }
@@ -4216,12 +4228,16 @@
       var wrapId = scrollWrapId ? ' id="' + escAttr(String(scrollWrapId)) + '"' : '';
       var holidaySet = new Set(holidayIsos || []);
       var wideSet = new Set();
+      var wcWideSet = new Set();
       for (var wi = 0; wi < dateIsos.length; wi++) {
         var wiso = dateIsos[wi];
         var wd2 = parseLocalDate(wiso);
         if (wd2) {
           var dow = wd2.getDay();
-          if (dow === 0 || dow === 6 || holidaySet.has(wiso)) wideSet.add(wiso);
+          if (dow === 0 || dow === 6 || holidaySet.has(wiso)) {
+            if (isWcPeriodIso(wiso)) wcWideSet.add(wiso);
+            else wideSet.add(wiso);
+          }
         }
       }
       var h = '<div class="tl-root tl-root--fixed-cols tl-root--split" data-tl-range-start="' + escAttr(String(tw.rangeStart)) + '" data-tl-range-end="' + escAttr(String(tw.rangeEnd)) + '" data-tl-range-span="' + escAttr(String(tw.rangeSpan)) + '">';
@@ -4237,13 +4253,14 @@
       h += '<div class="tl-right-col">';
       // Fixed header section (day names + all-day row)
       h += '<div class="tl-head-wrap" id="tlHeadWrap"><div class="tl-scroll-inner">';
-      h += '<div class="tl-header-row">' + buildTimelineDayHeadCellsHtml(dateIsos, todayIso, wideSet) + '</div>';
+      h += '<div class="tl-header-row">' + buildTimelineDayHeadCellsHtml(dateIsos, todayIso, wideSet, wcWideSet) + '</div>';
       h += '<div class="tl-allday-row">';
       for (var c2 = 0; c2 < dateIsos.length; c2++) {
         var iso2 = dateIsos[c2];
         var dayEv = grouped[iso2] || [];
         var sp = splitDayEventsForTimeline(dayEv, rs, re);
-        h += '<div class="tl-allday-cell" data-date="' + escAttr(iso2) + '"' + (wideSet.has(iso2) ? ' data-wide' : '') + '>' + buildAllDayChipsFromList(sp.allDay) + '</div>';
+        var wAttr2 = wcWideSet.has(iso2) ? ' data-wide="wc"' : (wideSet.has(iso2) ? ' data-wide' : '');
+        h += '<div class="tl-allday-cell" data-date="' + escAttr(iso2) + '"' + wAttr2 + '>' + buildAllDayChipsFromList(sp.allDay) + '</div>';
       }
       h += '</div></div></div>';
       // Scrollable body section (time axis only)
@@ -4257,7 +4274,8 @@
         var placements = assignTimelineLanesByGroup(sp3.timed);
         var showWeeklyLabel = isWeeklyResetDayIso(iso3) && !weeklyLabelShown;
         if (showWeeklyLabel) weeklyLabelShown = true;
-        h += '<div class="tl-day-body' + (todayIso && iso3 === todayIso ? ' tl-day-body--today' : '') + '" data-date="' + escAttr(iso3) + '"' + (wideSet.has(iso3) ? ' data-wide' : '') + ' style="--tl-slot:' + slotPx.toFixed(2) + 'px">';
+        var wAttr3 = wcWideSet.has(iso3) ? ' data-wide="wc"' : (wideSet.has(iso3) ? ' data-wide' : '');
+        h += '<div class="tl-day-body' + (todayIso && iso3 === todayIso ? ' tl-day-body--today' : '') + '" data-date="' + escAttr(iso3) + '"' + wAttr3 + ' style="--tl-slot:' + slotPx.toFixed(2) + 'px">';
         h += buildTimedBlocksLayerHtml(placements, tw.rangeStart, tw.rangeSpan, slotPx);
         h += buildTimelineClaudeResetMarkersHtml(tw.rangeStart, tw.rangeEnd, tw.rangeSpan, c3 === 0);
         h += buildTimelineWeeklyResetMarkerHtml(iso3, tw.rangeStart, tw.rangeEnd, tw.rangeSpan, showWeeklyLabel);
@@ -4265,7 +4283,7 @@
         h += '</div>';
       }
       h += '</div></div>';
-      h += '<div class="tl-footer-row" aria-hidden="true">' + buildTimelineDayHeadCellsHtml(dateIsos, todayIso, wideSet) + '</div>';
+      h += '<div class="tl-footer-row" aria-hidden="true">' + buildTimelineDayHeadCellsHtml(dateIsos, todayIso, wideSet, wcWideSet) + '</div>';
       h += '</div></div>';
       h += '</div></div>';
       return h;
