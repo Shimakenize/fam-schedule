@@ -377,6 +377,13 @@
     .tl-block-seg-venue {
       font-size: 0.54rem; opacity: 0.65; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
+    /* narrow: 2列以上のレーンに入るブロック用コンパクト表示 */
+    .tl-block--narrow .tl-block-seg { padding: 2px 2px; }
+    .tl-block--narrow .tl-block-seg-time { font-size: 0.56rem; letter-spacing: -0.02em; }
+    .tl-block--narrow .tl-block-seg-sub { -webkit-line-clamp: 1; font-size: 0.52rem; }
+    .tl-block--narrow .tl-block-seg-venue { display: none; }
+    .tl-block--narrow.tl-block--compact { padding: 1px 2px !important; }
+    .tl-block--narrow .tl-block-inner--compact { white-space: normal; word-break: break-word; font-size: 0.55rem; line-height: 1.2; text-overflow: clip; }
     /* 後段補助セグメント（到着・帰宅など）はラベルを下寄せ */
     .tl-block--stacked .tl-block-seg--match-post1,
     .tl-block--stacked .tl-block-seg--match-post2,
@@ -623,7 +630,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260611-13';
+    var __UI_BUILD__ = '20260613-14';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -2759,6 +2766,10 @@
       m = Math.max(0, Math.min(24 * 60 - 1, Math.round(m)));
       return pad2(Math.floor(m / 60)) + ':' + pad2(m % 60);
     }
+    function formatMinutesHmShort(m) {
+      m = Math.max(0, Math.min(24 * 60 - 1, Math.round(m)));
+      return String(Math.floor(m / 60)) + ':' + pad2(m % 60);
+    }
 
     /** 出発・集合がメインより前なら時刻順で「… · メイン」、それ以外は生の event_time */
     function formatKickoffAssemblyThenMain(ev) {
@@ -3003,7 +3014,7 @@
     }
 
     /** 試合: §1.0.1 トークンに基づく積層（他種別は buildTimelineStackedInnerHtml 従来） */
-    function buildMatchTimelineStackedInnerHtml(ev, clip) {
+    function buildMatchTimelineStackedInnerHtml(ev, clip, narrow) {
       if (!ev || !clip || clip.de <= clip.ds) return '';
       var core = parseTimeRangeMinutesCoreNormalized(ev);
       if (!core) return '';
@@ -3057,10 +3068,11 @@
       var mainE = Math.min(clip.de, mainEnd);
       var mainMin = Math.max(0, mainE - mainS);
       var gMain = Math.max(1, mainMin);
+      var _fmtHm = narrow ? formatMinutesHmShort : formatMinutesHm;
       var mainTimeStr = core.end > core.start
-        ? (formatMinutesHm(core.start) + '-' + formatMinutesHm(core.end))
-        : formatMinutesHm(core.start);
-      var sub = timelineEventSubtitleInBlock(ev);
+        ? (_fmtHm(core.start) + '-' + _fmtHm(core.end))
+        : _fmtHm(core.start);
+      var sub = narrow ? timelineEventMainLabel(ev) : timelineEventSubtitleInBlock(ev);
       if (hasDualMain) {
         h += '<div class="tl-match-pre-dual" style="flex:' + gMain + ' 1 0;min-height:0">';
         h += '<div class="tl-match-pre-col">';
@@ -3190,10 +3202,10 @@
     /**
      * 出発→集合→本番（時刻順）。解散は本番末尾の tail のみ。別レーンの枠にはしない。
      */
-    function buildTimelineStackedInnerHtml(ev, clip) {
+    function buildTimelineStackedInnerHtml(ev, clip, narrow) {
       if (!ev || !clip || clip.de <= clip.ds) return '';
       if (isMatchTimelineSegEv(ev)) {
-        return buildMatchTimelineStackedInnerHtml(ev, clip);
+        return buildMatchTimelineStackedInnerHtml(ev, clip, narrow);
       }
       var core = parseTimeRangeMinutesCoreNormalized(ev);
       if (!core) return '';
@@ -3243,15 +3255,16 @@
       if (!hasPre && !dismissStr && mainMin <= 0) return '';
 
       var gMain = Math.max(1, mainMin);
+      var _fmtHm2 = narrow ? formatMinutesHmShort : formatMinutesHm;
       var mainTimeStr = core.end > core.start
-        ? (formatMinutesHm(core.start) + '-' + formatMinutesHm(core.end))
-        : formatMinutesHm(core.start);
-      var sub = timelineEventSubtitleInBlock(ev);
+        ? (_fmtHm2(core.start) + '-' + _fmtHm2(core.end))
+        : _fmtHm2(core.start);
+      var sub = narrow ? timelineEventMainLabel(ev) : timelineEventSubtitleInBlock(ev);
       h += '<div class="tl-block-seg tl-block-seg--main" style="flex:' + gMain + ' 1 0;min-height:0">';
       h += '<div class="tl-block-seg-body">';
       h += '<span class="tl-block-seg-time">' + esc(mainTimeStr) + '</span>';
       if (sub) h += '<span class="tl-block-seg-sub">' + esc(sub) + '</span>';
-      if (ev.venue) h += '<span class="tl-block-seg-venue">' + esc(ev.venue) + '</span>';
+      if (!narrow && ev.venue) h += '<span class="tl-block-seg-venue">' + esc(ev.venue) + '</span>';
       h += '</div>';
       if (dismissStr) h += '<span class="tl-block-seg-tail">' + esc(dismissStr) + '</span>';
       h += '</div></div>';
@@ -4028,6 +4041,8 @@
         var laneCount = Math.max(1, pl.lanes || 1);
         var wPct = 100 / laneCount;
         var leftPct = pl.lane * wPct;
+        var narrow = laneCount >= 2;
+        var narrowCls = narrow ? ' tl-block--narrow' : '';
         var rowCls = rowClass(ev);
         var mcls = (isVoidRow(ev) || isPastEventDate(ev)) ? ' tl-block--muted' : '';
         var prov = !!pl.item._provisional;
@@ -4042,7 +4057,7 @@
         var blockHeightPx = (bSpan / 30) * (slotPx || 40);
         var compact = (!prov && bSpan > 0 && blockHeightPx < 48);
         var compactCls = compact ? ' tl-block--compact' : '';
-        var stackedInner = (!prov && !compact && bSpan > 0) ? buildTimelineStackedInnerHtml(ev, clip) : '';
+        var stackedInner = (!prov && !compact && bSpan > 0) ? buildTimelineStackedInnerHtml(ev, clip, narrow) : '';
         var useStack = stackedInner !== '';
         var stackCls = useStack ? ' tl-block--stacked' : '';
         var emHtml = '';
@@ -4087,7 +4102,7 @@
           h += '<div class="tl-block ' + kcls + ' tl-block--marinos-compact' + (rowCls ? ' ' + rowCls : '') + mcls + '" data-tl-ev-id="' + escAttr(String(ev.id || '')) + '" style="' + blockStyle + '" title="' + tit + '">';
           h += '<span class="tl-block-inner">' + esc(marinosCompactLabel(ev)) + '</span></div>';
         } else {
-          h += '<div class="tl-block ' + kcls + stackCls + compactCls + catCls + (rowCls ? ' ' + rowCls : '') + provCls + mcls + '" data-tl-ev-id="' + escAttr(String(ev.id || '')) + '" style="' + blockStyle + '" title="' + tit + '">';
+          h += '<div class="tl-block ' + kcls + stackCls + compactCls + narrowCls + catCls + (rowCls ? ' ' + rowCls : '') + provCls + mcls + '" data-tl-ev-id="' + escAttr(String(ev.id || '')) + '" style="' + blockStyle + '" title="' + tit + '">';
           if (compact) {
             h += buildCompactBlockInnerHtml(ev) + '</div>';
           } else if (useStack) {
