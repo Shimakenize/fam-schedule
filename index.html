@@ -389,7 +389,7 @@
     /* narrow: 2列以上のレーンに入るブロック用コンパクト表示 */
     .tl-block--narrow .tl-block-seg { padding: 2px 2px; }
     .tl-block--narrow .tl-block-seg-time { font-size: 0.56rem; letter-spacing: -0.02em; }
-    .tl-block--narrow .tl-block-seg-sub { -webkit-line-clamp: 1; font-size: 0.52rem; }
+    .tl-block--narrow .tl-block-seg-sub { -webkit-line-clamp: 2; font-size: 0.52rem; }
     .tl-block--narrow .tl-block-seg-venue { display: none; }
     .tl-block--narrow.tl-block--compact { padding: 1px 2px !important; }
     .tl-block--narrow .tl-block-inner--compact { white-space: normal; word-break: break-word; font-size: 0.55rem; line-height: 1.2; text-overflow: clip; }
@@ -639,7 +639,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260613-15';
+    var __UI_BUILD__ = '20260614-16';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -2782,6 +2782,11 @@
     function isWcPeriodIso(iso) {
       return iso >= '2026-06-12' && iso <= '2026-07-19';
     }
+    function formatVsSubHtml(sub) {
+      var vsIdx = sub.indexOf(' vs ');
+      if (vsIdx === -1) return esc(sub);
+      return esc(sub.slice(0, vsIdx + 3)) + '<br>' + esc(sub.slice(vsIdx + 4));
+    }
 
     /** 出発・集合がメインより前なら時刻順で「… · メイン」、それ以外は生の event_time */
     function formatKickoffAssemblyThenMain(ev) {
@@ -3092,7 +3097,7 @@
       h += '<div class="tl-block-seg tl-block-seg--main" style="flex:' + (hasDualMain ? 1 : gMain) + ' 1 0;min-height:0">';
       h += '<div class="tl-block-seg-body">';
       h += '<span class="tl-block-seg-time">' + esc(mainTimeStr) + '</span>';
-      if (sub) h += '<span class="tl-block-seg-sub">' + esc(sub) + '</span>';
+      if (sub) h += '<span class="tl-block-seg-sub">' + formatVsSubHtml(sub) + '</span>';
       if (ev.venue) h += '<span class="tl-block-seg-venue">' + esc(ev.venue) + '</span>';
       h += '</div></div>';
       if (hasDualMain) {
@@ -3275,7 +3280,7 @@
       h += '<div class="tl-block-seg tl-block-seg--main" style="flex:' + gMain + ' 1 0;min-height:0">';
       h += '<div class="tl-block-seg-body">';
       h += '<span class="tl-block-seg-time">' + esc(mainTimeStr) + '</span>';
-      if (sub) h += '<span class="tl-block-seg-sub">' + esc(sub) + '</span>';
+      if (sub) h += '<span class="tl-block-seg-sub">' + formatVsSubHtml(sub) + '</span>';
       if (!narrow && ev.venue) h += '<span class="tl-block-seg-venue">' + esc(ev.venue) + '</span>';
       h += '</div>';
       if (dismissStr) h += '<span class="tl-block-seg-tail">' + esc(dismissStr) + '</span>';
