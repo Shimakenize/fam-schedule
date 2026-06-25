@@ -639,7 +639,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260624-17';
+    var __UI_BUILD__ = '20260624-18';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -1354,7 +1354,7 @@
     }
 
     /** mainEnd より後のマーカー {m,label} 時刻昇順（試合用） */
-    function matchCollectPostMarkers(s1, mainEnd) {
+    function matchCollectPostMarkers(s1, mainEnd, hasBusDep) {
       var out = [];
       var seen = {};
       var seenLabel = {};
@@ -1386,8 +1386,9 @@
         var sk2 = M2 + ':解散';
         if (seen[sk2]) continue;
         seen[sk2] = 1;
-        seenLabel[M2 + ':バス到着'] = 1;
-        out.push({ m: M2, label: 'バス到着' });
+        var disLabel = hasBusDep ? 'バス到着' : '解散';
+        seenLabel[M2 + ':' + disLabel] = 1;
+        out.push({ m: M2, label: disLabel });
       }
       var free = collectFreeformTimeLabels(s1);
       for (var fi = 0; fi < free.length; fi++) {
@@ -2820,7 +2821,7 @@
         bits.push(core.end > core.start
           ? (formatMinutesHm(core.start) + '-' + formatMinutesHm(core.end))
           : formatMinutesHm(core.start));
-        var ptm = matchCollectPostMarkers(s1, core.end);
+        var ptm = matchCollectPostMarkers(s1, core.end, /バス出発/.test(s1));
         for (pi = 0; pi < ptm.length; pi++) {
           bits.push(formatMinutesHm(ptm[pi].m) + ptm[pi].label);
         }
@@ -3059,7 +3060,8 @@
       var mainStart = core.start;
       var mainEnd = core.end;
       var preMs = matchCollectPreMarkers(preSource, mainStart);
-      var postMs = matchCollectPostMarkers(postSource, mainEnd);
+      var hasBusDep = /バス出発/.test(preSource);
+      var postMs = matchCollectPostMarkers(postSource, mainEnd, hasBusDep);
       var hasSpectateDep = false;
       for (var i = 0; i < preMs.length; i++) {
         if (preMs[i].role === 'spectate_dep') {
