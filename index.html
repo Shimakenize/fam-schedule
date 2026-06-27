@@ -639,7 +639,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260627-1';
+    var __UI_BUILD__ = '20260627-2';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -4096,6 +4096,80 @@
      * 同時重なりの連結グループごとに lane を割り当てる。
      * これにより、別時間帯の予定が過剰に細くなるのを防ぐ。
      */
+    /** 既存DBの個別フットサル試合を表示時に1ブロックへまとめる（パーサー集約前データ向け） */
+    function mergeFutsalTimedItemsForTimeline(timedItems) {
+      if (!timedItems || timedItems.length < 2) return timedItems;
+      var groups = {};
+      var order = [];
+      var passthrough = [];
+      for (var i = 0; i < timedItems.length; i++) {
+        var it = timedItems[i];
+        var ev = it.ev;
+        if (!ev || ev.event_kind !== 'match' || !isFutsalLeagueTimelineEvent(ev) ||
+            String(ev.notes || '').indexOf('フットサル日程:') >= 0) {
+          passthrough.push(it);
+          continue;
+        }
+        var cat = String(ev.category_code || '').trim();
+        if (!groups[cat]) { groups[cat] = []; order.push(cat); }
+        groups[cat].push(it);
+      }
+      var merged = passthrough.slice();
+      for (var oi = 0; oi < order.length; oi++) {
+        var items = groups[order[oi]];
+        if (!items || items.length < 2) {
+          if (items) merged = merged.concat(items);
+          continue;
+        }
+        items.sort(function(a, b) { return a.clip.ds - b.clip.ds || a.clip.de - b.clip.de; });
+        var baseEv = items[0].ev;
+        var matchLines = [];
+        var startMin = null;
+        var endMin = null;
+        var preCoach = [];
+        var postCoach = [];
+        var venues = [];
+        var noteParts = [];
+        for (var k = 0; k < items.length; k++) {
+          var ev2 = items[k].ev;
+          var tr = parseTimeRangeMinutesCoreNormalized(ev2);
+          if (tr) {
+            if (startMin === null || tr.start < startMin) startMin = tr.start;
+            var rowEnd = tr.end > tr.start ? tr.end : tr.start + 45;
+            if (endMin === null || rowEnd > endMin) endMin = rowEnd;
+            matchLines.push(formatMinutesHm(tr.start) + (isTimelineTrgEvent(ev2) ? ' TRG' : '') + ' vs ' + timelineEventMainLabel(ev2));
+          }
+          if (ev2.pre_event_coach) preCoach.push(String(ev2.pre_event_coach).trim());
+          if (ev2.post_event_coach) postCoach.push(String(ev2.post_event_coach).trim());
+          if (ev2.venue) venues.push(String(ev2.venue).trim());
+          if (ev2.notes) noteParts.push(String(ev2.notes).trim());
+        }
+        var mergedEv = {};
+        for (var key in baseEv) {
+          if (Object.prototype.hasOwnProperty.call(baseEv, key)) mergedEv[key] = baseEv[key];
+        }
+        mergedEv.title = 'フットサルリーグ';
+        if (startMin != null && endMin != null) mergedEv.event_time = formatMinutesHm(startMin) + '-' + formatMinutesHm(endMin);
+        mergedEv.pre_event_coach = preCoach.filter(function(v, idx, arr) { return v && arr.indexOf(v) === idx; }).join(' · ');
+        mergedEv.post_event_coach = postCoach.filter(function(v, idx, arr) { return v && arr.indexOf(v) === idx; }).join(' · ');
+        mergedEv.venue = venues.filter(function(v, idx, arr) { return v && arr.indexOf(v) === idx; }).join(' / ');
+        mergedEv.notes = ['フットサル日程:'].concat(matchLines).concat(noteParts.filter(function(v, idx, arr) { return v && arr.indexOf(v) === idx; })).join('\n');
+        var clipDs = items[0].clip.ds;
+        var clipDe = items[0].clip.de;
+        for (var k2 = 1; k2 < items.length; k2++) {
+          clipDs = Math.min(clipDs, items[k2].clip.ds);
+          clipDe = Math.max(clipDe, items[k2].clip.de);
+        }
+        var disp = parseTimeRangeMinutesForDisplay(mergedEv);
+        if (disp) {
+          clipDs = Math.min(clipDs, disp.start);
+          clipDe = Math.max(clipDe, disp.end);
+        }
+        merged.push({ ev: mergedEv, clip: { ds: clipDs, de: clipDe } });
+      }
+      return merged;
+    }
+
     function assignTimelineLanesByGroup(timedItems) {
       if (!timedItems || !timedItems.length) return [];
 
@@ -4392,7 +4466,7 @@
         var iso3 = dateIsos[c3];
         var dayEv3 = grouped[iso3] || [];
         var sp3 = splitDayEventsForTimeline(dayEv3, rs, re);
-        var placements = assignTimelineLanesByGroup(sp3.timed);
+        var placements = assignTimelineLanesByGroup(mergeFutsalTimedItemsForTimeline(sp3.timed));
         var showWeeklyLabel = isWeeklyResetDayIso(iso3) && !weeklyLabelShown;
         if (showWeeklyLabel) weeklyLabelShown = true;
         var wAttr3 = wcWideSet.has(iso3) ? ' data-wide="wc"' : (wideSet.has(iso3) ? ' data-wide' : '');
