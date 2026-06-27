@@ -639,7 +639,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260624-18';
+    var __UI_BUILD__ = '20260627-1';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -1243,6 +1243,31 @@
       if (ck === '合宿') return true;
       if (ck === 'マリノス戦') return true;
       return false;
+    }
+
+    function isFutsalLeagueTimelineEvent(ev) {
+      var league = String(ev && ev.league_or_competition || '').trim();
+      return league.indexOf('フットサル') !== -1 || /^U15FL\b/i.test(league);
+    }
+
+    function parseFutsalTimelineRows(ev) {
+      if (!isFutsalLeagueTimelineEvent(ev)) return [];
+      var notes = String(ev && ev.notes || '');
+      if (!notes) return [];
+      var rows = [];
+      var lines = notes.split(/\r?\n/);
+      for (var i = 0; i < lines.length; i++) {
+        var s = lines[i].trim();
+        var m = s.match(/^([01]?\d|2[0-3])\s*[:：]\s*([0-5]\d)\s*(?:(TRG)\s*)?(?:vs|VS|ｖｓ)\s*(.+)$/i);
+        if (!m) continue;
+        var start = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+        var end = start + 45;
+        var opp = String(m[4] || '').trim();
+        var label = (m[3] ? 'TRG vs ' : 'vs ') + opp;
+        rows.push({ start: start, end: end, label: label });
+      }
+      rows.sort(function(a, b) { return a.start - b.start || a.end - b.end; });
+      return rows;
     }
 
     function _matchHmRe() {
@@ -3046,11 +3071,85 @@
       return h;
     }
 
+    function buildFutsalTimelineStackedInnerHtml(ev, clip, narrow, core, futsalRows) {
+      if (!ev || !clip || clip.de <= clip.ds || !core || !futsalRows.length) return '';
+      var s1 = normalizeKickoffStripTR(String(ev.event_time || ev.time || '').trim());
+      var _preSrcRaw = [ev.pre_event_coach, ev.pre_event_user].filter(Boolean).join(' · ');
+      var _postSrcRaw = [ev.post_event_coach, ev.post_event_user].filter(Boolean).join(' · ');
+      var preSource = _preSrcRaw ? normalizeKickoffStripTR(_preSrcRaw) : s1;
+      var postSource = _postSrcRaw ? normalizeKickoffStripTR(_postSrcRaw) : s1;
+      var mainStart = core.start;
+      var mainEnd = core.end;
+      for (var fr = 0; fr < futsalRows.length; fr++) {
+        if (futsalRows[fr].start < mainStart) mainStart = futsalRows[fr].start;
+        if (futsalRows[fr].end > mainEnd) mainEnd = futsalRows[fr].end;
+      }
+      var preMs = matchCollectPreMarkers(preSource, mainStart);
+      var hasBusDep = /バス出発/.test(preSource);
+      var postMs = matchCollectPostMarkers(postSource, mainEnd, hasBusDep);
+      var h = '<div class="tl-block-inner tl-block-inner--stack">';
+      var preTop = Math.max(clip.ds, 0);
+      var preBot = Math.min(mainStart, clip.de);
+      if (preBot > preTop) {
+        h += buildMatchPreColumnStackedHtml(preMs, preTop, preBot, null);
+      }
+
+      var mainS = Math.max(clip.ds, mainStart);
+      var mainE = Math.min(clip.de, mainEnd);
+      var cursor = mainS;
+      var _fmtHm = narrow ? formatMinutesHmShort : formatMinutesHm;
+      for (fr = 0; fr < futsalRows.length; fr++) {
+        var row = futsalRows[fr];
+        if (row.end <= mainS || row.start >= mainE) continue;
+        if (row.start > cursor) {
+          h += '<div class="tl-block-seg tl-block-seg--match-post3" style="flex:' + Math.max(1, row.start - cursor) + ' 1 0;min-height:0"></div>';
+        }
+        var segS = Math.max(row.start, mainS);
+        var segE = Math.min(row.end, mainE);
+        if (segE > segS) {
+          h += '<div class="tl-block-seg tl-block-seg--main" style="flex:' + Math.max(1, segE - segS) + ' 1 0;min-height:0">';
+          h += '<div class="tl-block-seg-body">';
+          h += '<span class="tl-block-seg-time">' + esc(_fmtHm(row.start) + '-' + _fmtHm(row.end)) + '</span>';
+          h += '<span class="tl-block-seg-sub">' + formatVsSubHtml(row.label) + '</span>';
+          if (ev.venue && !narrow) h += '<span class="tl-block-seg-venue">' + esc(ev.venue) + '</span>';
+          h += '</div></div>';
+          cursor = Math.max(cursor, row.end);
+        }
+      }
+      if (mainE > cursor) {
+        h += '<div class="tl-block-seg tl-block-seg--match-post3" style="flex:' + Math.max(1, mainE - cursor) + ' 1 0;min-height:0"></div>';
+      }
+
+      if (mainEnd < clip.de) {
+        if (postMs.length) {
+          var prev = Math.max(mainEnd, clip.ds);
+          for (var p = 0; p < postMs.length; p++) {
+            var mk = postMs[p];
+            if (mk.m <= prev || mk.m > clip.de) continue;
+            h += '<div class="tl-block-seg ' + matchPostClassFromProximity(p, postMs.length) + '" style="flex:' + Math.max(1, mk.m - prev) + ' 1 0;min-height:0">' + esc(formatMinutesHm(mk.m) + mk.label) + '</div>';
+            prev = mk.m;
+          }
+          if (clip.de > prev) {
+            h += '<div class="tl-block-seg tl-block-seg--match-post3" style="flex:' + Math.max(1, clip.de - prev) + ' 1 0;min-height:0"></div>';
+          }
+        } else {
+          var a = Math.max(mainEnd, clip.ds);
+          if (clip.de > a) h += '<div class="tl-block-seg tl-block-seg--match-post3" style="flex:' + Math.max(1, clip.de - a) + ' 1 0;min-height:0"></div>';
+        }
+      }
+      h += '</div>';
+      return h;
+    }
+
     /** 試合: §1.0.1 トークンに基づく積層（他種別は buildTimelineStackedInnerHtml 従来） */
     function buildMatchTimelineStackedInnerHtml(ev, clip, narrow) {
       if (!ev || !clip || clip.de <= clip.ds) return '';
       var core = parseTimeRangeMinutesCoreNormalized(ev);
       if (!core) return '';
+      var futsalRows = parseFutsalTimelineRows(ev);
+      if (futsalRows.length > 1) {
+        return buildFutsalTimelineStackedInnerHtml(ev, clip, narrow, core, futsalRows);
+      }
       var s1 = normalizeKickoffStripTR(String(ev.event_time || ev.time || '').trim());
       // 分割済みフィールドがあれば前段・後段ソースとして優先する（後方互換）
       var _preSrcRaw  = [ev.pre_event_coach, ev.pre_event_user].filter(Boolean).join(' · ');
