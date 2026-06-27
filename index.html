@@ -639,7 +639,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260627-2';
+    var __UI_BUILD__ = '20260627-3';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -2179,15 +2179,18 @@
       function _updateImportRegisterBtn() {
         var tbl = document.getElementById('importPreviewTable');
         var chks = tbl ? Array.from(tbl.querySelectorAll('.import-row-chk:checked')) : [];
-        var nNew = 0, nChanged = 0;
+        var nNew = 0, nChanged = 0, nDeleted = 0;
         chks.forEach(function(chk) {
           var ev = _parsedEvents[parseInt(chk.getAttribute('data-idx'))];
           if (ev && ev.diff_status === 'new') nNew++;
           if (ev && ev.diff_status === 'changed') nChanged++;
+          if (ev && ev.diff_status === 'deleted') nDeleted++;
         });
         var btn = document.getElementById('btnImportRegister');
-        btn.textContent = '仮登録する（新規' + nNew + '件 + 変更' + nChanged + '件）';
-        btn.disabled = (nNew + nChanged) === 0;
+        var label = '仮登録する（新規' + nNew + '件 + 変更' + nChanged + '件';
+        label += nDeleted ? ' + 削除' + nDeleted + '件）' : '）';
+        btn.textContent = label;
+        btn.disabled = (nNew + nChanged + nDeleted) === 0;
       }
       document.getElementById('importPreviewTable').addEventListener('change', function(ev) {
         if (ev.target.classList.contains('import-row-chk')) _updateImportRegisterBtn();
@@ -2232,8 +2235,10 @@
         var toImport = _parsedEvents.filter(function(e, idx) { return checkedIdxs.has(idx); });
         var nNew = toImport.filter(function(e) { return e.diff_status === 'new'; }).length;
         var nChanged = toImport.filter(function(e) { return e.diff_status === 'changed'; }).length;
+        var nDeleted = toImport.filter(function(e) { return e.diff_status === 'deleted'; }).length;
         var nUnchecked = _parsedEvents.filter(function(e, idx) { return !checkedIdxs.has(idx); }).length;
-        var msg = '新規' + nNew + '件 + 変更' + nChanged + '件を仮登録します。';
+        var msg = '新規' + nNew + '件 + 変更' + nChanged + '件' + (nDeleted ? ' + 削除' + nDeleted + '件' : '') + 'を反映します。';
+        if (nDeleted > 0) msg += '\n⚠️ 削除' + nDeleted + '件は既存予定を即時削除します（元に戻せません）。';
         if (nUnchecked > 0) msg += '\n（チェックなし' + nUnchecked + '件は除外されます）';
         if (!confirm(msg)) return;
         document.getElementById('importStatus').textContent = '登録中…';
@@ -2241,7 +2246,9 @@
         try {
           var body = { events: toImport };
           var res = await apiPostJson('/api/admin/parse-bulk-match-schedule', body);
-          document.getElementById('importStatus').innerHTML = '<span style="color:#16a34a;font-weight:bold;">' + res.upserted + '件を仮登録しました。「仮登録」タブで確認できます。</span>';
+          var doneMsg = res.upserted + '件を仮登録しました。「仮登録」タブで確認できます。';
+          if (res.deleted) doneMsg += '（削除' + res.deleted + '件は即時反映）';
+          document.getElementById('importStatus').innerHTML = '<span style="color:#16a34a;font-weight:bold;">' + esc(doneMsg) + '</span>';
           _parsedEvents = [];
           document.getElementById('btnImportRegister').disabled = true;
           document.getElementById('btnImportRegister').textContent = '仮登録する（0件）';
@@ -2257,15 +2264,20 @@
       var nNew = events.filter(function(e) { return e.diff_status === 'new'; }).length;
       var nChanged = events.filter(function(e) { return e.diff_status === 'changed'; }).length;
       var nUnchanged = events.filter(function(e) { return e.diff_status === 'unchanged'; }).length;
+      var nDeleted = events.filter(function(e) { return e.diff_status === 'deleted'; }).length;
       var STATUS_BADGE = {
         'new':       '<span style="background:#4caf50;color:#fff;padding:1px 6px;border-radius:3px;font-size:11px;white-space:nowrap;">新規</span>',
         'changed':   '<span style="background:#ff9800;color:#fff;padding:1px 6px;border-radius:3px;font-size:11px;white-space:nowrap;">変更</span>',
         'unchanged': '<span style="background:#9e9e9e;color:#fff;padding:1px 6px;border-radius:3px;font-size:11px;white-space:nowrap;">変更なし</span>',
+        'deleted':   '<span style="background:#e53935;color:#fff;padding:1px 6px;border-radius:3px;font-size:11px;white-space:nowrap;">削除</span>',
       };
-      var ROW_BG = { 'new': '#e8f5e9', 'changed': '#fff3e0', 'unchanged': '' };
+      var ROW_BG = { 'new': '#e8f5e9', 'changed': '#fff3e0', 'unchanged': '', 'deleted': '#ffebee' };
       var FIELDS = ['event_date', 'category_code', 'league_or_competition', 'title', 'event_time', 'venue', 'pre_event_coach', 'post_event_coach', 'notes'];
       function cellHtml(ev, fn) {
         var v = esc(ev[fn] || '');
+        if (ev.diff_status === 'deleted') {
+          return '<td><del style="color:#c62828;">' + v + '</del></td>';
+        }
         if (ev.diff_status === 'changed' && ev.changed_fields && ev.changed_fields.indexOf(fn) >= 0) {
           var old = esc((ev.existing && ev.existing[fn]) || '');
           return '<td style="background:#ffecb3;"><del style="color:#d32f2f;font-size:0.78rem;">' + old + '</del><br><strong>' + v + '</strong></td>';
@@ -2275,6 +2287,7 @@
       var summary = '<div style="font-size:0.8rem;color:#64748b;margin-bottom:8px;">' +
         '新規: <strong style="color:#16a34a;">' + nNew + '件</strong>' +
         ' ／ 変更あり: <strong style="color:#d97706;">' + nChanged + '件</strong>' +
+        ' ／ 削除: <strong style="color:#c62828;">' + nDeleted + '件</strong>' +
         ' ／ 変更なし: <strong style="color:#64748b;">' + nUnchanged + '件</strong>（仮登録対象外）</div>';
       var h = '<table class="data-table"><thead><tr>' +
         '<th>登録</th><th>状態</th><th>日付</th><th>カテゴリ</th><th>大会</th><th>タイトル</th><th>時間</th><th>会場</th><th>前段(コーチ)</th><th>後段(コーチ)</th><th>メモ</th></tr></thead><tbody>';
@@ -2297,6 +2310,9 @@
             return lbl + ': ' + esc(oldV || '(空)') + ' → ' + esc(newV || '(空)');
           });
           statusHtml += '<br><small style="color:#b45309;font-size:10px;line-height:1.3;">' + diffLines.join('<br>') + '</small>';
+        }
+        if (st === 'deleted') {
+          statusHtml += '<br><small style="color:#c62828;font-size:10px;line-height:1.3;">本文に記載なし → 削除候補</small>';
         }
         h += '<tr style="' + rowStyle + '">' +
           '<td><input type="checkbox" class="import-row-chk" data-idx="' + i + '"' + (st !== 'unchanged' ? ' checked' : '') + '></td>' +
