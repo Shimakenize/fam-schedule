@@ -373,6 +373,9 @@
       min-height: 0; padding: 3px 4px; box-sizing: border-box; display: flex; flex-direction: column;
       justify-content: flex-start; gap: 2px; overflow: hidden; text-align: left; line-height: 1.2;
     }
+    /* 統合ブロック内で個別イベントとして編集可能なセグメント（長押しで該当イベントを開く） */
+    .tl-block-seg--tappable { cursor: pointer; }
+    .tl-block-seg--tappable:active { filter: brightness(1.12); }
     /* 本番直前の短い集合/出発帯でもラベルが潰れないよう最低高さ（flex 比は分のまま） */
     .tl-block--stacked .tl-block-seg--assembly,
     .tl-block--stacked .tl-block-seg--departure {
@@ -639,7 +642,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260627-3';
+    var __UI_BUILD__ = '20260627-4';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -3129,7 +3132,9 @@
         var segS = Math.max(row.start, mainS);
         var segE = Math.min(row.end, mainE);
         if (segE > segS) {
-          h += '<div class="tl-block-seg tl-block-seg--main" style="flex:' + Math.max(1, segE - segS) + ' 1 0;min-height:0">';
+          var segIdAttr = row.id ? ' data-tl-seg-ev-id="' + escAttr(row.id) + '"' : '';
+          var segTapCls = row.id ? ' tl-block-seg--tappable' : '';
+          h += '<div class="tl-block-seg tl-block-seg--main' + segTapCls + '"' + segIdAttr + ' style="flex:' + Math.max(1, segE - segS) + ' 1 0;min-height:0">';
           h += '<div class="tl-block-seg-body">';
           h += '<span class="tl-block-seg-time">' + esc(_fmtHm(row.start) + '-' + _fmtHm(row.end)) + '</span>';
           h += '<span class="tl-block-seg-sub">' + formatVsSubHtml(row.label) + '</span>';
@@ -3735,8 +3740,8 @@
       }
     }
 
-    function showTimelineDetailFromElement(el) {
-      var id = el.getAttribute('data-tl-ev-id');
+    function showTimelineDetailFromElement(el, overrideId) {
+      var id = overrideId || el.getAttribute('data-tl-ev-id');
       var ev = findCachedEventById(id);
       var yRef = displayYearFromRange();
       var body = document.getElementById('tlDetailBody');
@@ -3782,6 +3787,8 @@
         __tlLP.x = e.clientX;
         __tlLP.y = e.clientY;
         var selfEl = blockOrChip;
+        var segEl = e.target && e.target.closest && e.target.closest('[data-tl-seg-ev-id]');
+        var segId = (segEl && blockOrChip.contains(segEl)) ? segEl.getAttribute('data-tl-seg-ev-id') : '';
         __tlLP.timer = setTimeout(function() {
           __tlLP.timer = null;
           __tlLP.pid = null;
@@ -3789,7 +3796,7 @@
           try {
             if (navigator.vibrate) navigator.vibrate(10);
           } catch (err) {}
-          showTimelineDetailFromElement(selfEl);
+          showTimelineDetailFromElement(selfEl, segId);
         }, TL_LP_MS);
         return;
       }
@@ -4146,6 +4153,7 @@
         items.sort(function(a, b) { return a.clip.ds - b.clip.ds || a.clip.de - b.clip.de; });
         var baseEv = items[0].ev;
         var matchLines = [];
+        var sessions = [];
         var startMin = null;
         var endMin = null;
         var preCoach = [];
@@ -4159,7 +4167,9 @@
             if (startMin === null || tr.start < startMin) startMin = tr.start;
             var rowEnd = tr.end > tr.start ? tr.end : tr.start + 45;
             if (endMin === null || rowEnd > endMin) endMin = rowEnd;
+            var fLabel = (isTimelineTrgEvent(ev2) ? 'TRG vs ' : 'vs ') + timelineEventMainLabel(ev2);
             matchLines.push(formatMinutesHm(tr.start) + (isTimelineTrgEvent(ev2) ? ' TRG' : '') + ' vs ' + timelineEventMainLabel(ev2));
+            sessions.push({ start: tr.start, end: rowEnd, label: fLabel, id: String(ev2.id || '') });
           }
           if (ev2.pre_event_coach) preCoach.push(String(ev2.pre_event_coach).trim());
           if (ev2.post_event_coach) postCoach.push(String(ev2.post_event_coach).trim());
@@ -4176,6 +4186,8 @@
         mergedEv.post_event_coach = postCoach.filter(function(v, idx, arr) { return v && arr.indexOf(v) === idx; }).join(' · ');
         mergedEv.venue = venues.filter(function(v, idx, arr) { return v && arr.indexOf(v) === idx; }).join(' / ');
         mergedEv.notes = ['フットサル日程:'].concat(matchLines).concat(noteParts.filter(function(v, idx, arr) { return v && arr.indexOf(v) === idx; })).join('\n');
+        sessions.sort(function(a, b) { return a.start - b.start || a.end - b.end; });
+        if (sessions.length) mergedEv._sessions = sessions;
         var clipDs = items[0].clip.ds;
         var clipDe = items[0].clip.de;
         for (var k2 = 1; k2 < items.length; k2++) {
@@ -4230,7 +4242,7 @@
             if (startMin === null || tr.start < startMin) startMin = tr.start;
             var rowEnd = tr.end > tr.start ? tr.end : tr.start + 60;
             if (endMin === null || rowEnd > endMin) endMin = rowEnd;
-            sessions.push({ start: tr.start, end: rowEnd, label: timelineEventMainLabel(ev2) || '練習' });
+            sessions.push({ start: tr.start, end: rowEnd, label: timelineEventMainLabel(ev2) || '練習', id: String(ev2.id || '') });
           }
           if (ev2.pre_event_coach) preCoach.push(String(ev2.pre_event_coach).trim());
           if (ev2.pre_event_user) preUser.push(String(ev2.pre_event_user).trim());
