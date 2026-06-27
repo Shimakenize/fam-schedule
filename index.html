@@ -400,6 +400,13 @@
     .tl-block--stacked .tl-block-seg--match-post1,
     .tl-block--stacked .tl-block-seg--match-post2,
     .tl-block--stacked .tl-block-seg--match-post3 { justify-content: flex-end; }
+    /* テキスト付き後段マーカー（例: 18:30現地解散）は帯が薄くても全文が見えるよう
+       フォントを縮小し、折返しても収まる最小高さを確保する（時刻・ラベルとも省略しない） */
+    .tl-block--stacked .tl-block-seg--postmark {
+      font-size: 0.5rem; line-height: 1.1; white-space: normal; word-break: break-word;
+      min-height: 2.3em;
+    }
+    .tl-block--narrow .tl-block-seg--postmark { font-size: 0.46rem; min-height: 2.4em; }
     /* 解散はタイムライン上の別枠ではなく、本番セグメント末尾の一行のみ */
     .tl-block-seg--main { justify-content: flex-start; }
     .tl-block-seg-body {
@@ -642,7 +649,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260627-4';
+    var __UI_BUILD__ = '20260627-5';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -3153,7 +3160,7 @@
           for (var p = 0; p < postMs.length; p++) {
             var mk = postMs[p];
             if (mk.m <= prev || mk.m > clip.de) continue;
-            h += '<div class="tl-block-seg ' + matchPostClassFromProximity(p, postMs.length) + '" style="flex:' + Math.max(1, mk.m - prev) + ' 1 0;min-height:0">' + esc(formatMinutesHm(mk.m) + mk.label) + '</div>';
+            h += '<div class="tl-block-seg tl-block-seg--postmark ' + matchPostClassFromProximity(p, postMs.length) + '" style="flex:' + Math.max(1, mk.m - prev) + ' 1 0;min-height:0">' + esc(formatMinutesHm(mk.m) + mk.label) + '</div>';
             prev = mk.m;
           }
           if (clip.de > prev) {
@@ -3320,7 +3327,7 @@
                   rw = ch.rows[idxClr];
                   pCls = matchPostClassFromProximity(postRi, postRows.length);
                   postRi++;
-                  h += '<div class="tl-block-seg ' + pCls + '" style="flex:' + rw.g + ' 1 0;min-height:0">' + esc(rw.lab) + '</div>';
+                  h += '<div class="tl-block-seg tl-block-seg--postmark ' + pCls + '" style="flex:' + rw.g + ' 1 0;min-height:0">' + esc(rw.lab) + '</div>';
                 }
                 h += '</div>';
                 h += '<div class="tl-match-pre-col"><div class="tl-match-post-rail-spacer" aria-hidden="true"></div></div>';
@@ -3329,14 +3336,14 @@
                 rw = ch.row;
                 pCls = matchPostClassFromProximity(postRi, postRows.length);
                 postRi++;
-                h += '<div class="tl-block-seg ' + pCls + ' tl-block-seg--match-post-wide" style="flex:' + rw.g + ' 1 0;min-height:0">' + esc(rw.lab) + '</div>';
+                h += '<div class="tl-block-seg tl-block-seg--postmark ' + pCls + ' tl-block-seg--match-post-wide" style="flex:' + rw.g + ' 1 0;min-height:0">' + esc(rw.lab) + '</div>';
               }
             }
           } else {
             for (pr = 0; pr < postRows.length; pr++) {
               rw = postRows[pr];
               pCls = matchPostClassFromProximity(pr, postRows.length);
-              h += '<div class="tl-block-seg ' + pCls + '" style="flex:' + rw.g + ' 1 0;min-height:0">' + esc(rw.lab) + '</div>';
+              h += '<div class="tl-block-seg tl-block-seg--postmark ' + pCls + '" style="flex:' + rw.g + ' 1 0;min-height:0">' + esc(rw.lab) + '</div>';
             }
           }
         } else {
