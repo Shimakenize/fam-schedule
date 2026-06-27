@@ -1270,6 +1270,12 @@
       return rows;
     }
 
+    /** 表示用セッション行: 表示マージ済みの _sessions（2部練習等）を優先し、無ければフットサル日程を解釈 */
+    function timelineSessionRows(ev) {
+      if (ev && ev._sessions && ev._sessions.length) return ev._sessions;
+      return parseFutsalTimelineRows(ev);
+    }
+
     function _matchHmRe() {
       return '([01]?\\d|2[0-3])\\s*[:：]\\s*([0-5]\\d)';
     }
@@ -3162,9 +3168,9 @@
       if (!ev || !clip || clip.de <= clip.ds) return '';
       var core = parseTimeRangeMinutesCoreNormalized(ev);
       if (!core) return '';
-      var futsalRows = parseFutsalTimelineRows(ev);
-      if (futsalRows.length > 1) {
-        return buildFutsalTimelineStackedInnerHtml(ev, clip, narrow, core, futsalRows);
+      var sessionRows = timelineSessionRows(ev);
+      if (sessionRows.length > 1) {
+        return buildFutsalTimelineStackedInnerHtml(ev, clip, narrow, core, sessionRows);
       }
       var s1 = normalizeKickoffStripTR(String(ev.event_time || ev.time || '').trim());
       // 分割済みフィールドがあれば前段・後段ソースとして優先する（後方互換）
@@ -4186,6 +4192,84 @@
       return merged;
     }
 
+    /** 同日・同カテゴリの複数 TR（2部練習など）を表示時に1ブロックへまとめる（DB上は個別のまま） */
+    function mergeSplitTrTimedItemsForTimeline(timedItems) {
+      if (!timedItems || timedItems.length < 2) return timedItems;
+      var groups = {};
+      var order = [];
+      var passthrough = [];
+      for (var i = 0; i < timedItems.length; i++) {
+        var it = timedItems[i];
+        var ev = it.ev;
+        if (!ev || canonicalEventKind(ev.event_kind) !== 'TR' || (ev._sessions && ev._sessions.length)) {
+          passthrough.push(it);
+          continue;
+        }
+        var cat = String(ev.category_code || '').trim();
+        if (!groups[cat]) { groups[cat] = []; order.push(cat); }
+        groups[cat].push(it);
+      }
+      var merged = passthrough.slice();
+      var uniq = function(arr) { return arr.filter(function(v, idx, a) { return v && a.indexOf(v) === idx; }); };
+      for (var oi = 0; oi < order.length; oi++) {
+        var items = groups[order[oi]];
+        if (!items || items.length < 2) {
+          if (items) merged = merged.concat(items);
+          continue;
+        }
+        items.sort(function(a, b) { return a.clip.ds - b.clip.ds || a.clip.de - b.clip.de; });
+        var baseEv = items[0].ev;
+        var sessions = [];
+        var startMin = null;
+        var endMin = null;
+        var preCoach = [], preUser = [], postCoach = [], postUser = [], venues = [], noteParts = [];
+        for (var k = 0; k < items.length; k++) {
+          var ev2 = items[k].ev;
+          var tr = parseTimeRangeMinutesCoreNormalized(ev2);
+          if (tr) {
+            if (startMin === null || tr.start < startMin) startMin = tr.start;
+            var rowEnd = tr.end > tr.start ? tr.end : tr.start + 60;
+            if (endMin === null || rowEnd > endMin) endMin = rowEnd;
+            sessions.push({ start: tr.start, end: rowEnd, label: timelineEventMainLabel(ev2) || '練習' });
+          }
+          if (ev2.pre_event_coach) preCoach.push(String(ev2.pre_event_coach).trim());
+          if (ev2.pre_event_user) preUser.push(String(ev2.pre_event_user).trim());
+          if (ev2.post_event_coach) postCoach.push(String(ev2.post_event_coach).trim());
+          if (ev2.post_event_user) postUser.push(String(ev2.post_event_user).trim());
+          if (ev2.venue) venues.push(String(ev2.venue).trim());
+          if (ev2.notes) noteParts.push(String(ev2.notes).trim());
+        }
+        if (sessions.length < 2) { merged = merged.concat(items); continue; }
+        sessions.sort(function(a, b) { return a.start - b.start || a.end - b.end; });
+        var mergedEv = {};
+        for (var key in baseEv) {
+          if (Object.prototype.hasOwnProperty.call(baseEv, key)) mergedEv[key] = baseEv[key];
+        }
+        mergedEv.title = '練習';
+        if (startMin != null && endMin != null) mergedEv.event_time = formatMinutesHm(startMin) + '-' + formatMinutesHm(endMin);
+        mergedEv.pre_event_coach = uniq(preCoach).join(' · ');
+        mergedEv.pre_event_user = uniq(preUser).join(' · ');
+        mergedEv.post_event_coach = uniq(postCoach).join(' · ');
+        mergedEv.post_event_user = uniq(postUser).join(' · ');
+        mergedEv.venue = uniq(venues).join(' / ');
+        mergedEv.notes = uniq(noteParts).join('\n');
+        mergedEv._sessions = sessions;
+        var clipDs = items[0].clip.ds;
+        var clipDe = items[0].clip.de;
+        for (var k2 = 1; k2 < items.length; k2++) {
+          clipDs = Math.min(clipDs, items[k2].clip.ds);
+          clipDe = Math.max(clipDe, items[k2].clip.de);
+        }
+        var disp = parseTimeRangeMinutesForDisplay(mergedEv);
+        if (disp) {
+          clipDs = Math.min(clipDs, disp.start);
+          clipDe = Math.max(clipDe, disp.end);
+        }
+        merged.push({ ev: mergedEv, clip: { ds: clipDs, de: clipDe } });
+      }
+      return merged;
+    }
+
     function assignTimelineLanesByGroup(timedItems) {
       if (!timedItems || !timedItems.length) return [];
 
@@ -4482,7 +4566,7 @@
         var iso3 = dateIsos[c3];
         var dayEv3 = grouped[iso3] || [];
         var sp3 = splitDayEventsForTimeline(dayEv3, rs, re);
-        var placements = assignTimelineLanesByGroup(mergeFutsalTimedItemsForTimeline(sp3.timed));
+        var placements = assignTimelineLanesByGroup(mergeSplitTrTimedItemsForTimeline(mergeFutsalTimedItemsForTimeline(sp3.timed)));
         var showWeeklyLabel = isWeeklyResetDayIso(iso3) && !weeklyLabelShown;
         if (showWeeklyLabel) weeklyLabelShown = true;
         var wAttr3 = wcWideSet.has(iso3) ? ' data-wide="wc"' : (wideSet.has(iso3) ? ' data-wide' : '');
