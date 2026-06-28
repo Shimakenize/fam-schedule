@@ -226,7 +226,7 @@
       max-width: calc(var(--tl-day-col) * 2);
       width: calc(var(--tl-day-col) * 2);
     }
-    /* W杯期間(2026-06-12〜07-19)の土日: 現行weekend(2x)の1.5倍 = 3x */
+    /* W杯期間(2026-06-12〜07-20 JST)の土日祝: 現行weekend(2x)の1.5倍 = 3x */
     .tl-root--fixed-cols .tl-day-head[data-wide="wc"],
     .tl-root--fixed-cols .tl-allday-cell[data-wide="wc"],
     .tl-root--fixed-cols .tl-day-body[data-wide="wc"] {
@@ -649,7 +649,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260627-5';
+    var __UI_BUILD__ = '20260628-1';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -2853,7 +2853,7 @@
       return String(Math.floor(m / 60)) + ':' + pad2(m % 60);
     }
     function isWcPeriodIso(iso) {
-      return iso >= '2026-06-12' && iso <= '2026-07-19';
+      return iso >= '2026-06-12' && iso <= '2026-07-20';
     }
     function formatVsSubHtml(sub) {
       var vsIdx = sub.indexOf(' vs ');
