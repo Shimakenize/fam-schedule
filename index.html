@@ -651,7 +651,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260629-3';
+    var __UI_BUILD__ = '20260629-4';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -702,7 +702,7 @@
     var _cachedHeaderNoIds = '';
     var _cachedMetaText = '';
     var TL_START_MIN = 6 * 60;
-    var TL_END_MIN = 22 * 60;
+    var TL_END_MIN = 24 * 60;
     /** Hour grid lines every 4h: 0:00, 4:00, 8:00, 12:00, 16:00, 20:00, 24:00 */
     var TL_HOUR_GRID_HOURS = [0, 4, 8, 12, 16, 20, 24];
     /** Claude weekly usage reset — Sunday 19:00 JST */
@@ -4050,7 +4050,7 @@
       return { rangeStart: rangeStart, rangeEnd: rangeEnd, rangeSpan: rangeSpan, slotPx: slotPx };
     }
 
-    /** rangeStartMin / rangeEndMin は表示窓（省略時は 6:00–22:00） */
+    /** rangeStartMin / rangeEndMin は表示窓（省略時は 6:00–24:00） */
     function splitDayEventsForTimeline(dayEv, rangeStartMin, rangeEndMin) {
       var rs = rangeStartMin != null ? rangeStartMin : TL_START_MIN;
       var re = rangeEndMin != null ? rangeEndMin : TL_END_MIN;
