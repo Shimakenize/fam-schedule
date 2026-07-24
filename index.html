@@ -576,6 +576,10 @@
     }
     .tl-detail-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; align-items: center; }
     .tl-action-status { font-size: 0.78rem; color: #94a3b8; margin-left: 2px; min-height: 1.2em; }
+    .tl-attach-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .tl-attach-link { margin-top: 4px; font-size: 0.82rem; }
+    .tl-attach-link a, .tl-detail-dd a { color: #7fb2ff; }
+    textarea.tl-edit-field { resize: vertical; min-height: 3.4em; }
     .btn-secondary { background: #334155; color: #e5e7eb; font-weight: 600; }
     .btn-secondary:hover { filter: brightness(1.08); }
     .ui-busy-toast {
@@ -651,7 +655,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260701-1';
+    var __UI_BUILD__ = '20260725-1';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -3556,6 +3560,18 @@
         escAttr(ev ? (ev.venue || '') : '') + '" />' +
         '<label class="tl-edit-label">メモ</label><input class="tl-edit-field" type="text" name="notes" value="' +
         escAttr(ev ? (ev.notes || '') : '') + '" />' +
+        '<label class="tl-edit-label">対戦カード（自動抽出・手動修正可）</label><textarea class="tl-edit-field" name="regalia_match_text" rows="3" placeholder="13:00- vs ○○">' +
+        esc(ev ? (ev.regalia_match_text || '') : '') + '</textarea>' +
+        (eid
+          ? '<label class="tl-edit-label">TRG要項（画像・PDF）を添付</label>' +
+            '<div class="tl-attach-row">' +
+            '<input type="file" class="tl-edit-field" data-tl-trg-file="' + escAttr(eid) + '" accept="image/*,application/pdf" />' +
+            '<span id="tlAttachStatus" class="tl-action-status"></span>' +
+            '</div>' +
+            (ev && String(ev.attachment_drive_url || '').trim()
+              ? '<div class="tl-attach-link"><a href="' + escAttr(ev.attachment_drive_url) + '" target="_blank" rel="noopener">添付ファイルを開く</a></div>'
+              : '')
+          : '') +
         '</form>' +
         '<div class="tl-detail-actions">' +
         '<button type="button" class="btn btn-primary" data-tl-act="save">' + (mode === 'create' ? '追加' : '保存') + '</button>' +
@@ -3642,6 +3658,7 @@
         parent_time: get('parent_time'),
         venue: get('venue'),
         notes: get('notes'),
+        regalia_match_text: get('regalia_match_text'),
         all_day: get('all_day')
       };
     }
@@ -3728,6 +3745,15 @@
       h += tlDetailPair('タイトル', ev.title);
       h += tlDetailPair('時間', timelineDetailTimeLine(ev));
       h += tlDetailPair('会場', ev.venue);
+      if (String(ev.regalia_match_text || '').trim()) {
+        h += '<div class="tl-detail-pair"><span class="tl-detail-dt">' + esc('対戦カード') +
+          '</span><span class="tl-detail-dd" style="white-space:pre-line">' +
+          esc(String(ev.regalia_match_text).trim()) + '</span></div>';
+      }
+      if (String(ev.attachment_drive_url || '').trim()) {
+        h += '<div class="tl-detail-pair"><span class="tl-detail-dt">要項</span><span class="tl-detail-dd"><a href="' +
+          escAttr(ev.attachment_drive_url) + '" target="_blank" rel="noopener">添付ファイルを開く</a></span></div>';
+      }
       h += tlDetailPair('メモ', ev.notes);
       if (String(ev.approval_status || '').trim() === 'pending') {
         h += tlDetailPair('承認', '仮登録（本登録待ち）');
@@ -3904,7 +3930,8 @@
                     post_event_user: data.post_event_user,
                     parent_time: data.parent_time,
                     venue: data.venue,
-                    notes: data.notes
+                    notes: data.notes,
+                    regalia_match_text: data.regalia_match_text
                   });
                   try {
                     await apiPostJson('/api/schedule/member-patch', {
@@ -3990,6 +4017,53 @@
               setTlActionBusy(false, '');
             }
           })();
+        });
+        backdrop.addEventListener('change', function(e) {
+          var input = e.target && e.target.closest && e.target.closest('input[data-tl-trg-file]');
+          if (!input || !input.files || !input.files[0]) return;
+          var eventId = input.getAttribute('data-tl-trg-file');
+          var file = input.files[0];
+          var statusEl = document.getElementById('tlAttachStatus');
+          if (statusEl) statusEl.textContent = 'アップロード・解析中…';
+          input.disabled = true;
+          var reader = new FileReader();
+          reader.onerror = function() {
+            if (statusEl) statusEl.textContent = 'ファイルの読み込みに失敗しました';
+            input.disabled = false;
+          };
+          reader.onload = function() {
+            (async function() {
+              try {
+                var dataUrl = String(reader.result || '');
+                var base64 = dataUrl.indexOf(',') >= 0 ? dataUrl.slice(dataUrl.indexOf(',') + 1) : '';
+                if (!base64) throw new Error('ファイルを読み込めませんでした');
+                var res = await apiPostJson('/api/schedule/member-attach-trg-file', {
+                  event_id: eventId,
+                  base64: base64,
+                  mime_type: file.type || 'application/octet-stream',
+                  filename: file.name || 'trg-attachment'
+                });
+                var status = res && res.attachment_process_status;
+                var newText = (res && res.regalia_match_text) || '';
+                var ta = document.querySelector('#tlDetailForm textarea[name="regalia_match_text"]');
+                if (status === 'error') {
+                  if (statusEl) statusEl.textContent = '添付は保存しましたが自動解析に失敗しました。対戦カードを手動入力してください。';
+                } else {
+                  if (statusEl) statusEl.textContent = '解析が完了しました（内容を確認し、必要なら修正して保存してください）';
+                  if (ta) ta.value = newText;
+                }
+                var localPatch = { attachment_process_status: status };
+                if (status !== 'error') localPatch.regalia_match_text = newText;
+                if (res && res.attachment_drive_url) localPatch.attachment_drive_url = res.attachment_drive_url;
+                applyLocalEventPatch(eventId, localPatch);
+              } catch (err) {
+                if (statusEl) statusEl.textContent = '添付に失敗しました: ' + String(err.message || err);
+              } finally {
+                input.disabled = false;
+              }
+            })();
+          };
+          reader.readAsDataURL(file);
         });
       }
       document.addEventListener('pointerdown', __onTlPointerDown, true);
