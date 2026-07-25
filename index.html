@@ -975,10 +975,19 @@
       }
       var currentUrl = location.href;
       dbg('LIFF初期化中… (url=' + currentUrl + ')');
-      await Promise.race([
-        liff.init({ liffId: liffId }),
-        new Promise((_, rej) => setTimeout(() => rej(new Error('liff.init timeout\nurl=' + currentUrl + '\nliffId=' + liffId)), 15000))
-      ]);
+      try {
+        await Promise.race([
+          liff.init({ liffId: liffId, withLoginOnExternalBrowser: true }),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('liff.init timeout\nurl=' + currentUrl + '\nliffId=' + liffId)), 15000))
+        ]);
+      } catch (liffErr) {
+        // LINEが付加するliff.stateパラメータが稀に不正形式になり liff.init() が失敗することがある（GymManageで確認済み）
+        if (String(liffErr && liffErr.message || '').includes('did not match the expected pattern')) {
+          window.location.replace(location.pathname);
+          throw new Error('redirect login');
+        }
+        throw liffErr;
+      }
       dbg('ログイン確認中…');
       if (!liff.isLoggedIn()) {
         liff.login({ redirectUri: location.href.split('#')[0] });
