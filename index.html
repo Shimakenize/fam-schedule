@@ -391,6 +391,11 @@
     .tl-block-seg-venue {
       font-size: 0.54rem; opacity: 0.65; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
+    .tl-block-seg-regalia {
+      font-size: 0.56rem; font-weight: 700; color: #ffd76a; white-space: pre-line;
+      line-height: 1.25; margin-top: 2px; word-break: break-word;
+    }
+    .tl-block--narrow .tl-block-seg-regalia { font-size: 0.5rem; }
     /* narrow: 2列以上のレーンに入るブロック用コンパクト表示 */
     .tl-block--narrow .tl-block-seg { padding: 2px 2px; }
     .tl-block--narrow .tl-block-seg-time { font-size: 0.56rem; letter-spacing: -0.02em; }
@@ -577,6 +582,11 @@
     .tl-detail-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; align-items: center; }
     .tl-action-status { font-size: 0.78rem; color: #94a3b8; margin-left: 2px; min-height: 1.2em; }
     .tl-attach-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .tl-attach-dropzone {
+      border: 1px dashed #2b4258; border-radius: 8px; padding: 8px; transition: border-color 0.15s, background 0.15s;
+    }
+    .tl-attach-dropzone.tl-attach-drag-over { border-color: #7fb2ff; background: rgba(127, 178, 255, 0.1); }
+    .tl-attach-hint { font-size: 0.72rem; color: #94a3b8; }
     .tl-attach-link { margin-top: 4px; font-size: 0.82rem; }
     .tl-attach-link a, .tl-detail-dd a { color: #7fb2ff; }
     textarea.tl-edit-field { resize: vertical; min-height: 3.4em; }
@@ -655,7 +665,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260725-1';
+    var __UI_BUILD__ = '20260725-2';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -3153,6 +3163,9 @@
           h += '<span class="tl-block-seg-time">' + esc(_fmtHm(row.start) + '-' + _fmtHm(row.end)) + '</span>';
           h += '<span class="tl-block-seg-sub">' + formatVsSubHtml(row.label) + '</span>';
           if (ev.venue && !narrow) h += '<span class="tl-block-seg-venue">' + esc(ev.venue) + '</span>';
+          if (!narrow && String(ev.regalia_match_text || '').trim()) {
+            h += '<span class="tl-block-seg-regalia">' + esc(String(ev.regalia_match_text).trim()) + '</span>';
+          }
           h += '</div></div>';
           cursor = Math.max(cursor, row.end);
         }
@@ -3256,6 +3269,9 @@
       h += '<span class="tl-block-seg-time">' + esc(mainTimeStr) + '</span>';
       if (sub) h += '<span class="tl-block-seg-sub">' + formatVsSubHtml(sub) + '</span>';
       if (ev.venue) h += '<span class="tl-block-seg-venue">' + esc(ev.venue) + '</span>';
+      if (String(ev.regalia_match_text || '').trim()) {
+        h += '<span class="tl-block-seg-regalia">' + esc(String(ev.regalia_match_text).trim()) + '</span>';
+      }
       h += '</div></div>';
       if (hasDualMain) {
         h += '</div>';
@@ -3564,8 +3580,9 @@
         esc(ev ? (ev.regalia_match_text || '') : '') + '</textarea>' +
         (eid
           ? '<label class="tl-edit-label">TRG要項（画像・PDF）を添付</label>' +
-            '<div class="tl-attach-row">' +
+            '<div class="tl-attach-row tl-attach-dropzone" data-tl-trg-drop="' + escAttr(eid) + '">' +
             '<input type="file" class="tl-edit-field" data-tl-trg-file="' + escAttr(eid) + '" accept="image/*,application/pdf" />' +
+            '<span class="tl-attach-hint">ここにドラッグ&amp;ドロップも可</span>' +
             '<span id="tlAttachStatus" class="tl-action-status"></span>' +
             '</div>' +
             (ev && String(ev.attachment_drive_url || '').trim()
@@ -4022,49 +4039,74 @@
           var input = e.target && e.target.closest && e.target.closest('input[data-tl-trg-file]');
           if (!input || !input.files || !input.files[0]) return;
           var eventId = input.getAttribute('data-tl-trg-file');
-          var file = input.files[0];
-          var statusEl = document.getElementById('tlAttachStatus');
-          if (statusEl) statusEl.textContent = 'アップロード・解析中…';
-          input.disabled = true;
-          var reader = new FileReader();
-          reader.onerror = function() {
-            if (statusEl) statusEl.textContent = 'ファイルの読み込みに失敗しました';
-            input.disabled = false;
-          };
-          reader.onload = function() {
-            (async function() {
-              try {
-                var dataUrl = String(reader.result || '');
-                var base64 = dataUrl.indexOf(',') >= 0 ? dataUrl.slice(dataUrl.indexOf(',') + 1) : '';
-                if (!base64) throw new Error('ファイルを読み込めませんでした');
-                var res = await apiPostJson('/api/schedule/member-attach-trg-file', {
-                  event_id: eventId,
-                  base64: base64,
-                  mime_type: file.type || 'application/octet-stream',
-                  filename: file.name || 'trg-attachment'
-                });
-                var status = res && res.attachment_process_status;
-                var newText = (res && res.regalia_match_text) || '';
-                var ta = document.querySelector('#tlDetailForm textarea[name="regalia_match_text"]');
-                if (status === 'error') {
-                  if (statusEl) statusEl.textContent = '添付は保存しましたが自動解析に失敗しました。対戦カードを手動入力してください。';
-                } else {
-                  if (statusEl) statusEl.textContent = '解析が完了しました（内容を確認し、必要なら修正して保存してください）';
-                  if (ta) ta.value = newText;
-                }
-                var localPatch = { attachment_process_status: status };
-                if (status !== 'error') localPatch.regalia_match_text = newText;
-                if (res && res.attachment_drive_url) localPatch.attachment_drive_url = res.attachment_drive_url;
-                applyLocalEventPatch(eventId, localPatch);
-              } catch (err) {
-                if (statusEl) statusEl.textContent = '添付に失敗しました: ' + String(err.message || err);
-              } finally {
-                input.disabled = false;
-              }
-            })();
-          };
-          reader.readAsDataURL(file);
+          uploadTrgAttachmentFile(eventId, input.files[0], input);
         });
+        backdrop.addEventListener('dragover', function(e) {
+          var zone = e.target && e.target.closest && e.target.closest('[data-tl-trg-drop]');
+          if (!zone) return;
+          e.preventDefault();
+          zone.classList.add('tl-attach-drag-over');
+        });
+        backdrop.addEventListener('dragleave', function(e) {
+          var zone = e.target && e.target.closest && e.target.closest('[data-tl-trg-drop]');
+          if (!zone) return;
+          zone.classList.remove('tl-attach-drag-over');
+        });
+        backdrop.addEventListener('drop', function(e) {
+          var zone = e.target && e.target.closest && e.target.closest('[data-tl-trg-drop]');
+          if (!zone) return;
+          e.preventDefault();
+          zone.classList.remove('tl-attach-drag-over');
+          var dt = e.dataTransfer;
+          var file = dt && dt.files && dt.files[0];
+          if (!file) return;
+          var eventId = zone.getAttribute('data-tl-trg-drop');
+          uploadTrgAttachmentFile(eventId, file, zone.querySelector('input[data-tl-trg-file]'));
+        });
+      }
+
+      function uploadTrgAttachmentFile(eventId, file, inputEl) {
+        var statusEl = document.getElementById('tlAttachStatus');
+        if (statusEl) statusEl.textContent = 'アップロード・解析中…';
+        if (inputEl) inputEl.disabled = true;
+        var reader = new FileReader();
+        reader.onerror = function() {
+          if (statusEl) statusEl.textContent = 'ファイルの読み込みに失敗しました';
+          if (inputEl) inputEl.disabled = false;
+        };
+        reader.onload = function() {
+          (async function() {
+            try {
+              var dataUrl = String(reader.result || '');
+              var base64 = dataUrl.indexOf(',') >= 0 ? dataUrl.slice(dataUrl.indexOf(',') + 1) : '';
+              if (!base64) throw new Error('ファイルを読み込めませんでした');
+              var res = await apiPostJson('/api/schedule/member-attach-trg-file', {
+                event_id: eventId,
+                base64: base64,
+                mime_type: file.type || 'application/octet-stream',
+                filename: file.name || 'trg-attachment'
+              });
+              var status = res && res.attachment_process_status;
+              var newText = (res && res.regalia_match_text) || '';
+              var ta = document.querySelector('#tlDetailForm textarea[name="regalia_match_text"]');
+              if (status === 'error') {
+                if (statusEl) statusEl.textContent = '添付は保存しましたが自動解析に失敗しました。対戦カードを手動入力してください。';
+              } else {
+                if (statusEl) statusEl.textContent = '解析が完了しました（内容を確認し、必要なら修正して保存してください）';
+                if (ta) ta.value = newText;
+              }
+              var localPatch = { attachment_process_status: status };
+              if (status !== 'error') localPatch.regalia_match_text = newText;
+              if (res && res.attachment_drive_url) localPatch.attachment_drive_url = res.attachment_drive_url;
+              applyLocalEventPatch(eventId, localPatch);
+            } catch (err) {
+              if (statusEl) statusEl.textContent = '添付に失敗しました: ' + String(err.message || err);
+            } finally {
+              if (inputEl) inputEl.disabled = false;
+            }
+          })();
+        };
+        reader.readAsDataURL(file);
       }
       document.addEventListener('pointerdown', __onTlPointerDown, true);
       document.addEventListener('pointermove', __onTlPointerMove, true);
