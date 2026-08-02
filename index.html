@@ -665,7 +665,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260801-3';
+    var __UI_BUILD__ = '20260801-4';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -3459,7 +3459,9 @@
         var segS0 = Math.max(row.start, mainS);
 
         if (segS0 > cursor) {
-          // このギャップに置けるのは: 直前セッション自身の post（自分の持ち物として保持）＋ 今セッション自身の pre
+          // このギャップに置くのは: 直前セッション自身の post（時刻近い順）＋ 今セッション自身の pre。
+          // 常に時系列順で「本イベントの直後に近い順で積む」— 収まりきらなくても比率を圧縮して全て表示する
+          // （flex は親の固定高さ内で相対配分されるだけなので、絶対時間に対して多少圧縮されても順序と所属は保たれる）。
           var candidates = [];
           if (fr > 0) {
             for (var pi = 0; pi < rowPost[fr - 1].length; pi++) {
@@ -3470,20 +3472,14 @@
             }
           }
           candidates.sort(function(a, b) { return a.m - b.m; });
-          var fits = [];
-          for (var ci = 0; ci < candidates.length; ci++) {
-            var c = candidates[ci];
-            if (c.m > cursor && c.m <= segS0) fits.push(c);
-            else deferredTails.push({ ownerIdx: c.owner, text: formatMinutesHm(c.m) + c.label });
-          }
-          if (fits.length) {
+          if (candidates.length) {
             var gPrev = cursor;
-            for (var gj = 0; gj < fits.length; gj++) {
-              var gm = fits[gj];
-              if (gm.m <= gPrev) { deferredTails.push({ ownerIdx: gm.owner, text: formatMinutesHm(gm.m) + gm.label }); continue; }
+            for (var gj = 0; gj < candidates.length; gj++) {
+              var gm = candidates[gj];
+              var gSpan = Math.max(1, gm.m - gPrev);
               var gmIdAttr = rows[gm.owner].id ? ' data-tl-seg-ev-id="' + escAttr(rows[gm.owner].id) + '"' : '';
-              h += '<div class="tl-block-seg tl-block-seg--postmark tl-block-seg--tappable ' + matchPostClassFromProximity(gj, fits.length) + '"' + gmIdAttr + ' style="flex:' + Math.max(1, gm.m - gPrev) + ' 1 0;min-height:0">' + esc(formatMinutesHm(gm.m) + gm.label) + '</div>';
-              gPrev = gm.m;
+              h += '<div class="tl-block-seg tl-block-seg--postmark tl-block-seg--tappable ' + matchPostClassFromProximity(gj, candidates.length) + '"' + gmIdAttr + ' style="flex:' + gSpan + ' 1 0;min-height:0">' + esc(formatMinutesHm(gm.m) + gm.label) + '</div>';
+              gPrev = Math.max(gPrev, gm.m);
             }
             if (segS0 > gPrev) {
               h += '<div class="tl-block-seg tl-block-seg--match-post3" style="flex:' + Math.max(1, segS0 - gPrev) + ' 1 0;min-height:0"></div>';
