@@ -665,7 +665,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260801-2';
+    var __UI_BUILD__ = '20260801-3';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -3407,18 +3407,15 @@
     }
 
     /**
-     * TR の2部練習等（_sessions が複数）: セッション間の pre/post も含めて積層表示。
+     * TR の2部練習等（_sessions が複数）: 各セッション自身の pre/post を、
+     * 入力元セッション（session.id）に紐付けたまま表示する。時刻が他セッションの
+     * 区間と重なっても別セッションの枠には吸収されない。長押し編集で正しいセッション
+     * (session.id) を開けるよう各本編枠に data-tl-seg-ev-id を付与する。
      * pre/post は「解散」等の固定キーワードに依存せず、collectFreeformTimeLabels による
      * 「時刻+項目名」の汎用抽出（試合と同じ matchCollectPreMarkers/PostMarkers）を使う。
      */
     function buildTrSessionsTimelineStackedInnerHtml(ev, clip, narrow, core, sessionRows) {
       if (!ev || !clip || clip.de <= clip.ds || !core || !sessionRows.length) return '';
-      var s1 = normalizeKickoffStripTR(String(ev.event_time || ev.time || '').trim());
-      var _preSrcRaw = [ev.pre_event_coach, ev.pre_event_user].filter(Boolean).join(' · ');
-      var _postSrcRaw = [ev.post_event_coach, ev.post_event_user].filter(Boolean).join(' · ');
-      var preSource = _preSrcRaw ? normalizeKickoffStripTR(_preSrcRaw) : s1;
-      var postSource = _postSrcRaw ? normalizeKickoffStripTR(_postSrcRaw) : s1;
-
       var rows = sessionRows.slice().sort(function(a, b) { return a.start - b.start; });
       var mainStart = rows[0].start, mainEnd = rows[0].end;
       for (var ri = 1; ri < rows.length; ri++) {
@@ -3426,62 +3423,67 @@
         if (rows[ri].end > mainEnd) mainEnd = rows[ri].end;
       }
 
-      var preMs = matchCollectPreMarkers(preSource, mainStart);
-      var hasBusDep = /バス出発/.test(preSource);
-      var postMs = matchCollectPostMarkers(postSource, mainEnd, hasBusDep);
+      function rowPreMarkers(row) {
+        var raw = [row.pre_event_coach, row.pre_event_user].filter(Boolean).join(' · ');
+        var src = raw ? normalizeKickoffStripTR(raw) : '';
+        return src ? matchCollectPreMarkers(src, row.start) : [];
+      }
+      function rowPostMarkers(row) {
+        var raw = [row.post_event_coach, row.post_event_user].filter(Boolean).join(' · ');
+        var src = raw ? normalizeKickoffStripTR(raw) : '';
+        if (!src) return [];
+        var hasBusDep = /バス出発/.test(raw);
+        return matchCollectPostMarkers(src, row.end, hasBusDep);
+      }
+      var rowPre = rows.map(rowPreMarkers);
+      var rowPost = rows.map(rowPostMarkers);
 
-      // セッションの開始・終了時刻そのもの（本編として既に表示済み）は除外し、
-      // それ以外の mainStart〜mainEnd 間のマーカーは全て「セッション間」候補として保持する。
-      // 情報を取りこぼさないため、後段の描画で置き場所が見つからなかったものは末尾の post 帯へ回す。
-      function isSessionBoundary(m) {
-        for (var k = 0; k < rows.length; k++) {
-          if (m === rows[k].start || m === rows[k].end) return true;
-        }
-        return false;
-      }
-      var midAll = collectFreeformTimeLabels([preSource, postSource].filter(Boolean).join(' · '));
-      var midSeen = {};
-      var midMs = [];
-      for (var mi = 0; mi < midAll.length; mi++) {
-        var fm = midAll[mi];
-        if (fm.m <= mainStart || fm.m >= mainEnd || isSessionBoundary(fm.m)) continue;
-        var key = fm.m + ':' + fm.label;
-        if (midSeen[key]) continue;
-        midSeen[key] = 1;
-        midMs.push(fm);
-      }
-      midMs.sort(function(a, b) { return a.m - b.m; });
-      var midConsumed = {};
+      var mainS = Math.max(clip.ds, mainStart);
+      var mainE = Math.min(clip.de, mainEnd);
+      var _fmtHm = narrow ? formatMinutesHmShort : formatMinutesHm;
 
       var h = '<div class="tl-block-inner tl-block-inner--stack">';
       var preTop = Math.max(clip.ds, 0);
       var preBot = Math.min(mainStart, clip.de);
       if (preBot > preTop) {
-        h += buildMatchPreColumnStackedHtml(preMs, preTop, preBot, null);
+        h += buildMatchPreColumnStackedHtml(rowPre[0] || [], preTop, preBot, null);
       }
 
-      var mainS = Math.max(clip.ds, mainStart);
-      var mainE = Math.min(clip.de, mainEnd);
       var cursor = mainS;
-      var _fmtHm = narrow ? formatMinutesHmShort : formatMinutesHm;
+      var rowBodyClosePos = rows.map(function() { return -1; });
+      var deferredTails = []; // { ownerIdx, text }
 
       for (var fr = 0; fr < rows.length; fr++) {
         var row = rows[fr];
         if (row.end <= mainS || row.start >= mainE) continue;
         var segS0 = Math.max(row.start, mainS);
+
         if (segS0 > cursor) {
-          var gapMs = [];
-          for (var gi = 0; gi < midMs.length; gi++) {
-            if (midMs[gi].m > cursor && midMs[gi].m <= segS0) gapMs.push(midMs[gi]);
+          // このギャップに置けるのは: 直前セッション自身の post（自分の持ち物として保持）＋ 今セッション自身の pre
+          var candidates = [];
+          if (fr > 0) {
+            for (var pi = 0; pi < rowPost[fr - 1].length; pi++) {
+              candidates.push({ m: rowPost[fr - 1][pi].m, label: rowPost[fr - 1][pi].label, owner: fr - 1 });
+            }
+            for (var qi = 0; qi < rowPre[fr].length; qi++) {
+              candidates.push({ m: rowPre[fr][qi].m, label: rowPre[fr][qi].label, owner: fr });
+            }
           }
-          if (gapMs.length) {
+          candidates.sort(function(a, b) { return a.m - b.m; });
+          var fits = [];
+          for (var ci = 0; ci < candidates.length; ci++) {
+            var c = candidates[ci];
+            if (c.m > cursor && c.m <= segS0) fits.push(c);
+            else deferredTails.push({ ownerIdx: c.owner, text: formatMinutesHm(c.m) + c.label });
+          }
+          if (fits.length) {
             var gPrev = cursor;
-            for (var gj = 0; gj < gapMs.length; gj++) {
-              var gm = gapMs[gj];
-              if (gm.m <= gPrev) continue;
-              h += '<div class="tl-block-seg tl-block-seg--postmark ' + matchPostClassFromProximity(gj, gapMs.length) + '" style="flex:' + Math.max(1, gm.m - gPrev) + ' 1 0;min-height:0">' + esc(formatMinutesHm(gm.m) + gm.label) + '</div>';
+            for (var gj = 0; gj < fits.length; gj++) {
+              var gm = fits[gj];
+              if (gm.m <= gPrev) { deferredTails.push({ ownerIdx: gm.owner, text: formatMinutesHm(gm.m) + gm.label }); continue; }
+              var gmIdAttr = rows[gm.owner].id ? ' data-tl-seg-ev-id="' + escAttr(rows[gm.owner].id) + '"' : '';
+              h += '<div class="tl-block-seg tl-block-seg--postmark tl-block-seg--tappable ' + matchPostClassFromProximity(gj, fits.length) + '"' + gmIdAttr + ' style="flex:' + Math.max(1, gm.m - gPrev) + ' 1 0;min-height:0">' + esc(formatMinutesHm(gm.m) + gm.label) + '</div>';
               gPrev = gm.m;
-              midConsumed[gm.m + ':' + gm.label] = 1;
             }
             if (segS0 > gPrev) {
               h += '<div class="tl-block-seg tl-block-seg--match-post3" style="flex:' + Math.max(1, segS0 - gPrev) + ' 1 0;min-height:0"></div>';
@@ -3490,56 +3492,70 @@
             h += '<div class="tl-block-seg tl-block-seg--match-post3" style="flex:' + Math.max(1, segS0 - cursor) + ' 1 0;min-height:0"></div>';
           }
         }
+
         var segS = Math.max(row.start, mainS);
         var segE = Math.min(row.end, mainE);
-        var lastMainBodyClosePos = -1;
         if (segE > segS) {
-          h += '<div class="tl-block-seg tl-block-seg--main" style="flex:' + Math.max(1, segE - segS) + ' 1 0;min-height:0">';
+          var segIdAttr = row.id ? ' data-tl-seg-ev-id="' + escAttr(row.id) + '"' : '';
+          var segTapCls = row.id ? ' tl-block-seg--tappable' : '';
+          h += '<div class="tl-block-seg tl-block-seg--main' + segTapCls + '"' + segIdAttr + ' style="flex:' + Math.max(1, segE - segS) + ' 1 0;min-height:0">';
           h += '<div class="tl-block-seg-body">';
           h += '<span class="tl-block-seg-time">' + esc(_fmtHm(row.start) + '-' + _fmtHm(row.end)) + '</span>';
           if (row.label && !narrow) h += '<span class="tl-block-seg-sub">' + formatVsSubHtml(row.label) + '</span>';
           if (!narrow && ev.venue) h += '<span class="tl-block-seg-venue">' + esc(ev.venue) + '</span>';
-          lastMainBodyClosePos = h.length;
+          rowBodyClosePos[fr] = h.length;
           h += '</div></div>';
           cursor = Math.max(cursor, row.end);
         }
-        if (fr === rows.length - 1) var finalMainBodyClosePos = lastMainBodyClosePos;
-      }
-      if (mainE > cursor) {
-        h += '<div class="tl-block-seg tl-block-seg--match-post3" style="flex:' + Math.max(1, mainE - cursor) + ' 1 0;min-height:0"></div>';
       }
 
-      // どのセッション間ギャップにも収まらず未消費のマーカーは情報を失わないよう、
-      // 末尾セッションの本編枠内に inline tail として追加する（clip がその日の最終セッション終了で
-      // 打ち切られており、末尾に別枠を追加する余白が無いケースがあるため。単発イベントの「解散」表示と同じ手法）。
-      var tailLabels = [];
-      for (var li = 0; li < midMs.length; li++) {
-        var lm = midMs[li];
-        if (midConsumed[lm.m + ':' + lm.label]) continue;
-        tailLabels.push(formatMinutesHm(lm.m) + lm.label);
-      }
-      if (tailLabels.length && typeof finalMainBodyClosePos === 'number' && finalMainBodyClosePos >= 0) {
-        var tailHtml = '<span class="tl-block-seg-tail">' + esc(tailLabels.join(' / ')) + '</span>';
-        h = h.slice(0, finalMainBodyClosePos) + tailHtml + h.slice(finalMainBodyClosePos);
+      // 最終セッション以降に描画枠があれば、そこに最終セッション自身の post を表示。枠が無ければ inline tail へ。
+      var lastIdx = rows.length - 1;
+      var lastPost = rowPost[lastIdx] || [];
+      if (mainE > cursor) {
+        if (lastPost.length) {
+          var prev = cursor;
+          for (var p = 0; p < lastPost.length; p++) {
+            var mk = lastPost[p];
+            if (mk.m <= prev || mk.m > mainE) { deferredTails.push({ ownerIdx: lastIdx, text: formatMinutesHm(mk.m) + mk.label }); continue; }
+            var mkIdAttr = rows[lastIdx].id ? ' data-tl-seg-ev-id="' + escAttr(rows[lastIdx].id) + '"' : '';
+            h += '<div class="tl-block-seg tl-block-seg--postmark tl-block-seg--tappable ' + matchPostClassFromProximity(p, lastPost.length) + '"' + mkIdAttr + ' style="flex:' + Math.max(1, mk.m - prev) + ' 1 0;min-height:0">' + esc(formatMinutesHm(mk.m) + mk.label) + '</div>';
+            prev = mk.m;
+          }
+          if (mainE > prev) {
+            h += '<div class="tl-block-seg tl-block-seg--match-post3" style="flex:' + Math.max(1, mainE - prev) + ' 1 0;min-height:0"></div>';
+          }
+        } else {
+          h += '<div class="tl-block-seg tl-block-seg--match-post3" style="flex:' + Math.max(1, mainE - cursor) + ' 1 0;min-height:0"></div>';
+        }
+      } else {
+        for (var lp = 0; lp < lastPost.length; lp++) {
+          deferredTails.push({ ownerIdx: lastIdx, text: formatMinutesHm(lastPost[lp].m) + lastPost[lp].label });
+        }
       }
 
       if (mainEnd < clip.de) {
-        if (postMs.length) {
-          var prev = Math.max(mainEnd, clip.ds);
-          for (var p = 0; p < postMs.length; p++) {
-            var mk = postMs[p];
-            if (mk.m <= prev || mk.m > clip.de) continue;
-            h += '<div class="tl-block-seg tl-block-seg--postmark ' + matchPostClassFromProximity(p, postMs.length) + '" style="flex:' + Math.max(1, mk.m - prev) + ' 1 0;min-height:0">' + esc(formatMinutesHm(mk.m) + mk.label) + '</div>';
-            prev = mk.m;
-          }
-          if (clip.de > prev) {
-            h += '<div class="tl-block-seg tl-block-seg--match-post3" style="flex:' + Math.max(1, clip.de - prev) + ' 1 0;min-height:0"></div>';
-          }
-        } else {
-          var a = Math.max(mainEnd, clip.ds);
-          if (clip.de > a) h += '<div class="tl-block-seg tl-block-seg--match-post3" style="flex:' + Math.max(1, clip.de - a) + ' 1 0;min-height:0"></div>';
-        }
+        var a2 = Math.max(mainEnd, clip.ds);
+        if (clip.de > a2) h += '<div class="tl-block-seg tl-block-seg--match-post3" style="flex:' + Math.max(1, clip.de - a2) + ' 1 0;min-height:0"></div>';
       }
+
+      // 行き場のなかったマーカーは、本来の持ち主セッションの本編枠内に inline tail として追加する
+      // （文字列インデックスがずれないよう、挿入位置の降順で処理する）
+      var byOwner = {};
+      for (var di = 0; di < deferredTails.length; di++) {
+        var d = deferredTails[di];
+        if (!byOwner[d.ownerIdx]) byOwner[d.ownerIdx] = [];
+        byOwner[d.ownerIdx].push(d.text);
+      }
+      var ownerIdxs = Object.keys(byOwner).map(Number).sort(function(a, b) { return b - a; });
+      for (var oi = 0; oi < ownerIdxs.length; oi++) {
+        var idx = ownerIdxs[oi];
+        var pos = rowBodyClosePos[idx];
+        if (pos < 0) continue;
+        var tailHtml = '<span class="tl-block-seg-tail">' + esc(byOwner[idx].join(' / ')) + '</span>';
+        h = h.slice(0, pos) + tailHtml + h.slice(pos);
+      }
+
       h += '</div>';
       return h;
     }
@@ -4527,7 +4543,11 @@
             if (startMin === null || tr.start < startMin) startMin = tr.start;
             var rowEnd = tr.end > tr.start ? tr.end : tr.start + 60;
             if (endMin === null || rowEnd > endMin) endMin = rowEnd;
-            sessions.push({ start: tr.start, end: rowEnd, label: timelineEventMainLabel(ev2) || '練習', id: String(ev2.id || '') });
+            sessions.push({
+              start: tr.start, end: rowEnd, label: timelineEventMainLabel(ev2) || '練習', id: String(ev2.id || ''),
+              pre_event_coach: ev2.pre_event_coach || '', pre_event_user: ev2.pre_event_user || '',
+              post_event_coach: ev2.post_event_coach || '', post_event_user: ev2.post_event_user || '',
+            });
           }
           if (ev2.pre_event_coach) preCoach.push(String(ev2.pre_event_coach).trim());
           if (ev2.pre_event_user) preUser.push(String(ev2.pre_event_user).trim());
