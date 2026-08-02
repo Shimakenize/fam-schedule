@@ -665,7 +665,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260801-1';
+    var __UI_BUILD__ = '20260801-2';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -3492,34 +3492,36 @@
         }
         var segS = Math.max(row.start, mainS);
         var segE = Math.min(row.end, mainE);
+        var lastMainBodyClosePos = -1;
         if (segE > segS) {
           h += '<div class="tl-block-seg tl-block-seg--main" style="flex:' + Math.max(1, segE - segS) + ' 1 0;min-height:0">';
           h += '<div class="tl-block-seg-body">';
           h += '<span class="tl-block-seg-time">' + esc(_fmtHm(row.start) + '-' + _fmtHm(row.end)) + '</span>';
           if (row.label && !narrow) h += '<span class="tl-block-seg-sub">' + formatVsSubHtml(row.label) + '</span>';
           if (!narrow && ev.venue) h += '<span class="tl-block-seg-venue">' + esc(ev.venue) + '</span>';
+          lastMainBodyClosePos = h.length;
           h += '</div></div>';
           cursor = Math.max(cursor, row.end);
         }
+        if (fr === rows.length - 1) var finalMainBodyClosePos = lastMainBodyClosePos;
       }
       if (mainE > cursor) {
         h += '<div class="tl-block-seg tl-block-seg--match-post3" style="flex:' + Math.max(1, mainE - cursor) + ' 1 0;min-height:0"></div>';
       }
 
-      // どのセッション間ギャップにも収まらず未消費のマーカーは、情報を失わないよう末尾の post 帯へ回す
-      // （実時刻はセッション区間の内側にあるため、表示位置は末尾に retain しつつラベルには元の時刻文字列を残す）
-      var leftoverCount = 0;
+      // どのセッション間ギャップにも収まらず未消費のマーカーは情報を失わないよう、
+      // 末尾セッションの本編枠内に inline tail として追加する（clip がその日の最終セッション終了で
+      // 打ち切られており、末尾に別枠を追加する余白が無いケースがあるため。単発イベントの「解散」表示と同じ手法）。
+      var tailLabels = [];
       for (var li = 0; li < midMs.length; li++) {
         var lm = midMs[li];
         if (midConsumed[lm.m + ':' + lm.label]) continue;
-        leftoverCount++;
-        postMs.push({
-          m: mainEnd + leftoverCount,
-          label: '',
-          fullLabel: formatMinutesHm(lm.m) + lm.label,
-        });
+        tailLabels.push(formatMinutesHm(lm.m) + lm.label);
       }
-      postMs.sort(function(a, b) { return a.m - b.m; });
+      if (tailLabels.length && typeof finalMainBodyClosePos === 'number' && finalMainBodyClosePos >= 0) {
+        var tailHtml = '<span class="tl-block-seg-tail">' + esc(tailLabels.join(' / ')) + '</span>';
+        h = h.slice(0, finalMainBodyClosePos) + tailHtml + h.slice(finalMainBodyClosePos);
+      }
 
       if (mainEnd < clip.de) {
         if (postMs.length) {
@@ -3527,8 +3529,7 @@
           for (var p = 0; p < postMs.length; p++) {
             var mk = postMs[p];
             if (mk.m <= prev || mk.m > clip.de) continue;
-            var mkLab = mk.fullLabel || (formatMinutesHm(mk.m) + mk.label);
-            h += '<div class="tl-block-seg tl-block-seg--postmark ' + matchPostClassFromProximity(p, postMs.length) + '" style="flex:' + Math.max(1, mk.m - prev) + ' 1 0;min-height:0">' + esc(mkLab) + '</div>';
+            h += '<div class="tl-block-seg tl-block-seg--postmark ' + matchPostClassFromProximity(p, postMs.length) + '" style="flex:' + Math.max(1, mk.m - prev) + ' 1 0;min-height:0">' + esc(formatMinutesHm(mk.m) + mk.label) + '</div>';
             prev = mk.m;
           }
           if (clip.de > prev) {
