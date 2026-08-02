@@ -2853,6 +2853,10 @@
       return a || b || '';
     }
 
+    function timelineDetailPostEventLine(ev) {
+      return String([ev.post_event_coach, ev.post_event_user].filter(Boolean).join(' · ')).trim();
+    }
+
     function timelineDetailStatusPlain(ev) {
       var sh = String(ev.status_history || '').trim();
       if (sh) return sh;
@@ -3211,7 +3215,11 @@
       if (!core) return '';
       var sessionRows = timelineSessionRows(ev);
       if (sessionRows.length > 1) {
-        return buildFutsalTimelineStackedInnerHtml(ev, clip, narrow, core, sessionRows);
+        // 試合(フットサル日程等)は従来通り。TR等の2部練習連結はセッション間 pre/post も表示する版を使う。
+        if (canonicalEventKind(ev.event_kind) === 'match') {
+          return buildFutsalTimelineStackedInnerHtml(ev, clip, narrow, core, sessionRows);
+        }
+        return buildTrSessionsTimelineStackedInnerHtml(ev, clip, narrow, core, sessionRows);
       }
       var s1 = normalizeKickoffStripTR(String(ev.event_time || ev.time || '').trim());
       // 分割済みフィールドがあれば前段・後段ソースとして優先する（後方互換）
@@ -3399,6 +3407,143 @@
     }
 
     /**
+     * TR の2部練習等（_sessions が複数）: セッション間の pre/post も含めて積層表示。
+     * pre/post は「解散」等の固定キーワードに依存せず、collectFreeformTimeLabels による
+     * 「時刻+項目名」の汎用抽出（試合と同じ matchCollectPreMarkers/PostMarkers）を使う。
+     */
+    function buildTrSessionsTimelineStackedInnerHtml(ev, clip, narrow, core, sessionRows) {
+      if (!ev || !clip || clip.de <= clip.ds || !core || !sessionRows.length) return '';
+      var s1 = normalizeKickoffStripTR(String(ev.event_time || ev.time || '').trim());
+      var _preSrcRaw = [ev.pre_event_coach, ev.pre_event_user].filter(Boolean).join(' · ');
+      var _postSrcRaw = [ev.post_event_coach, ev.post_event_user].filter(Boolean).join(' · ');
+      var preSource = _preSrcRaw ? normalizeKickoffStripTR(_preSrcRaw) : s1;
+      var postSource = _postSrcRaw ? normalizeKickoffStripTR(_postSrcRaw) : s1;
+
+      var rows = sessionRows.slice().sort(function(a, b) { return a.start - b.start; });
+      var mainStart = rows[0].start, mainEnd = rows[0].end;
+      for (var ri = 1; ri < rows.length; ri++) {
+        if (rows[ri].start < mainStart) mainStart = rows[ri].start;
+        if (rows[ri].end > mainEnd) mainEnd = rows[ri].end;
+      }
+
+      var preMs = matchCollectPreMarkers(preSource, mainStart);
+      var hasBusDep = /バス出発/.test(preSource);
+      var postMs = matchCollectPostMarkers(postSource, mainEnd, hasBusDep);
+
+      // セッションの開始・終了時刻そのもの（本編として既に表示済み）は除外し、
+      // それ以外の mainStart〜mainEnd 間のマーカーは全て「セッション間」候補として保持する。
+      // 情報を取りこぼさないため、後段の描画で置き場所が見つからなかったものは末尾の post 帯へ回す。
+      function isSessionBoundary(m) {
+        for (var k = 0; k < rows.length; k++) {
+          if (m === rows[k].start || m === rows[k].end) return true;
+        }
+        return false;
+      }
+      var midAll = collectFreeformTimeLabels([preSource, postSource].filter(Boolean).join(' · '));
+      var midSeen = {};
+      var midMs = [];
+      for (var mi = 0; mi < midAll.length; mi++) {
+        var fm = midAll[mi];
+        if (fm.m <= mainStart || fm.m >= mainEnd || isSessionBoundary(fm.m)) continue;
+        var key = fm.m + ':' + fm.label;
+        if (midSeen[key]) continue;
+        midSeen[key] = 1;
+        midMs.push(fm);
+      }
+      midMs.sort(function(a, b) { return a.m - b.m; });
+      var midConsumed = {};
+
+      var h = '<div class="tl-block-inner tl-block-inner--stack">';
+      var preTop = Math.max(clip.ds, 0);
+      var preBot = Math.min(mainStart, clip.de);
+      if (preBot > preTop) {
+        h += buildMatchPreColumnStackedHtml(preMs, preTop, preBot, null);
+      }
+
+      var mainS = Math.max(clip.ds, mainStart);
+      var mainE = Math.min(clip.de, mainEnd);
+      var cursor = mainS;
+      var _fmtHm = narrow ? formatMinutesHmShort : formatMinutesHm;
+
+      for (var fr = 0; fr < rows.length; fr++) {
+        var row = rows[fr];
+        if (row.end <= mainS || row.start >= mainE) continue;
+        var segS0 = Math.max(row.start, mainS);
+        if (segS0 > cursor) {
+          var gapMs = [];
+          for (var gi = 0; gi < midMs.length; gi++) {
+            if (midMs[gi].m > cursor && midMs[gi].m <= segS0) gapMs.push(midMs[gi]);
+          }
+          if (gapMs.length) {
+            var gPrev = cursor;
+            for (var gj = 0; gj < gapMs.length; gj++) {
+              var gm = gapMs[gj];
+              if (gm.m <= gPrev) continue;
+              h += '<div class="tl-block-seg tl-block-seg--postmark ' + matchPostClassFromProximity(gj, gapMs.length) + '" style="flex:' + Math.max(1, gm.m - gPrev) + ' 1 0;min-height:0">' + esc(formatMinutesHm(gm.m) + gm.label) + '</div>';
+              gPrev = gm.m;
+              midConsumed[gm.m + ':' + gm.label] = 1;
+            }
+            if (segS0 > gPrev) {
+              h += '<div class="tl-block-seg tl-block-seg--match-post3" style="flex:' + Math.max(1, segS0 - gPrev) + ' 1 0;min-height:0"></div>';
+            }
+          } else {
+            h += '<div class="tl-block-seg tl-block-seg--match-post3" style="flex:' + Math.max(1, segS0 - cursor) + ' 1 0;min-height:0"></div>';
+          }
+        }
+        var segS = Math.max(row.start, mainS);
+        var segE = Math.min(row.end, mainE);
+        if (segE > segS) {
+          h += '<div class="tl-block-seg tl-block-seg--main" style="flex:' + Math.max(1, segE - segS) + ' 1 0;min-height:0">';
+          h += '<div class="tl-block-seg-body">';
+          h += '<span class="tl-block-seg-time">' + esc(_fmtHm(row.start) + '-' + _fmtHm(row.end)) + '</span>';
+          if (row.label && !narrow) h += '<span class="tl-block-seg-sub">' + formatVsSubHtml(row.label) + '</span>';
+          if (!narrow && ev.venue) h += '<span class="tl-block-seg-venue">' + esc(ev.venue) + '</span>';
+          h += '</div></div>';
+          cursor = Math.max(cursor, row.end);
+        }
+      }
+      if (mainE > cursor) {
+        h += '<div class="tl-block-seg tl-block-seg--match-post3" style="flex:' + Math.max(1, mainE - cursor) + ' 1 0;min-height:0"></div>';
+      }
+
+      // どのセッション間ギャップにも収まらず未消費のマーカーは、情報を失わないよう末尾の post 帯へ回す
+      // （実時刻はセッション区間の内側にあるため、表示位置は末尾に retain しつつラベルには元の時刻文字列を残す）
+      var leftoverCount = 0;
+      for (var li = 0; li < midMs.length; li++) {
+        var lm = midMs[li];
+        if (midConsumed[lm.m + ':' + lm.label]) continue;
+        leftoverCount++;
+        postMs.push({
+          m: mainEnd + leftoverCount,
+          label: '',
+          fullLabel: formatMinutesHm(lm.m) + lm.label,
+        });
+      }
+      postMs.sort(function(a, b) { return a.m - b.m; });
+
+      if (mainEnd < clip.de) {
+        if (postMs.length) {
+          var prev = Math.max(mainEnd, clip.ds);
+          for (var p = 0; p < postMs.length; p++) {
+            var mk = postMs[p];
+            if (mk.m <= prev || mk.m > clip.de) continue;
+            var mkLab = mk.fullLabel || (formatMinutesHm(mk.m) + mk.label);
+            h += '<div class="tl-block-seg tl-block-seg--postmark ' + matchPostClassFromProximity(p, postMs.length) + '" style="flex:' + Math.max(1, mk.m - prev) + ' 1 0;min-height:0">' + esc(mkLab) + '</div>';
+            prev = mk.m;
+          }
+          if (clip.de > prev) {
+            h += '<div class="tl-block-seg tl-block-seg--match-post3" style="flex:' + Math.max(1, clip.de - prev) + ' 1 0;min-height:0"></div>';
+          }
+        } else {
+          var a = Math.max(mainEnd, clip.ds);
+          if (clip.de > a) h += '<div class="tl-block-seg tl-block-seg--match-post3" style="flex:' + Math.max(1, clip.de - a) + ' 1 0;min-height:0"></div>';
+        }
+      }
+      h += '</div>';
+      return h;
+    }
+
+    /**
      * 出発→集合→本番（時刻順）。解散は本番末尾の tail のみ。別レーンの枠にはしない。
      */
     function buildTimelineStackedInnerHtml(ev, clip, narrow) {
@@ -3408,28 +3553,33 @@
       }
       var core = parseTimeRangeMinutesCoreNormalized(ev);
       if (!core) return '';
+      var sessionRows = timelineSessionRows(ev);
+      if (sessionRows.length > 1) {
+        return buildTrSessionsTimelineStackedInnerHtml(ev, clip, narrow, core, sessionRows);
+      }
       var s1 = normalizeKickoffStripTR(String(ev.event_time || ev.time || '').trim());
       // 分割済みフィールドがあれば前段ソースとして優先する（後方互換）
       var _preSrcRaw2 = [ev.pre_event_coach, ev.pre_event_user].filter(Boolean).join(' · ');
+      var _postSrcRaw2 = [ev.post_event_coach, ev.post_event_user].filter(Boolean).join(' · ');
       var preSource = _preSrcRaw2 ? normalizeKickoffStripTR(_preSrcRaw2) : s1;
+      var postSource = _postSrcRaw2 ? normalizeKickoffStripTR(_postSrcRaw2) : s1;
       var mainStart = core.start;
       var mainEnd = core.end;
-      var dm = parseDismissalMinute(ev);
-      var dismissStr = dm == null ? '' : (formatMinutesHm(dm) + '解散');
 
-      var depMins = collectDepartureMinutesBefore(preSource, mainStart);
-      var asmMins = collectShuGoMinutesBefore(preSource, mainStart);
-      var depMin = depMins.length ? Math.min.apply(null, depMins) : null;
-      var asmMin = asmMins.length ? Math.min.apply(null, asmMins) : null;
-      if (depMin != null && asmMin != null && depMin === asmMin) asmMin = null;
+      // pre/post は「解散」等の固定キーワード限定ではなく、汎用の「時刻+項目名」抽出を使う
+      // （試合の matchCollectPreMarkers/PostMarkers と同じロジック。フリーフォーム文言もフォールバックで拾う）
+      var preMs = matchCollectPreMarkers(preSource, mainStart);
+      var hasBusDep = /バス出発/.test(preSource);
+      var postMs = matchCollectPostMarkers(postSource, mainEnd, hasBusDep);
+      var dismissStr = postMs.length
+        ? postMs.map(function(p) { return formatMinutesHm(p.m) + p.label; }).join(' / ')
+        : '';
 
       var innerPts = [];
-      if (depMin != null && depMin < mainStart) innerPts.push({ t: depMin, ty: 'dep' });
-      if (asmMin != null && asmMin < mainStart) innerPts.push({ t: asmMin, ty: 'asm' });
-      innerPts.sort(function(a, b) {
-        if (a.t !== b.t) return a.t - b.t;
-        return a.ty === 'dep' ? -1 : 1;
-      });
+      for (var pi = 0; pi < preMs.length; pi++) {
+        if (preMs[pi].m < mainStart) innerPts.push({ t: preMs[pi].m, label: preMs[pi].label, role: preMs[pi].role });
+      }
+      innerPts.sort(function(a, b) { return a.t - b.t; });
 
       var mainS = Math.max(clip.ds, mainStart);
       var mainE = Math.min(clip.de, mainEnd);
@@ -3443,10 +3593,8 @@
         if (segEnd <= segStart) continue;
         var smin = segEnd - segStart;
         var g = Math.max(1, smin);
-        var lab = innerPts[j].ty === 'dep'
-          ? (formatMinutesHm(innerPts[j].t) + '出発')
-          : (formatMinutesHm(innerPts[j].t) + '集合');
-        var cls = innerPts[j].ty === 'dep' ? 'tl-block-seg--departure' : 'tl-block-seg--assembly';
+        var lab = formatMinutesHm(innerPts[j].t) + innerPts[j].label;
+        var cls = /^shuppatsu/.test(innerPts[j].role || '') ? 'tl-block-seg--departure' : 'tl-block-seg--assembly';
         h += '<div class="tl-block-seg ' + cls + '" style="flex:' + g + ' 1 0;min-height:0">' + esc(lab) + '</div>';
         hasPre = true;
       }
@@ -3770,6 +3918,7 @@
       h += tlDetailPair('大会', ev.league_or_competition);
       h += tlDetailPair('タイトル', ev.title);
       h += tlDetailPair('時間', timelineDetailTimeLine(ev));
+      h += tlDetailPair('帰宅', timelineDetailPostEventLine(ev));
       h += tlDetailPair('会場', ev.venue);
       if (String(ev.regalia_match_text || '').trim()) {
         h += '<div class="tl-detail-pair"><span class="tl-detail-dt">' + esc('対戦カード') +
