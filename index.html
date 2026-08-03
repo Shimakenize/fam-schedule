@@ -665,7 +665,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260801-6';
+    var __UI_BUILD__ = '20260801-7';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -4786,6 +4786,16 @@
       var syncing = false;
       var rafId = null;
       var mirror = null;
+
+      // 左レールの「日付行+終日行」スペーサーは固定 min-height のため、終日イベントの
+      // チップ数が多い週は実際の終日行より低くなり、その分だけ左の時刻ラベルが右側の
+      // タイムグリッドより上にズレる（例: 27px≒1時間弱）。実測して高さを同期する。
+      var alldayRow = splitRoot.querySelector('.tl-allday-row');
+      var railSpacer = splitRoot.querySelector('.tl-left-rail-spacer');
+      if (alldayRow && railSpacer) {
+        var wantH = alldayRow.getBoundingClientRect().height;
+        railSpacer.style.height = wantH + 'px';
+      }
 
       // Desktop-only mirror scrollbar above the timeline
       if (!('ontouchstart' in window) && splitRoot.parentNode) {
