@@ -665,7 +665,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260801-5';
+    var __UI_BUILD__ = '20260801-6';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -3423,20 +3423,13 @@
         if (rows[ri].end > mainEnd) mainEnd = rows[ri].end;
       }
 
-      // pre/post どちらのフィールドに入力されたかに関わらず、実際の時刻がセッション開始前なら pre、
-      // 終了後なら post として扱う（「出発（自分）」欄に帰宅時刻を書く等、フィールドと時刻の対応が
-      // 崩れていても時刻ベースで正しく分類するため、4フィールド全てを合わせて判定する）。
-      function rowAllFieldsSrc(row) {
-        return [row.pre_event_coach, row.pre_event_user, row.post_event_coach, row.post_event_user]
-          .filter(Boolean).join(' · ');
-      }
       function rowPreMarkers(row) {
-        var raw = rowAllFieldsSrc(row);
+        var raw = [row.pre_event_coach, row.pre_event_user].filter(Boolean).join(' · ');
         var src = raw ? normalizeKickoffStripTR(raw) : '';
         return src ? matchCollectPreMarkers(src, row.start) : [];
       }
       function rowPostMarkers(row) {
-        var raw = rowAllFieldsSrc(row);
+        var raw = [row.post_event_coach, row.post_event_user].filter(Boolean).join(' · ');
         var src = raw ? normalizeKickoffStripTR(raw) : '';
         if (!src) return [];
         var hasBusDep = /バス出発/.test(raw);
@@ -3446,7 +3439,10 @@
       var rowPost = rows.map(rowPostMarkers);
 
       var mainS = Math.max(clip.ds, mainStart);
-      var mainE = Math.min(clip.de, mainEnd);
+      // mainE は clip.de（呼び出し元 parseTimeRangeMinutesForDisplay で post 記載時刻まで
+      // 延長済み）をそのまま使う。生の mainEnd で打ち切ると、最終セッション自身の post が
+      // 「枠なし」と誤判定されて複数マーカーが1行に結合されてしまう。
+      var mainE = clip.de;
       var _fmtHm = narrow ? formatMinutesHmShort : formatMinutesHm;
 
       var h = '<div class="tl-block-inner tl-block-inner--stack">';
@@ -3535,11 +3531,6 @@
         for (var lp = 0; lp < lastPost.length; lp++) {
           deferredTails.push({ ownerIdx: lastIdx, text: formatMinutesHm(lastPost[lp].m) + lastPost[lp].label });
         }
-      }
-
-      if (mainEnd < clip.de) {
-        var a2 = Math.max(mainEnd, clip.ds);
-        if (clip.de > a2) h += '<div class="tl-block-seg tl-block-seg--match-post3" style="flex:' + Math.max(1, clip.de - a2) + ' 1 0;min-height:0"></div>';
       }
 
       // 行き場のなかったマーカーは、本来の持ち主セッションの本編枠内に inline tail として追加する
