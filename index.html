@@ -665,7 +665,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260801-7';
+    var __UI_BUILD__ = '20260801-8';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -3463,32 +3463,43 @@
 
         if (segS0 > cursor) {
           // このギャップに置くのは: 直前セッション自身の post（時刻近い順）＋ 今セッション自身の pre。
-          // 常に時系列順で「本イベントの直後に近い順で積む」— 収まりきらなくても比率を圧縮して全て表示する
-          // （flex は親の固定高さ内で相対配分されるだけなので、絶対時間に対して多少圧縮されても順序と所属は保たれる）。
-          var candidates = [];
+          // post は「枠の終端＝その時刻」で下揃え（例: 11:30帰宅電車 → [直前〜11:30]、下端に表示）。
+          // pre は「枠の始端＝その時刻」で上揃え（例: 17:00出発車 → [17:00〜次の開始]、上端に表示）。
+          var posts = [];
+          var pres = [];
           if (fr > 0) {
             for (var pi = 0; pi < rowPost[fr - 1].length; pi++) {
-              candidates.push({ m: rowPost[fr - 1][pi].m, label: rowPost[fr - 1][pi].label, owner: fr - 1 });
+              posts.push({ m: rowPost[fr - 1][pi].m, label: rowPost[fr - 1][pi].label, owner: fr - 1 });
             }
             for (var qi = 0; qi < rowPre[fr].length; qi++) {
-              candidates.push({ m: rowPre[fr][qi].m, label: rowPre[fr][qi].label, owner: fr });
+              pres.push({ m: rowPre[fr][qi].m, label: rowPre[fr][qi].label, owner: fr });
             }
           }
-          candidates.sort(function(a, b) { return a.m - b.m; });
-          if (candidates.length) {
-            var gPrev = cursor;
-            for (var gj = 0; gj < candidates.length; gj++) {
-              var gm = candidates[gj];
-              var gSpan = Math.max(1, gm.m - gPrev);
-              var gmIdAttr = rows[gm.owner].id ? ' data-tl-seg-ev-id="' + escAttr(rows[gm.owner].id) + '"' : '';
-              h += '<div class="tl-block-seg tl-block-seg--postmark tl-block-seg--tappable ' + matchPostClassFromProximity(gj, candidates.length) + '"' + gmIdAttr + ' style="flex:' + gSpan + ' 1 0;min-height:0">' + esc(formatMinutesHm(gm.m) + gm.label) + '</div>';
-              gPrev = Math.max(gPrev, gm.m);
+          posts.sort(function(a, b) { return a.m - b.m; });
+          pres.sort(function(a, b) { return a.m - b.m; });
+
+          var gPrev = cursor;
+          for (var pj = 0; pj < posts.length; pj++) {
+            var pm = posts[pj];
+            if (pm.m <= gPrev) continue;
+            var pmIdAttr = rows[pm.owner].id ? ' data-tl-seg-ev-id="' + escAttr(rows[pm.owner].id) + '"' : '';
+            h += '<div class="tl-block-seg tl-block-seg--postmark tl-block-seg--tappable ' + matchPostClassFromProximity(pj, posts.length) + '"' + pmIdAttr + ' style="flex:' + Math.max(1, pm.m - gPrev) + ' 1 0;min-height:0">' + esc(formatMinutesHm(pm.m) + pm.label) + '</div>';
+            gPrev = pm.m;
+          }
+          for (var qj = 0; qj < pres.length; qj++) {
+            var qm = pres[qj];
+            if (qm.m < gPrev) continue;
+            if (qm.m > gPrev) {
+              h += '<div class="tl-block-seg tl-block-seg--match-post3" style="flex:' + Math.max(1, qm.m - gPrev) + ' 1 0;min-height:0"></div>';
+              gPrev = qm.m;
             }
-            if (segS0 > gPrev) {
-              h += '<div class="tl-block-seg tl-block-seg--match-post3" style="flex:' + Math.max(1, segS0 - gPrev) + ' 1 0;min-height:0"></div>';
-            }
-          } else {
-            h += '<div class="tl-block-seg tl-block-seg--match-post3" style="flex:' + Math.max(1, segS0 - cursor) + ' 1 0;min-height:0"></div>';
+            var nextBoundary = (qj + 1 < pres.length) ? pres[qj + 1].m : segS0;
+            var qmIdAttr = rows[qm.owner].id ? ' data-tl-seg-ev-id="' + escAttr(rows[qm.owner].id) + '"' : '';
+            h += '<div class="tl-block-seg tl-block-seg--assembly tl-block-seg--tappable"' + qmIdAttr + ' style="flex:' + Math.max(1, nextBoundary - gPrev) + ' 1 0;min-height:0">' + esc(formatMinutesHm(qm.m) + qm.label) + '</div>';
+            gPrev = nextBoundary;
+          }
+          if (segS0 > gPrev) {
+            h += '<div class="tl-block-seg tl-block-seg--match-post3" style="flex:' + Math.max(1, segS0 - gPrev) + ' 1 0;min-height:0"></div>';
           }
         }
 
