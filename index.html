@@ -665,7 +665,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260801-9';
+    var __UI_BUILD__ = '20260804-1';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -3124,8 +3124,14 @@
       for (ri = 0; ri < sm.length; ri++) {
         t0 = sm[ri].m;
         t1 = ri + 1 < sm.length ? sm[ri + 1].m : bot;
-        if (t1 <= t0) continue;
-        rows.push({ g: Math.max(1, t1 - t0), lab: formatMinutesHm(t0) + sm[ri].label });
+        var lab2 = formatMinutesHm(t0) + sm[ri].label;
+        if (t1 <= t0) {
+          // 末尾ちょうど(bot)に位置するマーカーは幅0になり表示できないため、
+          // 直前の帯に併記して情報を失わないようにする
+          if (rows.length) rows[rows.length - 1].lab += ' / ' + lab2;
+          continue;
+        }
+        rows.push({ g: Math.max(1, t1 - t0), lab: lab2 });
       }
       for (ri = 0; ri < rows.length; ri++) {
         h += '<div class="tl-block-seg ' + matchPreClassFromProximity(ri, rows.length) + '" style="flex:' + rows[ri].g + ' 1 0;min-height:0">' + esc(rows[ri].lab) + '</div>';
@@ -3435,8 +3441,17 @@
         var hasBusDep = /バス出発/.test(raw);
         return matchCollectPostMarkers(src, row.end, hasBusDep);
       }
+      // 保護者列(parent_time): このセッション自身の本編時間内に収まるマーカーのみ、
+      // 本編と並列の2列（保護者列）として表示する（試合の hasDualMain と同じ仕組み）。
+      function rowParentMainMarkers(row) {
+        var raw = String(row.parent_time || '').trim();
+        if (!raw) return [];
+        var all = collectFreeformTimeLabels(normalizeKickoffStripTR(raw));
+        return all.filter(function(fm) { return fm.m >= row.start && fm.m <= row.end; });
+      }
       var rowPre = rows.map(rowPreMarkers);
       var rowPost = rows.map(rowPostMarkers);
+      var rowParentMain = rows.map(rowParentMainMarkers);
 
       var mainS = Math.max(clip.ds, mainStart);
       // mainE は clip.de（呼び出し元 parseTimeRangeMinutesForDisplay で post 記載時刻まで
@@ -3508,13 +3523,24 @@
         if (segE > segS) {
           var segIdAttr = row.id ? ' data-tl-seg-ev-id="' + escAttr(row.id) + '"' : '';
           var segTapCls = row.id ? ' tl-block-seg--tappable' : '';
-          h += '<div class="tl-block-seg tl-block-seg--main' + segTapCls + '"' + segIdAttr + ' style="flex:' + Math.max(1, segE - segS) + ' 1 0;min-height:0">';
+          var segFlex = Math.max(1, segE - segS);
+          var hasParentMain = rowParentMain[fr] && rowParentMain[fr].length > 0;
+          if (hasParentMain) {
+            h += '<div class="tl-match-pre-dual" style="flex:' + segFlex + ' 1 0;min-height:0">';
+            h += '<div class="tl-match-pre-col">';
+          }
+          h += '<div class="tl-block-seg tl-block-seg--main' + segTapCls + '"' + segIdAttr + ' style="flex:' + (hasParentMain ? 1 : segFlex) + ' 1 0;min-height:0">';
           h += '<div class="tl-block-seg-body">';
           h += '<span class="tl-block-seg-time">' + esc(_fmtHm(row.start) + '-' + _fmtHm(row.end)) + '</span>';
           if (row.label && !narrow) h += '<span class="tl-block-seg-sub">' + formatVsSubHtml(row.label) + '</span>';
           if (!narrow && ev.venue) h += '<span class="tl-block-seg-venue">' + esc(ev.venue) + '</span>';
           rowBodyClosePos[fr] = h.length;
           h += '</div></div>';
+          if (hasParentMain) {
+            h += '</div>';
+            h += '<div class="tl-match-pre-col">' + buildParentTimeColumnHtml(rowParentMain[fr], segS, segE) + '</div>';
+            h += '</div>';
+          }
           cursor = Math.max(cursor, row.end);
         }
       }
@@ -4540,7 +4566,7 @@
         var sessions = [];
         var startMin = null;
         var endMin = null;
-        var preCoach = [], preUser = [], postCoach = [], postUser = [], venues = [], noteParts = [];
+        var preCoach = [], preUser = [], postCoach = [], postUser = [], venues = [], noteParts = [], parentTimeParts = [];
         for (var k = 0; k < items.length; k++) {
           var ev2 = items[k].ev;
           var tr = parseTimeRangeMinutesCoreNormalized(ev2);
@@ -4552,6 +4578,7 @@
               start: tr.start, end: rowEnd, label: timelineEventMainLabel(ev2) || '練習', id: String(ev2.id || ''),
               pre_event_coach: ev2.pre_event_coach || '', pre_event_user: ev2.pre_event_user || '',
               post_event_coach: ev2.post_event_coach || '', post_event_user: ev2.post_event_user || '',
+              parent_time: ev2.parent_time || '',
             });
           }
           if (ev2.pre_event_coach) preCoach.push(String(ev2.pre_event_coach).trim());
@@ -4560,6 +4587,7 @@
           if (ev2.post_event_user) postUser.push(String(ev2.post_event_user).trim());
           if (ev2.venue) venues.push(String(ev2.venue).trim());
           if (ev2.notes) noteParts.push(String(ev2.notes).trim());
+          if (ev2.parent_time) parentTimeParts.push(String(ev2.parent_time).trim());
         }
         if (sessions.length < 2) { merged = merged.concat(items); continue; }
         sessions.sort(function(a, b) { return a.start - b.start || a.end - b.end; });
@@ -4575,6 +4603,7 @@
         mergedEv.post_event_user = uniq(postUser).join(' · ');
         mergedEv.venue = uniq(venues).join(' / ');
         mergedEv.notes = uniq(noteParts).join('\n');
+        mergedEv.parent_time = uniq(parentTimeParts).join(' · ');
         mergedEv._sessions = sessions;
         var clipDs = items[0].clip.ds;
         var clipDe = items[0].clip.de;
