@@ -506,8 +506,11 @@
       var jukuItems = studyDayItems(row).filter(function (it) { return it && !it.placeholder; });
       if (jukuItems.length) {
         var jcols = jukuItems.length > 4 ? 3 : (jukuItems.length > 1 ? 2 : 1);
-        inner = '<div class="items" style="--icols:' + jcols + '">' +
-          jukuItems.map(function (it) { return studyTaskCard(it, true); }).join("") + "</div>";
+        inner = '<div class="split">' +
+          '<div class="half juku"><div class="banner juku">' + esc(note || "塾に集中") + "</div></div>" +
+          '<div class="half cards"><div class="items" style="--icols:' + jcols + '">' +
+          jukuItems.map(function (it) { return studyTaskCard(it, true); }).join("") +
+          "</div></div></div>";
       } else {
         inner = '<div class="banner juku">' + esc(note || "塾に集中") + "</div>";
       }
