@@ -23,6 +23,11 @@
     .header-title-line .ver { font-weight: 600; opacity: 0.9; font-size: 0.92rem; }
     .header-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; min-width: 0; max-width: 55%; }
     .header-user { font-size: 0.72rem; color: #93c5fd; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }
+    .ht-dining-link {
+      flex-shrink: 0; font-size: 0.72rem; font-weight: 700; color: #0d9488;
+      text-decoration: none; padding: 4px 8px; border: 1px solid #2ed3c6;
+      border-radius: 6px; white-space: nowrap;
+    }
     .id-toggle-label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.68rem; color: #94a3b8; white-space: nowrap; user-select: none; flex-shrink: 0; }
     .id-toggle-label input { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
     .id-toggle-slider { width: 34px; height: 18px; border-radius: 9px; background: #374151; position: relative; transition: background 0.2s; flex-shrink: 0; }
@@ -616,6 +621,7 @@
           <img src="/fam-schedule/app_logo.jpg" alt="App logo" class="app-header-logo">
       <div class="header-title-line" id="headerTitleLine"><span class="ver" id="verInline"></span></div> <!-- GitHub Actions 再トリガー用コメント 4 -->
       <div class="header-right">
+        <a class="ht-dining-link" href="/fam-schedule/home-terminal.html">ダイニングTV</a>
         <div class="header-user" id="headerUser"> </div>
       </div>
     </div>
@@ -672,7 +678,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260809-2';
+    var __UI_BUILD__ = '20260910-1';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
