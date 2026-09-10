@@ -503,7 +503,14 @@
         return studyTaskCard(it, false);
       }).join("") + "</div>";
     } else if (tag === "juku") {
-      inner = '<div class="banner juku">' + esc(note || "塾に集中") + "</div>";
+      var jukuItems = studyDayItems(row).filter(function (it) { return it && !it.placeholder; });
+      if (jukuItems.length) {
+        var jcols = jukuItems.length > 4 ? 3 : (jukuItems.length > 1 ? 2 : 1);
+        inner = '<div class="items" style="--icols:' + jcols + '">' +
+          jukuItems.map(function (it) { return studyTaskCard(it, true); }).join("") + "</div>";
+      } else {
+        inner = '<div class="banner juku">' + esc(note || "塾に集中") + "</div>";
+      }
     } else {
       var items = studyDayItems(row);
       var cols = items.length > 4 ? 3 : (items.length > 1 ? 2 : 1);
@@ -3808,13 +3815,17 @@
     if (pack.tmin != null) s += "最低気温は" + pack.tmin + "度" + speakDeltaClause(pack.dtmin) + "。";
     return s;
   }
+  function speakRainTag(tag) {
+    if (tag === "弱雨") return "よわあめ";
+    return tag || "";
+  }
   function speakWxLoc(name, r, pack) {
-    return speakTemp(pack, name + "は" + rainLabel(r) + "です。");
+    return speakTemp(pack, name + "は" + speakRainTag(rainLabel(r)) + "です。");
   }
   function rainKindWord(k) {
     if (k === "heavy") return "大雨";
     if (k === "mid") return "雨";
-    if (k === "light") return "弱雨";
+    if (k === "light") return "よわあめ";
     return "雨なし";
   }
   function hourPartLabel(h) {
@@ -3869,8 +3880,9 @@
   function speakEventWx(ev) {
     var rv = eventSlotRain(ev);
     if (!rv || !rv.tag) return "";
-    if (rv.place) return rv.place + "は" + rv.tag + "です。";
-    return "天気は" + rv.tag + "です。";
+    var rain = speakRainTag(rv.tag);
+    if (rv.place) return rv.place + "は" + rain + "です。";
+    return "天気は" + rain + "です。";
   }
   function speakSoccerEv(ev, dayWord) {
     var day = dayWord || "今日";
