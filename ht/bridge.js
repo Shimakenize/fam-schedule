@@ -110,7 +110,7 @@
 
   async function start() {
     var cfgUrl = String(window.__CONFIG_URL__ || "");
-    if (!cfgUrl || cfgUrl.indexOf("https://script.google.com/macros/s/AKfycbzTWV_X4UvgUxXSzI-KUVudV2EwEQdY9yLe2oKMf9DIkpGo_BNCe3uGG0wmFQ1EcLpC/exec") >= 0) {
+    if (!cfgUrl || cfgUrl.indexOf("https://") !== 0) {
       gateMsg("設定URLが埋め込まれていません。Pagesの再デプロイを確認してください。");
       return;
     }
