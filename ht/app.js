@@ -1,4 +1,4 @@
-/* copied from Sony_HomeTerminal/web/app.js for away-from-home LIFF. TV kiosk is unchanged. */
+﻿/* copied from Sony_HomeTerminal/web/app.js for away-from-home LIFF. TV kiosk is unchanged. */
 (function () {
   "use strict";
 
@@ -215,8 +215,7 @@
   function isBriefPage(k) {
     return parentPage(k) === "brief" || parentPage(k) === "tomo";
   }
-  function isRemote() { return !!window.REMOTE_LIFF; }
-  function isPhone() { return !!window.PHONE_KIOSK && !isRemote(); }
+  function isPhone() { return !!window.PHONE_KIOSK; }
   function parentPage(key) {
     var s = String(key || "");
     var i = s.indexOf("|");
@@ -478,9 +477,12 @@
     var isExam = (row.tag === "exam") || row.date === studyData.examDate || row.date === studyData.examEnd;
     var tag = row.tag || (isExam ? "exam" : "");
     var note = row.note || "";
-    if (tag === "juku") {
+    if (!isExam) {
       var live = studyJukuNames(row.date);
-      if (live.length) note = "塾の" + live.join("・") + "に集中";
+      if (live.length) {
+        tag = "juku";
+        note = "塾の" + live.join("・") + "に集中";
+      }
     }
     var d = parseLocalDate(row.date);
     var lab = fmtMd(row.date) + (d ? "（" + WD[d.getDay()] + "）" : "");
@@ -2099,7 +2101,7 @@
   }
   function resetIdle() {
     clearTimeout(idleTimer);
-    if (isRemote() || studyDebug()) return;
+    if (studyDebug()) return;
     if (kioskOn || kioskPaused) return;
     idleTimer = setTimeout(enterKiosk, IDLE_MS);
   }
@@ -3502,7 +3504,7 @@
     withKioskVeil(key, function () { paintKioskPage(key); });
   }
   function enterKiosk() {
-    if (isRemote() || studyDebug()) return;
+    if (studyDebug()) return;
     if (kioskOn || kioskPaused) return;
     if (!lastData && !cacheFocus && !cacheWeek && !homeBriefing) {
       resetIdle();
@@ -3530,7 +3532,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.89" });
+    appLog({ event: "kiosk_on", v: "0.3.92" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;
@@ -3565,7 +3567,6 @@
   }
 
   function canSpeak() {
-    if (isRemote()) return false;
     return !!(window.SonyBridge && typeof SonyBridge.speak === "function");
   }
   function speakEnabled() {
