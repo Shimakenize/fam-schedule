@@ -11,7 +11,8 @@
   var weekOffset = 0;
   var focusDayOffset = 0;
   var viewMode = "focus";
-  var showAll = false;
+  var showAllFocus = true;
+  var showAllWeek = false;
   var uiMode = "event";
   var filterSel = 0;
   var wxCol = 0;
@@ -1014,9 +1015,12 @@
   function activeEvents(events) {
     return (events || []).filter(function (ev) { return !isDisplayHidden(ev); });
   }
+  function pageShowAll() {
+    return viewMode === "week" ? showAllWeek : showAllFocus;
+  }
   function visibleEvents(events) {
     return activeEvents(events).filter(function (ev) {
-      if (showAll) return true;
+      if (pageShowAll()) return true;
       return includesU13(ev.category_code);
     });
   }
@@ -1235,10 +1239,28 @@
         var left = ev._lane * w;
         var cls = "tl-block tl-block--stacked " + kindClass(ev.event_kind) + " tl-cat-" + categoryTier(ev.category_code);
         if (String(ev.display_status).toLowerCase() === "off") cls += " off";
-        blocks += '<div class="' + cls + '" data-col="' + i + '" data-idx="' + ei + '" data-eid="' + esc(ev.id || "") +
+        var tight = viewMode === "week" && (ev._lanes > 1 || ht < 48);
+        var innerBadge = rainBadgeHtml(ev);
+        var floatBadge = "";
+        if (tight && innerBadge) {
+          innerBadge = "";
+          var above = top >= 16;
+          var bTop = above ? top : (top + ht);
+          var bLeft = "calc(" + left + "% + 2px)";
+          var bTf = above ? "translateY(-100%)" : "none";
+          if (ev._lanes > 1 && ev._lane > 0) {
+            bLeft = "calc(" + left + "% + " + w + "% - 2px)";
+            bTf = above ? "translate(-100%,-100%)" : "translate(-100%,0)";
+          }
+          floatBadge = rainBadgeHtml(ev, {
+            cls: "rain-badge--float",
+            style: "left:" + bLeft + ";top:" + bTop + "px;transform:" + bTf
+          });
+        }
+        blocks += floatBadge + '<div class="' + cls + '" data-col="' + i + '" data-idx="' + ei + '" data-eid="' + esc(ev.id || "") +
           '" style="top:' + top + "px;height:" + ht +
           "px;left:calc(" + left + "% + 2px);width:calc(" + w + "% - 4px)\">" +
-          rainBadgeHtml(ev) +
+          innerBadge +
           stackedInner(ev, { ds: ev._ds, de: ev._de }) + "</div>";
       });
       cnv.innerHTML = grids + blocks;
@@ -1783,8 +1805,8 @@
 
   function syncFilterUi() {
     rebuildPageLists();
-    $("btn-u13").className = (showAll ? "" : "on") + (uiMode === "filter" && filterSel === 0 ? " nav" : "");
-    $("btn-all").className = (showAll ? "on" : "") + (uiMode === "filter" && filterSel === 1 ? " nav" : "");
+    $("btn-u13").className = (pageShowAll() ? "" : "on") + (uiMode === "filter" && filterSel === 0 ? " nav" : "");
+    $("btn-all").className = (pageShowAll() ? "on" : "") + (uiMode === "filter" && filterSel === 1 ? " nav" : "");
     var i;
     for (i = 0; i < PAGE_KEYS.length; i++) {
       var btn = $(PAGE_BTNS[i]);
@@ -2474,14 +2496,17 @@
     var k = canonicalKind(ev && (ev.kind || ev.event_kind));
     return k === "match" || k === "TR" || k === "合宿" || k === "マリノス戦" || k === "塾";
   }
-  function rainBadgeHtml(ev) {
+  function rainBadgeHtml(ev, opts) {
     if (!wantsWxBadge(ev)) return "";
     var rv = eventSlotRain(ev);
     if (!rv || !rv.tag) return "";
+    opts = opts || {};
     var place = rv.place
       ? '<span class="rain-badge-place">' + esc(rv.place) + "</span>"
       : "";
-    return '<div class="rain-badge rain-' + rv.kind + '"><span class="rain-badge-wx">' +
+    var extra = opts.cls ? " " + opts.cls : "";
+    var st = opts.style ? ' style="' + opts.style + '"' : "";
+    return '<div class="rain-badge rain-' + rv.kind + extra + '"' + st + '><span class="rain-badge-wx">' +
       esc(rv.tag) + "</span>" + place + "</div>";
   }
   function matchKickClock(ev) {
@@ -2545,6 +2570,15 @@
   }
   function isMarinosEv(ev) {
     return canonicalKind(ev && (ev.kind || ev.event_kind)) === "マリノス戦";
+  }
+  function ownBeforeMarinos(rows) {
+    var own = [];
+    var marinos = [];
+    (rows || []).forEach(function (ev) {
+      if (isMarinosEv(ev)) marinos.push(ev);
+      else own.push(ev);
+    });
+    return own.concat(marinos);
   }
   function isMiscEv(ev) {
     var k = canonicalKind(ev && ev.kind);
@@ -2664,7 +2698,7 @@
     var iso = briefDayIso();
     var rows = briefDayEvents(iso);
     var juku = rows.filter(function (ev) { return canonicalKind(ev.kind) === "塾"; });
-    var soccer = rows.filter(isSoccerEv);
+    var soccer = ownBeforeMarinos(rows.filter(isSoccerEv));
     var misc = rows.filter(isMiscEv);
     var wxHtml = '<div class="brief-sec brief-sec-wx"><div class="brief-sec-h">天気</div><div class="brief-sec-body">' +
       briefWxPanelHtml(iso) +
@@ -3538,7 +3572,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.94" });
+    appLog({ event: "kiosk_on", v: "0.3.95" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;
@@ -4048,7 +4082,7 @@
     var dayWord = forTomo ? "明日" : "今日";
     var rows = upcomingOnly(briefDayEvents(iso));
     var juku = rows.filter(function (ev) { return canonicalKind(ev.kind) === "塾"; });
-    var soccer = rows.filter(isSoccerEv);
+    var soccer = ownBeforeMarinos(rows.filter(isSoccerEv));
     var misc = rows.filter(isMiscEv);
     var parts = [];
     if (juku.length) {
@@ -4094,7 +4128,7 @@
         }).join("。") + "。";
       }
       if (slice === "soccer") {
-        return rows.filter(isSoccerEv).map(function (ev) { return speakSoccerEv(ev, dayWord); }).join("");
+        return ownBeforeMarinos(rows.filter(isSoccerEv)).map(function (ev) { return speakSoccerEv(ev, dayWord); }).join("");
       }
       if (slice === "misc") {
         return rows.filter(isMiscEv).map(function (ev) { return speakMiscEv(ev, false, dayWord); }).join("");
@@ -4394,8 +4428,13 @@
   };
 
   function setShowAll(v) {
-    showAll = !!v;
-    try { localStorage.setItem("dashShowAll", showAll ? "1" : "0"); } catch (e) {}
+    if (viewMode === "week") {
+      showAllWeek = !!v;
+      try { localStorage.setItem("dashShowAllWeek", showAllWeek ? "1" : "0"); } catch (e) {}
+    } else {
+      showAllFocus = !!v;
+      try { localStorage.setItem("dashShowAllFocus", showAllFocus ? "1" : "0"); } catch (e) {}
+    }
     if (lastData) apply(lastData);
     else syncFilterUi();
   }
@@ -4410,7 +4449,14 @@
   function bind() {
     rebuildPageLists();
     try {
-      showAll = localStorage.getItem("dashShowAll") === "1";
+      var focusAll = localStorage.getItem("dashShowAllFocus");
+      showAllFocus = focusAll == null ? true : focusAll === "1";
+      var weekAll = localStorage.getItem("dashShowAllWeek");
+      if (weekAll == null) {
+        showAllWeek = localStorage.getItem("dashShowAll") === "1";
+      } else {
+        showAllWeek = weekAll === "1";
+      }
       var vm = localStorage.getItem("dashViewMode");
       if (vm === "week" || vm === "focus") viewMode = vm;
       var pg = localStorage.getItem("dashPage");
@@ -4444,7 +4490,7 @@
         phoneSlice = "";
         kioskKey = "study";
       }
-    } catch (e) { showAll = false; }
+    } catch (e) { showAllFocus = true; showAllWeek = false; }
     setPanelVisibility();
     syncBodyClass();
     syncPhoneLayout();

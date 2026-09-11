@@ -1138,6 +1138,11 @@
     body.mode-focus .tl-block .rain-badge {
       font-size: 24px; bottom: 8px; right: 8px; padding: 8px 12px;
     }
+    body.mode-week .rain-badge--float {
+      font-size: 12px; font-weight: 800; padding: 2px 6px; gap: 1px;
+      z-index: 5; pointer-events: none; white-space: nowrap;
+    }
+    body.mode-week .rain-badge--float .rain-badge-place { font-size: 0.7em; }
     .tl-block--stacked { padding: 0 !important; background: transparent !important; display: flex; flex-direction: column; }
     .tl-block-inner--stack { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; }
     .tl-block-seg {
@@ -1759,8 +1764,8 @@
       <div class="sub" id="range-line">今週のタイムライン</div>
     </div>
     <div class="hdr-cat">
-      <button type="button" id="btn-u13" class="on">U-13のみ</button>
-      <button type="button" id="btn-all">すべて</button>
+      <button type="button" id="btn-u13">U-13のみ</button>
+      <button type="button" id="btn-all" class="on">すべて</button>
     </div>
     <div class="hdr-gap" aria-hidden="true"></div>
     <div class="hdr-view">
@@ -1816,6 +1821,6 @@
   <div id="toast" hidden></div>
   <aside id="ev-detail" hidden></aside>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script src="ht/bridge.js?v=20260912-1"></script>
+  <script src="ht/bridge.js?v=20260912-2"></script>
 </body>
 </html>
