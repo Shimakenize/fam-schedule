@@ -1,4 +1,4 @@
-﻿/* copied from Sony_HomeTerminal/web/app.js for away-from-home LIFF. TV kiosk is unchanged. */
+/* copied from Sony_HomeTerminal/web/app.js for away-from-home LIFF. TV kiosk is unchanged. */
 (function () {
   "use strict";
 
@@ -477,12 +477,9 @@
     var isExam = (row.tag === "exam") || row.date === studyData.examDate || row.date === studyData.examEnd;
     var tag = row.tag || (isExam ? "exam" : "");
     var note = row.note || "";
-    if (!isExam) {
+    if (tag === "juku") {
       var live = studyJukuNames(row.date);
-      if (live.length) {
-        tag = "juku";
-        note = "塾の" + live.join("・") + "に集中";
-      }
+      if (live.length) note = "塾の" + live.join("・") + "に集中";
     }
     var d = parseLocalDate(row.date);
     var lab = fmtMd(row.date) + (d ? "（" + WD[d.getDay()] + "）" : "");
@@ -507,7 +504,7 @@
     } else if (tag === "juku") {
       var jukuItems = studyDayItems(row).filter(function (it) { return it && !it.placeholder; });
       if (jukuItems.length) {
-        var jcols = jukuItems.length > 4 ? 3 : (jukuItems.length > 1 ? 2 : 1);
+        var jcols = jukuItems.length > 3 ? 3 : (jukuItems.length > 1 ? 2 : 1);
         inner = '<div class="split">' +
           '<div class="half juku"><div class="banner juku">' + esc(note || "塾に集中") + "</div></div>" +
           '<div class="half cards"><div class="items" style="--icols:' + jcols + '">' +
@@ -3532,7 +3529,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.92" });
+    appLog({ event: "kiosk_on", v: "0.3.93" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;
