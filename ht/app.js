@@ -1,4 +1,3 @@
-/* copied from Sony_HomeTerminal/web/app.js for away-from-home LIFF. TV kiosk is unchanged. */
 (function () {
   "use strict";
 
@@ -461,7 +460,7 @@
   }
   function studyJukuNames(iso) {
     var src = cacheWeek || lastData || {};
-    var evs = src.events || [];
+    var evs = activeEvents(src.events);
     var names = [];
     evs.forEach(function (e) {
       var dt = String(e.date || e.event_date || "").slice(0, 10);
@@ -1008,9 +1007,15 @@
     return { start: start, end: end, core: core };
   }
 
+  function isDisplayHidden(ev) {
+    var ds = String((ev && ev.display_status) || "").toLowerCase();
+    return ds === "removed" || ds === "off";
+  }
+  function activeEvents(events) {
+    return (events || []).filter(function (ev) { return !isDisplayHidden(ev); });
+  }
   function visibleEvents(events) {
-    return (events || []).filter(function (ev) {
-      if (String(ev.display_status || "").toLowerCase() === "removed") return false;
+    return activeEvents(events).filter(function (ev) {
       if (showAll) return true;
       return includesU13(ev.category_code);
     });
@@ -1797,6 +1802,10 @@
 
   function apply(data) {
     if (!data) return;
+    data.events = activeEvents(data.events);
+    if (data.briefing && data.briefing.nextWeekEvents) {
+      data.briefing.nextWeekEvents = activeEvents(data.briefing.nextWeekEvents);
+    }
     if ((pageKey === "focus" || pageKey === "wx") && (data.days || []).length > 2) {
       data = clipDashboard(data, focusDays());
     }
@@ -1872,7 +1881,7 @@
   function clipDashboard(data, wanted) {
     var daySet = {};
     wanted.forEach(function (d) { daySet[d] = 1; });
-    var events = (data.events || []).filter(function (e) {
+    var events = activeEvents(data.events).filter(function (e) {
       return daySet[String(e.event_date || "").slice(0, 10)];
     });
     var weather = { locations: [] };
@@ -2625,7 +2634,7 @@
     else if (iso !== todayStr() && b.tomorrow) rows = b.tomorrow || [];
     else {
       var src = cacheFocus || cacheWeek || lastData;
-      rows = ((src && src.events) || []).filter(function (e) {
+      rows = activeEvents((src && src.events) || []).filter(function (e) {
         return eventIso(e) === iso;
       }).map(asHeadLine);
     }
@@ -2733,7 +2742,7 @@
   function fillMatchSpeakFields(row) {
     var src = cacheWeek || lastData;
     var b = homeBriefing || (lastData && lastData.briefing) || {};
-    var evs = ((src && src.events) || []).concat(b.nextWeekEvents || []);
+    var evs = activeEvents(src && src.events).concat(activeEvents(b.nextWeekEvents));
     var iso = eventIso(row);
     var want = canonicalKind(row.kind || row.event_kind);
     var i;
@@ -2774,8 +2783,8 @@
     var b = homeBriefing || (lastData && lastData.briefing) || {};
     var src = weekDashSrc();
     var evs = next
-      ? clipRowsToWeek((b.nextWeekEvents || []).slice(), parent)
-      : clipRowsToWeek(((src && src.events) || []).slice(), parent);
+      ? clipRowsToWeek(activeEvents(b.nextWeekEvents).slice(), parent)
+      : clipRowsToWeek(activeEvents(src && src.events).slice(), parent);
     evs.sort(function (a, b) { return eventIso(a).localeCompare(eventIso(b)); });
     function isU13e(e) { return includesU13(e.category || e.category_code); }
     function miscRows(list) {
@@ -3140,7 +3149,7 @@
   }
   function regaliaMatchEvents() {
     var src = cacheWeek || lastData;
-    return ((src && src.events) || []).filter(function (e) {
+    return activeEvents(src && src.events).filter(function (e) {
       return canonicalKind(e.kind || e.event_kind) === "match";
     }).map(function (e) {
       var row = asHeadLine(e);
@@ -3166,7 +3175,7 @@
     weekendMatchDays(parent).forEach(function (iso) { daySet[iso] = 1; });
     var src = cacheWeek || lastData;
     var b = homeBriefing || (lastData && lastData.briefing) || {};
-    var list = isNextWeekHead(parent) ? (b.nextWeekEvents || []) : ((src && src.events) || []);
+    var list = isNextWeekHead(parent) ? activeEvents(b.nextWeekEvents) : activeEvents(src && src.events);
     return list.filter(function (e) {
       if (!daySet[eventIso(e)]) return false;
       if (isMarinosEv(e)) return false;
@@ -3529,7 +3538,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.93" });
+    appLog({ event: "kiosk_on", v: "0.3.94" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;
