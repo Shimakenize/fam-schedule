@@ -1092,7 +1092,7 @@
     return '<span class="wx-ico wx-ico-' + n + '"' + wh + '>' + svg + "</span>";
   }
 
-  function stackedInner(ev, clip) {
+  function stackedInner(ev, clip, badgeHtml) {
     var core = ev._range.core;
     var preMarks = labeledTimes(preSrc(ev)).filter(function (x) { return x.m < core.start; })
       .sort(function (a, b) { return a.m - b.m; });
@@ -1121,7 +1121,9 @@
     var mainS = Math.max(clip.ds, core.start);
     var mainE = Math.min(clip.de, core.end);
     if (mainE > mainS) {
-      h += '<div class="tl-block-seg tl-block-seg--main" style="flex:' + Math.max(1, mainE - mainS) + ' 1 0">' +
+      h += '<div class="tl-block-seg tl-block-seg--main' + (badgeHtml ? " tl-block-seg--wx" : "") +
+        '" style="flex:' + Math.max(1, mainE - mainS) + ' 1 0">' +
+        (badgeHtml || "") +
         '<span class="tl-block-seg-time">' + esc(hm(core.start) + (core.end > core.start ? "-" + hm(core.end) : "")) + "</span>" +
         '<span class="tl-block-seg-sub">' + esc(mainSub(ev)) + "</span>" +
         (ev.venue ? '<span class="tl-block-seg-venue">' + esc(ev.venue) + "</span>" : "") +
@@ -1239,29 +1241,12 @@
         var left = ev._lane * w;
         var cls = "tl-block tl-block--stacked " + kindClass(ev.event_kind) + " tl-cat-" + categoryTier(ev.category_code);
         if (String(ev.display_status).toLowerCase() === "off") cls += " off";
-        var tight = viewMode === "week" && (ev._lanes > 1 || ht < 48);
-        var innerBadge = rainBadgeHtml(ev);
-        var floatBadge = "";
-        if (tight && innerBadge) {
-          innerBadge = "";
-          var above = top >= 16;
-          var bTop = above ? top : (top + ht);
-          var bLeft = "calc(" + left + "% + 2px)";
-          var bTf = above ? "translateY(-100%)" : "none";
-          if (ev._lanes > 1 && ev._lane > 0) {
-            bLeft = "calc(" + left + "% + " + w + "% - 2px)";
-            bTf = above ? "translate(-100%,-100%)" : "translate(-100%,0)";
-          }
-          floatBadge = rainBadgeHtml(ev, {
-            cls: "rain-badge--float",
-            style: "left:" + bLeft + ";top:" + bTop + "px;transform:" + bTf
-          });
-        }
-        blocks += floatBadge + '<div class="' + cls + '" data-col="' + i + '" data-idx="' + ei + '" data-eid="' + esc(ev.id || "") +
+        if (ev._lanes > 1) cls += " tl-block--narrow";
+        if (ht < 48) cls += " tl-block--short";
+        blocks += '<div class="' + cls + '" data-col="' + i + '" data-idx="' + ei + '" data-eid="' + esc(ev.id || "") +
           '" style="top:' + top + "px;height:" + ht +
           "px;left:calc(" + left + "% + 2px);width:calc(" + w + "% - 4px)\">" +
-          innerBadge +
-          stackedInner(ev, { ds: ev._ds, de: ev._de }) + "</div>";
+          stackedInner(ev, { ds: ev._ds, de: ev._de }, rainBadgeHtml(ev)) + "</div>";
       });
       cnv.innerHTML = grids + blocks;
     }
@@ -3572,7 +3557,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.95" });
+    appLog({ event: "kiosk_on", v: "0.3.96" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;

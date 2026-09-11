@@ -1132,17 +1132,24 @@
       border: 1px solid #334155; z-index: 2; color: #e5e7eb; font-size: 15px; line-height: 1.2;
       box-shadow: 0 1px 2px rgba(0,0,0,0.25);
     }
-    .tl-block .rain-badge {
-      font-size: 18px; top: auto; bottom: 6px; right: 6px; padding: 6px 10px;
+    .tl-block-seg--main { position: relative; }
+    .tl-block-seg--main .rain-badge {
+      font-size: 18px; top: 4px; right: 4px; bottom: auto; padding: 6px 10px;
     }
-    body.mode-focus .tl-block .rain-badge {
-      font-size: 24px; bottom: 8px; right: 8px; padding: 8px 12px;
+    body.mode-focus .tl-block-seg--main .rain-badge {
+      font-size: 24px; padding: 8px 12px;
     }
-    body.mode-week .rain-badge--float {
-      font-size: 12px; font-weight: 800; padding: 2px 6px; gap: 1px;
-      z-index: 5; pointer-events: none; white-space: nowrap;
+    body.mode-week .tl-block-seg--main .rain-badge {
+      font-size: 11px; padding: 2px 5px; gap: 1px;
     }
-    body.mode-week .rain-badge--float .rain-badge-place { font-size: 0.7em; }
+    body.mode-week .tl-block--narrow .tl-block-seg--wx,
+    body.mode-week .tl-block--short .tl-block-seg--wx {
+      padding-right: 58px;
+    }
+    body.mode-focus .tl-block--narrow .tl-block-seg--wx,
+    body.mode-focus .tl-block--short .tl-block-seg--wx {
+      padding-right: 92px;
+    }
     .tl-block--stacked { padding: 0 !important; background: transparent !important; display: flex; flex-direction: column; }
     .tl-block-inner--stack { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; }
     .tl-block-seg {
@@ -1821,6 +1828,6 @@
   <div id="toast" hidden></div>
   <aside id="ev-detail" hidden></aside>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script src="ht/bridge.js?v=20260912-2"></script>
+  <script src="ht/bridge.js?v=20260912-3"></script>
 </body>
 </html>
