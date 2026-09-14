@@ -2525,7 +2525,7 @@
     if (r.kind === "mid") return "mid";
     return "light";
   }
-  function briefChip(ev, withDow) {
+  function briefChip(ev, withDow, slim) {
     var kind = ev.kindLabel || kindLabel(ev.kind);
     var title = String(ev.title || "").trim();
     if (title && title === kind) title = "";
@@ -2541,7 +2541,7 @@
       if (leave && time && leave === time) leave = "";
     }
     var dowHtml = "";
-    if (withDow) {
+    if (withDow && !slim) {
       var d = parseLocalDate(ev.date);
       if (d) {
         var di = d.getDay();
@@ -2549,21 +2549,21 @@
       }
     }
     var venue = "";
-    if (withDow && (isSoccerEv(ev) || isMiscEv(ev))) {
+    if ((withDow || slim) && (isSoccerEv(ev) || isMiscEv(ev))) {
       venue = matchVenueName(ev);
     }
-    var league = withDow ? leagueLabel(ev) : "";
-    return '<div class="brief-chip ' + kindChipClass(ev.kind, ev) + (ev.groupEvents ? " is-group" : "") + (eventIsPast(ev) ? " is-past" : "") + '">' +
+    var league = (withDow || slim) ? leagueLabel(ev) : "";
+    return '<div class="brief-chip ' + kindChipClass(ev.kind, ev) + (ev.groupEvents ? " is-group" : "") + (slim ? " is-slim" : "") + (eventIsPast(ev) ? " is-past" : "") + '">' +
       rainBadgeHtml(ev) +
       dowHtml +
-      uiIco(kindIcoName(ev.kind)) +
+      (slim ? "" : uiIco(kindIcoName(ev.kind))) +
       '<div class="kind">' + esc(kind) + "</div>" +
       (title ? '<div class="ttl">' + esc(title) + "</div>" : "") +
       (league ? '<div class="league">' + esc(league) + "</div>" : "") +
       (vs ? '<div class="vs">vs ' + esc(vs) + "</div>" : "") +
       (venue ? '<div class="venue">' + esc(venue) + "</div>" : "") +
       (time ? '<div class="t">' + esc(time) + "</div>" : "") +
-      (leave ? '<div class="who">出 ' + esc(leave) + "</div>" : "") +
+      (leave && !slim ? '<div class="who">出 ' + esc(leave) + "</div>" : "") +
       "</div>";
   }
   function isSoccerEv(ev) {
@@ -2863,13 +2863,13 @@
       return eventStartKey(a).localeCompare(eventStartKey(b));
     });
   }
-  function weekChipList(rows, byDay) {
+  function weekChipList(rows, byDay, slim) {
     if (!rows || !rows.length) {
       return '<div class="brief-empty-ico">' + uiIco("cal") + '<div class="st-cap">なし</div></div>';
     }
     var list = sortHeadRows(rows);
     if (!byDay) {
-      return list.map(function (ev) { return briefChip(ev, true); }).join("");
+      return list.map(function (ev) { return briefChip(ev, true, slim); }).join("");
     }
     var html = "";
     var i = 0;
@@ -2877,7 +2877,7 @@
       var iso = eventIso(list[i]);
       html += '<div class="chip-day-row">';
       while (i < list.length && eventIso(list[i]) === iso) {
-        html += briefChip(list[i], true);
+        html += briefChip(list[i], true, slim);
         i += 1;
       }
       html += "</div>";
@@ -3348,7 +3348,7 @@
   }
   function rmCatHtml(label, rows) {
     return '<div class="rm-cat"><div class="rm-cat-h">' + esc(label) + '</div><div class="wh-list">' +
-      weekChipList(collapseFutsalMatchCards(rows)) + "</div></div>";
+      weekChipList(collapseFutsalMatchCards(rows), false, true) + "</div></div>";
   }
   function regaliaMatchBoardHtml() {
     var rows = regaliaWeekendEvents();
@@ -3695,7 +3695,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.100" });
+    appLog({ event: "kiosk_on", v: "0.3.101" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;
