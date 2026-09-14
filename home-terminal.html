@@ -724,6 +724,9 @@
       grid-template-columns: 1.05fr 2.3fr 1.15fr; grid-template-rows: minmax(0, 1fr) min-content;
       gap: 8px; padding: 10px 16px 10px;
     }
+    .wh-grid.wh-grid-renkyu {
+      grid-template-columns: 1.05fr 3.45fr;
+    }
     .wh-stack {
       min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 8px;
     }
@@ -738,6 +741,17 @@
     .rm-days {
       flex: 1; min-height: 0; display: grid; gap: 6px;
     }
+    .rm-days.rm-compact { gap: 4px; }
+    .rm-days.rm-compact .rm-dow { font-size: 16px; letter-spacing: 0.04em; padding: 2px 0 0; }
+    .rm-days.rm-compact .rm-cat { padding: 2px 3px 3px; }
+    .rm-days.rm-compact .rm-cat-h { font-size: 15px; margin-bottom: 2px; }
+    .rm-days.rm-compact .wh-sec .brief-chip { padding: 20px 3px 3px; }
+    .rm-days.rm-compact .wh-sec .brief-chip .ui-ico { width: 20px; height: 20px; }
+    .rm-days.rm-compact .wh-sec .brief-chip .t { font-size: 14px; }
+    .rm-days.rm-compact .wh-sec .brief-chip .ttl,
+    .rm-days.rm-compact .wh-sec .brief-chip .vs,
+    .rm-days.rm-compact .wh-sec .brief-chip .venue { font-size: 11px; }
+    .rm-days.rm-compact .wh-sec .brief-chip .league { font-size: 10px; }
     .rm-day {
       min-width: 0; min-height: 0; display: flex; flex-direction: column;
       border: 1px solid rgba(201,176,138,0.14); border-radius: 6px;
@@ -1828,6 +1842,6 @@
   <div id="toast" hidden></div>
   <aside id="ev-detail" hidden></aside>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script src="ht/bridge.js?v=20260912-3"></script>
+  <script src="ht/bridge.js?v=20260914-1"></script>
 </body>
 </html>

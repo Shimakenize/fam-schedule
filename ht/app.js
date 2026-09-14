@@ -3075,34 +3075,58 @@
   }
   function holidaySet(parent) {
     var s = {};
-    var week = headWeekSet(parent);
     function add(list) {
       (list || []).forEach(function (x) {
         var k = dayKey(x);
-        if (week[k]) s[k] = 1;
+        if (k) s[k] = 1;
       });
     }
-    if (isNextWeekHead(parent)) {
-      var b = homeBriefing || (lastData && lastData.briefing) || {};
-      add(b.nextHolidayIsos);
-      return s;
-    }
     var src = weekDashSrc() || {};
+    var b = homeBriefing || (lastData && lastData.briefing) || {};
     add(src.holiday_isos);
+    add(b.nextHolidayIsos);
     return s;
+  }
+  function isRenkyuOffDay(iso, hol) {
+    var d = parseLocalDate(iso);
+    if (!d) return false;
+    var di = d.getDay();
+    if (di === 0 || di === 6) return true;
+    if (hol[dayKey(iso)]) return true;
+    return !!(hol[dayKey(addDaysIso(iso, -1))] && hol[dayKey(addDaysIso(iso, 1))]);
   }
   function weekendMatchDays(parent) {
     var days = headWeekDays(parent);
-    var hol = holidaySet(parent);
-    var fri = days[4];
     var sat = days[5];
     var sun = days[6];
-    var mon = days[0];
-    var friOn = !!hol[dayKey(fri)];
-    var monOn = !!hol[dayKey(mon)];
-    if (friOn) return [fri, sat, sun];
-    if (monOn) return [sat, sun, mon];
-    return [sat, sun];
+    if (!sat || !sun) return [sat, sun].filter(Boolean);
+    var hol = holidaySet(parent);
+    var weekMon = days[0];
+    var nextSat = addDaysIso(sun, 6);
+    var start = sat;
+    while (true) {
+      var prev = addDaysIso(start, -1);
+      if (!prev || prev < weekMon) break;
+      var pd = parseLocalDate(prev);
+      if (!pd) break;
+      if (pd.getDay() === 0 || pd.getDay() === 6) break;
+      if (!isRenkyuOffDay(prev, hol)) break;
+      start = prev;
+    }
+    var out = [];
+    var cur = start;
+    while (cur && cur < nextSat) {
+      if (!isRenkyuOffDay(cur, hol)) break;
+      out.push(cur);
+      cur = addDaysIso(cur, 1);
+    }
+    if (out.indexOf(sat) < 0) out.push(sat);
+    if (out.indexOf(sun) < 0) out.push(sun);
+    out.sort();
+    return out;
+  }
+  function isRenkyuWeekend(parent) {
+    return weekendMatchDays(parent).length > 2;
   }
   function weekendSliceKey(iso) {
     var d = parseLocalDate(iso);
@@ -3112,10 +3136,13 @@
     if (di === 0) return "sun";
     if (di === 5) return "fri";
     if (di === 1) return "mon";
+    if (di === 2) return "tue";
+    if (di === 3) return "wed";
+    if (di === 4) return "thu";
     return "";
   }
   function isWeekendPhoneSlice(s) {
-    return s === "sat" || s === "sun" || s === "fri" || s === "mon" || s === "match";
+    return s === "sat" || s === "sun" || s === "fri" || s === "mon" || s === "tue" || s === "wed" || s === "thu" || s === "match";
   }
   function weekendIsoForSlice(slice, parent) {
     var want = slice === "match" ? "" : slice;
@@ -3189,13 +3216,27 @@
     var k = canonicalKind(e && (e.kind || e.event_kind));
     return k === "match" || k === "TR" || k === "合宿";
   }
+  function weekendEventPool(parent) {
+    var src = cacheWeek || lastData;
+    var b = homeBriefing || (lastData && lastData.briefing) || {};
+    var seen = {};
+    var out = [];
+    function add(list) {
+      activeEvents(list).forEach(function (e) {
+        var id = String(e.id || e.event_id || "") + "|" + eventIso(e) + "|" + String(e.title || "");
+        if (seen[id]) return;
+        seen[id] = 1;
+        out.push(e);
+      });
+    }
+    add(src && src.events);
+    add(b.nextWeekEvents);
+    return out;
+  }
   function regaliaWeekendEvents(parent) {
     var daySet = {};
     weekendMatchDays(parent).forEach(function (iso) { daySet[iso] = 1; });
-    var src = cacheWeek || lastData;
-    var b = homeBriefing || (lastData && lastData.briefing) || {};
-    var list = isNextWeekHead(parent) ? activeEvents(b.nextWeekEvents) : activeEvents(src && src.events);
-    return list.filter(function (e) {
+    return weekendEventPool(parent).filter(function (e) {
       if (!daySet[eventIso(e)]) return false;
       if (isMarinosEv(e)) return false;
       return isWeekendBoardKind(e);
@@ -3231,7 +3272,9 @@
         rmCatHtml("U15", catMatchList(rows, iso, "u15")) +
         "</div>";
     }).join("");
-    return '<div class="rm-days" style="grid-template-columns:repeat(' + days.length + ',minmax(0,1fr))">' + cols + "</div>";
+    var n = days.length;
+    var compact = n >= 4 ? " rm-compact" : "";
+    return '<div class="rm-days' + compact + '" style="grid-template-columns:repeat(' + n + ',minmax(0,1fr))">' + cols + "</div>";
   }
   function phoneHeadListHtml(rows) {
     if (!rows || !rows.length) {
@@ -3327,15 +3370,16 @@
       } else {
         body = '<div class="wh-sec wh-wx"><div class="wh-h">' + w + 'の週間天気予報</div>' + whWxDaysHtml(wx) + "</div>";
       }
-      el.innerHTML = '<div class="wh-grid">' + body + "</div>";
+      el.innerHTML = '<div class="wh-grid' + (isRenkyuWeekend(pageKey) ? " wh-grid-renkyu" : "") + '">' + body + "</div>";
     } else {
-      el.innerHTML = '<div class="wh-grid">' +
+      var renkyu = isRenkyuWeekend(pageKey);
+      el.innerHTML = '<div class="wh-grid' + (renkyu ? " wh-grid-renkyu" : "") + '">' +
         '<div class="wh-stack">' +
           '<div class="wh-sec"><div class="wh-h">' + w + 'の塾予定</div><div class="wh-list by-day">' + weekChipList(h.juku, true) + "</div></div>" +
           '<div class="wh-sec"><div class="wh-h">U13平日の活動</div><div class="wh-list">' + weekChipList(h.u13Activity) + "</div></div>" +
         "</div>" +
         '<div class="wh-sec wh-matches"><div class="wh-h">REGALIA週末予定</div>' + regaliaMatchBoardHtml() + "</div>" +
-        marinosBarHtml(h.marinos) +
+        (renkyu ? "" : marinosBarHtml(h.marinos)) +
         '<div class="wh-sec wh-wx"><div class="wh-h">' + w + 'の週間天気予報</div>' +
           whWxDaysHtml(wx) +
         "</div></div>";
@@ -3557,7 +3601,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.96" });
+    appLog({ event: "kiosk_on", v: "0.3.99" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;
@@ -4090,7 +4134,9 @@
     var today = todayStr();
     var parts = [];
     weekWeekendSpeakParts(null, parent).forEach(function (s) { parts.push(s); });
-    upcomingOnly(h.marinos || []).forEach(function (ev) { parts.push(speakWeekMarinos(ev)); });
+    if (!isRenkyuWeekend(parent)) {
+      upcomingOnly(h.marinos || []).forEach(function (ev) { parts.push(speakWeekMarinos(ev)); });
+    }
     upcomingOnly(h.misc || []).forEach(function (ev) { parts.push(speakMiscEv(ev, true)); });
     weekWxSpeakParts(wx, today).forEach(function (s) { parts.push(s); });
     var body = parts.join("");
