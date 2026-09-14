@@ -307,7 +307,8 @@
       }
       if (isWeekendPhoneSlice(s)) {
         var d = parseLocalDate(weekendIsoForSlice(s, p));
-        var t = d ? WD[d.getDay()] + "曜日の予定" : "週末予定";
+        var t = "週末予定";
+        if (d) t = (d.getMonth() + 1) + "/" + d.getDate() + " " + WD[d.getDay()] + "曜日の予定";
         if (p === "nextWeekHead") t = "来週の" + t;
         return { title: t, sub: sub };
       }
@@ -472,6 +473,11 @@
     });
     return names;
   }
+  function studyCalDayFinished(row) {
+    var items = studyDayItems(row).filter(function (it) { return it && !it.placeholder; });
+    if (items.length) return items.every(function (it) { return !!it.done; });
+    return !!(studyData && row.date < studyData.today);
+  }
   function studyCalDayHtml(row) {
     var isToday = row.date === studyData.today;
     var isExam = (row.tag === "exam") || row.date === studyData.examDate || row.date === studyData.examEnd;
@@ -487,7 +493,8 @@
     else if (row.date < studyData.today) lab = (row.date === addDaysIso(studyData.today, -1) ? "昨日 " : "過ぎた日 ") + lab;
     if (isExam) lab += " 試験";
     var cls = "study-cal-day" + (isToday ? " today" : "") + (tag ? " " + tag : "") + (isExam ? " exam" : "") +
-      (!isToday && row.date < studyData.today ? " past" : "");
+      (!isToday && row.date < studyData.today ? " past" : "") +
+      (studyCalDayFinished(row) ? " finished" : "");
     var inner = "";
     if (tag === "buffer") {
       inner = '<div class="banner">予備日</div>';
@@ -3358,9 +3365,12 @@
       var d = parseLocalDate(iso);
       var di = d ? d.getDay() : -1;
       var dow = d ? WD[di] : "";
+      var dom = d ? (d.getMonth() + 1) + "/" + d.getDate() : "";
       var cls = di === 6 ? " is-sat" : (di === 0 || hol[iso] ? " is-sun is-hol" : "");
       return '<div class="rm-day">' +
-        '<div class="rm-dow' + cls + '">' + esc(dow) + "</div>" +
+        '<div class="rm-dow' + cls + '">' + esc(dow) +
+          (dom ? '<span class="rm-dom">' + esc(dom) + "</span>" : "") +
+        "</div>" +
         rmCatHtml("U13", catMatchList(rows, iso, "u13")) +
         rmCatHtml("U14", catMatchList(rows, iso, "u14")) +
         rmCatHtml("U15", catMatchList(rows, iso, "u15")) +
@@ -3695,7 +3705,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.101" });
+    appLog({ event: "kiosk_on", v: "0.3.102" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;
