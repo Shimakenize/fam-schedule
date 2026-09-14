@@ -2344,6 +2344,9 @@
     return start + 120;
   }
   function eventIsOver(ev) {
+    if (ev && ev.groupEvents && ev.groupEvents.length) {
+      return ev.groupEvents.every(function (x) { return eventIsOver(x); });
+    }
     var iso = eventIso(ev);
     var today = todayStr();
     if (!iso) return false;
@@ -2482,6 +2485,20 @@
     return k === "match" || k === "TR" || k === "合宿" || k === "マリノス戦" || k === "塾";
   }
   function rainBadgeHtml(ev, opts) {
+    if (ev && ev.groupEvents && ev.groupEvents.length) {
+      var rank = { heavy: 3, mid: 2, light: 1, none: 0 };
+      var worst = ev.groupEvents[0];
+      var worstN = 0;
+      ev.groupEvents.forEach(function (x) {
+        var rv = eventSlotRain(x);
+        var n = rank[(rv && rv.kind) || "none"] || 0;
+        if (n > worstN) {
+          worstN = n;
+          worst = x;
+        }
+      });
+      return rainBadgeHtml(worst, opts);
+    }
     if (!wantsWxBadge(ev)) return "";
     var rv = eventSlotRain(ev);
     if (!rv || !rv.tag) return "";
@@ -2517,7 +2534,7 @@
       vs = matchOpponentName(ev);
       if (title && (title === vs || /^vs\s/i.test(title))) title = "";
     }
-    var time = briefEventSpan(ev);
+    var time = ev.displaySpan || briefEventSpan(ev);
     var leave = "";
     if (canonicalKind(ev.kind) === "match" || canonicalKind(ev.kind) === "マリノス戦") {
       leave = briefHm(ev);
@@ -2536,7 +2553,7 @@
       venue = matchVenueName(ev);
     }
     var league = withDow ? leagueLabel(ev) : "";
-    return '<div class="brief-chip ' + kindChipClass(ev.kind, ev) + (eventIsPast(ev) ? " is-past" : "") + '">' +
+    return '<div class="brief-chip ' + kindChipClass(ev.kind, ev) + (ev.groupEvents ? " is-group" : "") + (eventIsPast(ev) ? " is-past" : "") + '">' +
       rainBadgeHtml(ev) +
       dowHtml +
       uiIco(kindIcoName(ev.kind)) +
@@ -3183,6 +3200,9 @@
     return t;
   }
   function eventSpeakKey(ev) {
+    if (ev && ev.groupEvents && ev.groupEvents.length) {
+      return ev.groupEvents.map(eventSpeakKey).join("+");
+    }
     return [eventIso(ev), canonicalKind(ev.kind), String((ev && ev.title) || ""), eventStartKey(ev)].join("|");
   }
   function matchCatKeys(ev) {
@@ -3252,9 +3272,83 @@
     var names = { u13: "U13", u14: "U14", u15: "U15" };
     return matchCatKeys(ev).map(function (k) { return names[k]; }).filter(Boolean).join("、");
   }
+  function isFutsalLeagueEv(ev) {
+    if (canonicalKind(ev && (ev.kind || ev.event_kind)) !== "match") return false;
+    var s = [eventLeague(ev), ev.title, matchCardText(ev)].join(" ");
+    return /フットサル/.test(s) || /U\d+FL\b/i.test(s);
+  }
+  function uniqueNonempty(values) {
+    var seen = {};
+    var out = [];
+    (values || []).forEach(function (x) {
+      x = String(x || "").trim();
+      if (!x || seen[x]) return;
+      seen[x] = 1;
+      out.push(x);
+    });
+    return out;
+  }
+  function sharedLeagueLabel(rows) {
+    var labels = uniqueNonempty((rows || []).map(function (ev) {
+      return leagueLabel(ev) || eventLeague(ev);
+    }));
+    if (!labels.length) return "フットサルリーグ";
+    if (labels.length === 1) return labels[0];
+    var prefix = labels[0];
+    labels.forEach(function (x) {
+      var n = 0;
+      while (n < prefix.length && n < x.length && prefix.charAt(n) === x.charAt(n)) n++;
+      prefix = prefix.slice(0, n);
+    });
+    prefix = prefix.replace(/[\s・/／\-–—0-9０-９部AB]+$/g, "").trim();
+    if (/フットサル|FL/i.test(prefix)) return prefix;
+    return labels.join(" / ");
+  }
+  function mergeFutsalGroup(rows) {
+    var first = rows[0];
+    var vs = uniqueNonempty(rows.map(matchOpponentName)).join(" / ");
+    var venue = uniqueNonempty(rows.map(matchVenueName)).join(" / ");
+    var spans = uniqueNonempty(rows.map(function (ev) { return briefEventSpan(ev); }));
+    return {
+      kind: first.kind || "match",
+      kindLabel: first.kindLabel,
+      date: first.date || eventIso(first),
+      event_date: eventIso(first),
+      title: "",
+      league_or_competition: sharedLeagueLabel(rows),
+      card: vs,
+      opponent: vs,
+      venue: venue,
+      location: venue,
+      time: first.time || first.event_time,
+      event_time: first.event_time || first.time,
+      category: first.category,
+      category_code: first.category_code,
+      groupEvents: rows,
+      displaySpan: spans.join(" / ")
+    };
+  }
+  function collapseFutsalMatchCards(rows) {
+    var list = (rows || []).slice();
+    var futsal = list.filter(isFutsalLeagueEv);
+    if (futsal.length < 2) return list;
+    var placed = false;
+    var out = [];
+    list.forEach(function (ev) {
+      if (!isFutsalLeagueEv(ev)) {
+        out.push(ev);
+        return;
+      }
+      if (!placed) {
+        out.push(mergeFutsalGroup(futsal));
+        placed = true;
+      }
+    });
+    return out;
+  }
   function rmCatHtml(label, rows) {
     return '<div class="rm-cat"><div class="rm-cat-h">' + esc(label) + '</div><div class="wh-list">' +
-      weekChipList(rows) + "</div></div>";
+      weekChipList(collapseFutsalMatchCards(rows)) + "</div></div>";
   }
   function regaliaMatchBoardHtml() {
     var rows = regaliaWeekendEvents();
@@ -3304,7 +3398,7 @@
     var dow = d ? WD[di] : "";
     var vs = matchOpponentName(ev);
     var venue = matchVenueName(ev);
-    var time = briefEventSpan(ev);
+    var time = ev.displaySpan || briefEventSpan(ev);
     var k = canonicalKind(ev.kind);
     var kind = k === "match" ? "試合" : (k === "合宿" ? "合宿" : "TR");
     var league = leagueLabel(ev);
@@ -3332,7 +3426,7 @@
     return '<div class="phone-wk-cats">' + cats.map(function (cat) {
       var items = [];
       days.forEach(function (iso) {
-        catMatchList(rows, iso, cat.key).forEach(function (ev) { items.push(ev); });
+        collapseFutsalMatchCards(catMatchList(rows, iso, cat.key)).forEach(function (ev) { items.push(ev); });
       });
       return '<div class="phone-wk-cat">' +
         '<div class="phone-wk-cat-h">' + esc(cat.label) + "</div>" +
@@ -3601,7 +3695,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.99" });
+    appLog({ event: "kiosk_on", v: "0.3.100" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;
@@ -4018,10 +4112,15 @@
     if (k === "match") {
       var vs = matchOpponentName(ev);
       var venue = matchVenueName(ev);
-      var t = matchKickClock(ev);
       s += speakLeagueText(ev);
-      if (vs) s += "対戦相手は" + vs + "です。";
-      if (venue) s += "場所は" + venue + "です。";
+      if (vs) s += "対戦相手は" + vs.replace(/\s*\/\s*/g, "と") + "です。";
+      if (venue) s += "場所は" + venue.replace(/\s*\/\s*/g, "と") + "です。";
+      if (ev.groupEvents && ev.groupEvents.length > 1) {
+        var kicks = uniqueNonempty(ev.groupEvents.map(function (x) { return matchKickClock(x); }));
+        if (kicks.length) s += "キックオフは" + kicks.join("と") + "です。";
+        return s;
+      }
+      var t = matchKickClock(ev);
       if (t) s += "キックオフは" + t + "です。";
       return s;
     }
@@ -4040,7 +4139,7 @@
     var seen = {};
     days.forEach(function (iso) {
       cats.forEach(function (cat) {
-        catMatchList(rows, iso, cat).forEach(function (ev) {
+        collapseFutsalMatchCards(catMatchList(rows, iso, cat)).forEach(function (ev) {
           var key = eventSpeakKey(ev);
           if (seen[key]) return;
           seen[key] = 1;

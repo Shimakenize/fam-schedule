@@ -752,6 +752,10 @@
     .rm-days.rm-compact .wh-sec .brief-chip .vs,
     .rm-days.rm-compact .wh-sec .brief-chip .venue { font-size: 11px; }
     .rm-days.rm-compact .wh-sec .brief-chip .league { font-size: 10px; }
+    .rm-days.rm-compact .brief-chip.is-group .t {
+      font-size: 11px; white-space: normal; line-height: 1.15; text-align: center;
+    }
+    .rm-days.rm-compact .brief-chip.is-group .vs { -webkit-line-clamp: 3; }
     .rm-day {
       min-width: 0; min-height: 0; display: flex; flex-direction: column;
       border: 1px solid rgba(201,176,138,0.14); border-radius: 6px;
@@ -772,6 +776,7 @@
       color: #f6edd9; line-height: 1.1; margin-bottom: 4px;
     }
     .rm-cat .wh-list { align-content: center; justify-content: center; }
+    .rm-cat .brief-chip.is-group .t { white-space: normal; line-height: 1.15; text-align: center; }
     .rm-cat .brief-chip .who { display: none; }
     .wh-h {
       font-size: 14px; font-weight: 600; letter-spacing: 0.1em;
@@ -1842,6 +1847,6 @@
   <div id="toast" hidden></div>
   <aside id="ev-detail" hidden></aside>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script src="ht/bridge.js?v=20260914-1"></script>
+  <script src="ht/bridge.js?v=20260914-2"></script>
 </body>
 </html>
