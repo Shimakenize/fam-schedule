@@ -401,19 +401,22 @@
     .study-cal-day.today {
       border-color: rgba(201,176,138,0.5); background: rgba(201,176,138,0.08);
     }
-    .study-cal-day.past { opacity: 0.9; }
+    .study-cal-day.exam { border-color: rgba(248,113,113,0.45); }
+    .study-cal-day.juku { border-color: rgba(251,146,60,0.45); background: rgba(67, 20, 7, 0.35); }
+    .study-cal-day.buffer { border-color: rgba(147,197,253,0.55); background: rgba(30, 58, 138, 0.35); }
+    .study-cal-day.past,
     .study-cal-day.finished {
       filter: grayscale(0.92);
       opacity: 0.38;
       background: rgba(6, 8, 12, 0.72);
       border-color: rgba(80, 88, 98, 0.45);
     }
+    .study-cal-day.past .h,
     .study-cal-day.finished .h { color: #9aa3ad; }
+    .study-cal-day.past .banner,
+    .study-cal-day.past .study-task,
     .study-cal-day.finished .banner,
     .study-cal-day.finished .study-task { opacity: 0.85; }
-    .study-cal-day.exam { border-color: rgba(248,113,113,0.45); }
-    .study-cal-day.juku { border-color: rgba(251,146,60,0.45); background: rgba(67, 20, 7, 0.35); }
-    .study-cal-day.buffer { border-color: rgba(147,197,253,0.55); background: rgba(30, 58, 138, 0.35); }
     .study-cal-day .h {
       flex-shrink: 0; font-size: 13px; font-weight: 700; color: var(--gold);
       letter-spacing: 0.06em;
@@ -1879,6 +1882,6 @@
   <div id="toast" hidden></div>
   <aside id="ev-detail" hidden></aside>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script src="ht/bridge.js?v=20260914-4"></script>
+  <script src="ht/bridge.js?v=20260915-1"></script>
 </body>
 </html>

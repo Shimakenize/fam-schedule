@@ -474,9 +474,9 @@
     return names;
   }
   function studyCalDayFinished(row) {
+    if (studyData && row.date < studyData.today) return true;
     var items = studyDayItems(row).filter(function (it) { return it && !it.placeholder; });
-    if (items.length) return items.every(function (it) { return !!it.done; });
-    return !!(studyData && row.date < studyData.today);
+    return items.length > 0 && items.every(function (it) { return !!it.done; });
   }
   function studyCalDayHtml(row) {
     var isToday = row.date === studyData.today;
@@ -3705,7 +3705,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.102" });
+    appLog({ event: "kiosk_on", v: "0.3.103" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;
