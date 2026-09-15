@@ -404,7 +404,7 @@
         : '<div class="done">完了 ' + done + '</div><div class="hero">' + hero + '</div><div class="pct">' + pct + "%</div>");
     return '<div class="study-meter ' + cls + '"><div class="k">' + esc(label) + "</div>" + body + "</div>";
   }
-  function studyTaskCard(it, withSubject) {
+  function studyTaskCard(it, withSubject, overdueDay) {
     var kind = (it && it.kindLabel) || STUDY_KIND[(it && it.kind) || ""] || "";
     var unit = (it && it.unitLabel) || (it && it.unitId) || "";
     var title = (it && it.title) || "";
@@ -414,9 +414,10 @@
     var kindLine = withSubject && subj ? subj + " · " + kind : kind;
     var miss = it && (it.missing || title === "未作成");
     var done = !!(it && it.done);
-    var badge = done ? '<div class="badge done">完了</div>' : "";
+    var overdue = !!(overdueDay && !done);
+    var badge = done ? '<div class="badge done">完了</div>' : (overdue ? '<div class="badge due">未了</div>' : "");
     return '<article class="study-task k-' + esc(k) + ' sub-' + esc(subKey) +
-      (miss ? " missing" : "") + (done ? " done" : "") + '">' + badge +
+      (miss ? " missing" : "") + (done ? " done" : "") + (overdue ? " active" : "") + '">' + badge +
       '<div class="kind">' + esc(kindLine) +
       '</div><div class="unit">' + esc(unit) + '</div><div class="ttl">' + esc(title) + "</div></article>";
   }
@@ -473,10 +474,19 @@
     });
     return names;
   }
+  function studyOpenItems(row) {
+    return studyDayItems(row).filter(function (it) {
+      return it && !it.placeholder && !it.done;
+    });
+  }
   function studyCalDayFinished(row) {
-    if (studyData && row.date < studyData.today) return true;
+    if (studyOpenItems(row).length) return false;
     var items = studyDayItems(row).filter(function (it) { return it && !it.placeholder; });
-    return items.length > 0 && items.every(function (it) { return !!it.done; });
+    if (items.length) return items.every(function (it) { return !!it.done; });
+    return !!(studyData && row.date < studyData.today);
+  }
+  function studyCalDayOverdue(row) {
+    return !!(studyData && row.date < studyData.today && studyOpenItems(row).length);
   }
   function studyCalDayHtml(row) {
     var isToday = row.date === studyData.today;
@@ -492,9 +502,11 @@
     if (isToday) lab = "今日 " + lab;
     else if (row.date < studyData.today) lab = (row.date === addDaysIso(studyData.today, -1) ? "昨日 " : "過ぎた日 ") + lab;
     if (isExam) lab += " 試験";
+    var overdue = studyCalDayOverdue(row);
     var cls = "study-cal-day" + (isToday ? " today" : "") + (tag ? " " + tag : "") + (isExam ? " exam" : "") +
       (!isToday && row.date < studyData.today ? " past" : "") +
-      (studyCalDayFinished(row) ? " finished" : "");
+      (studyCalDayFinished(row) ? " finished" : "") +
+      (overdue ? " overdue" : "");
     var inner = "";
     if (tag === "buffer") {
       inner = '<div class="banner">予備日</div>';
@@ -506,7 +518,7 @@
     } else if (tag === "exam") {
       var cards = row.examCards || [];
       inner = '<div class="items exam-col">' + cards.map(function (it) {
-        return studyTaskCard(it, false);
+        return studyTaskCard(it, false, overdue);
       }).join("") + "</div>";
     } else if (tag === "juku") {
       var jukuItems = studyDayItems(row).filter(function (it) { return it && !it.placeholder; });
@@ -515,7 +527,7 @@
         inner = '<div class="split">' +
           '<div class="half juku"><div class="banner juku">' + esc(note || "塾に集中") + "</div></div>" +
           '<div class="half cards"><div class="items" style="--icols:' + jcols + '">' +
-          jukuItems.map(function (it) { return studyTaskCard(it, true); }).join("") +
+          jukuItems.map(function (it) { return studyTaskCard(it, true, overdue); }).join("") +
           "</div></div></div>";
       } else {
         inner = '<div class="banner juku">' + esc(note || "塾に集中") + "</div>";
@@ -524,7 +536,7 @@
       var items = studyDayItems(row);
       var cols = items.length > 4 ? 3 : (items.length > 1 ? 2 : 1);
       var body = items.length
-        ? items.map(function (it) { return studyTaskCard(it, true); }).join("")
+        ? items.map(function (it) { return studyTaskCard(it, true, overdue); }).join("")
         : '<div class="study-empty">なし</div>';
       inner = '<div class="items" style="--icols:' + cols + '">' + body + "</div>";
     }
@@ -3705,7 +3717,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.103" });
+    appLog({ event: "kiosk_on", v: "0.3.104" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;

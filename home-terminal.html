@@ -316,6 +316,9 @@
     .study-task .badge.done {
       background: #166534; color: #bbf7d0;
     }
+    .study-task .badge.due {
+      background: #854d0e; color: #fef08a;
+    }
     .study-task.done {
       opacity: 0.72;
     }
@@ -404,19 +407,41 @@
     .study-cal-day.exam { border-color: rgba(248,113,113,0.45); }
     .study-cal-day.juku { border-color: rgba(251,146,60,0.45); background: rgba(67, 20, 7, 0.35); }
     .study-cal-day.buffer { border-color: rgba(147,197,253,0.55); background: rgba(30, 58, 138, 0.35); }
-    .study-cal-day.past,
     .study-cal-day.finished {
       filter: grayscale(0.92);
       opacity: 0.38;
       background: rgba(6, 8, 12, 0.72);
       border-color: rgba(80, 88, 98, 0.45);
     }
-    .study-cal-day.past .h,
     .study-cal-day.finished .h { color: #9aa3ad; }
-    .study-cal-day.past .banner,
-    .study-cal-day.past .study-task,
     .study-cal-day.finished .banner,
     .study-cal-day.finished .study-task { opacity: 0.85; }
+    .study-cal-day.overdue {
+      border-color: rgba(250, 204, 21, 0.7);
+      background: rgba(28, 18, 4, 0.55);
+      box-shadow: inset 0 0 0 1px rgba(250, 204, 21, 0.28);
+    }
+    .study-cal-day.juku.overdue {
+      border-color: rgba(250, 204, 21, 0.7);
+      background: rgba(28, 18, 4, 0.55);
+    }
+    .study-cal-day.overdue .h { color: #e7d3a4; }
+    .study-cal-day.overdue .banner,
+    .study-cal-day.overdue .half.juku {
+      opacity: 0.38;
+      filter: grayscale(0.88);
+    }
+    .study-cal-day.overdue .study-task.done {
+      opacity: 0.38;
+      filter: grayscale(0.8);
+    }
+    .study-cal-day.overdue .study-task.active {
+      opacity: 1;
+      filter: none;
+      border-color: rgba(250, 204, 21, 0.85);
+      background: rgba(18, 16, 10, 0.95);
+      box-shadow: 0 0 14px rgba(250, 204, 21, 0.32);
+    }
     .study-cal-day .h {
       flex-shrink: 0; font-size: 13px; font-weight: 700; color: var(--gold);
       letter-spacing: 0.06em;
@@ -1882,6 +1907,6 @@
   <div id="toast" hidden></div>
   <aside id="ev-detail" hidden></aside>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script src="ht/bridge.js?v=20260915-1"></script>
+  <script src="ht/bridge.js?v=20260915-2"></script>
 </body>
 </html>
