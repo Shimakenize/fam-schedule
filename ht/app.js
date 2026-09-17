@@ -50,11 +50,15 @@
   var PAGE_MS = 15 * 1000;
   var SPEAK_HOLD_MS = 5 * 1000;
   var SPEAK_FAILSAFE_MS = 90 * 1000;
+  var SPEAK_CHUNK_MAX = 48;
   var hushSpeak = false;
   var quietSpeakLatch = null;
   var clockDay = "";
   var kioskAwaitSpeak = false;
   var speakSeq = 0;
+  var speakChunks = [];
+  var speakChunkI = 0;
+  var speakChunkAt = 0;
   var lastSpeakText = "";
   var weekPastStamp = "";
   var briefPastStamp = "";
@@ -75,12 +79,18 @@
     nextWeekHead: { title: "来週のHeadline", sub: "NEXT WEEK" },
     week: { title: "週タイムライン", sub: "TIMELINE" },
     study: { title: "試験Status", sub: "STUDY" },
-    studyTodo: { title: "試験Todo", sub: "STUDY" }
+    studyTodo: { title: "試験Todo", sub: "STUDY" },
+    standings: { title: "U15L2部 ／ U14L ／ U13L2部", sub: "順位" }
   };
   var studyData = null;
   var studyLoadErr = "";
   var studyCbSeq = 0;
   var studyPending = {};
+  var STANDINGS_CODES = ["U-15", "U-14", "U-13L"];
+  var standingsData = null;
+  var standingsLoadErr = "";
+  var standingsCbSeq = 0;
+  var standingsPending = {};
 
   function afterSixPm() {
     return new Date().getHours() >= 18;
@@ -134,6 +144,15 @@
     var p = parentPage(k);
     return p === "study" || p === "studyTodo";
   }
+  function isStandingsPage(k) {
+    return parentPage(k) === "standings";
+  }
+  function insertStandingsPages(keys, btns) {
+    if (isPhone()) return { keys: keys, btns: btns };
+    keys = keys.slice().concat(["standings"]);
+    btns = btns.slice().concat(["btn-standings"]);
+    return { keys: keys, btns: btns };
+  }
   function insertStudyPages(keys, btns) {
     if (!studyPagesOn()) return { keys: keys, btns: btns };
     var at = keys.indexOf("tomo");
@@ -173,6 +192,7 @@
       hidePageBtn("btn-week-head", true);
       hidePageBtn("btn-next-week-head", true);
       hidePageBtn("btn-week", true);
+      hidePageBtn("btn-standings", true);
       hidePageBtn("btn-study", false);
       return;
     }
@@ -193,6 +213,7 @@
     }
     var packed = insertNextWeekHeadPages(PAGE_KEYS, PAGE_BTNS);
     packed = insertStudyPages(packed.keys, packed.btns);
+    packed = insertStandingsPages(packed.keys, packed.btns);
     PAGE_KEYS = packed.keys;
     PAGE_BTNS = packed.btns;
     var tb = $("btn-tomo");
@@ -207,6 +228,7 @@
     if (sb) sb.hidden = !studyPagesOn();
     var stb = $("btn-study-todo");
     if (stb) stb.hidden = isPhone() || !studyPagesOn();
+    hidePageBtn("btn-standings", isPhone());
   }
   function filterSelMax() {
     rebuildPageLists();
@@ -232,7 +254,8 @@
   }
   function headlineParent(k) {
     var p = parentPage(k);
-    return p === "brief" || p === "tomo" || p === "weekHead" || p === "nextWeekHead" || p === "study" || p === "studyTodo";
+    return p === "brief" || p === "tomo" || p === "weekHead" || p === "nextWeekHead" || p === "study" || p === "studyTodo" ||
+      p === "standings";
   }
   function phoneSlicesFor(parent) {
     if (!isPhone()) return [parent];
@@ -760,6 +783,156 @@
     bits.push("遅れるとテストまでに間に合いません。");
     bits.push("確実に終わらせましょう。");
     return bits.join("");
+  }
+  var STANDINGS_ZONE_NUMS = ["①", "②", "③", "④", "⑤", "⑥"];
+  function standingsCatByCode(code) {
+    if (!standingsData) return null;
+    var list = standingsData.categories || [];
+    var i;
+    for (i = 0; i < list.length; i++) {
+      if (list[i].category_code === code) return list[i];
+    }
+    return null;
+  }
+  function standingsRegaliaTeam(cat) {
+    return (cat.teams || []).filter(function (t) { return /REGALIA|レガリア/i.test(t.club || ""); })[0];
+  }
+  function standingsRowsHtml(cat) {
+    var footnoteOrder = [];
+    var footnoteIdx = {};
+    (cat.teams || []).forEach(function (t) {
+      var zone = (cat.zones || {})[String(t.rank)];
+      if (zone && footnoteIdx[zone.kind] === undefined) {
+        footnoteIdx[zone.kind] = footnoteOrder.length;
+        footnoteOrder.push(zone);
+      }
+    });
+    var rows = (cat.teams || []).map(function (t) {
+      var isRegalia = /REGALIA|レガリア/i.test(t.club || "");
+      var zone = (cat.zones || {})[String(t.rank)];
+      var zoneHtml = zone
+        ? '<span class="stg-zone"><span class="stg-dot" style="background:' + zone.color + '"></span><span class="stg-num">' +
+          (STANDINGS_ZONE_NUMS[footnoteIdx[zone.kind]] || "") + "</span></span>"
+        : "";
+      return '<tr class="' + (isRegalia ? "is-regalia" : "") + '">' +
+        "<td>" + t.rank + "</td>" +
+        "<td>" + esc(t.club) + (isRegalia ? " ★" : "") + "</td>" +
+        "<td>" + t.points + "</td>" +
+        "<td>" + t.played + "</td>" +
+        "<td>" + t.win + "-" + t.draw + "-" + t.lose + "</td>" +
+        "<td>" + (t.diff > 0 ? "+" + t.diff : t.diff) + "</td>" +
+        "<td>" + t.remaining + "</td>" +
+        "<td>" + zoneHtml + "</td>" +
+        "</tr>";
+    }).join("");
+    var legend = footnoteOrder.length
+      ? '<div class="stg-legend">' + footnoteOrder.map(function (z, i) {
+          return '<span class="stg-legend-item"><span class="stg-dot" style="background:' + z.color + '"></span>' +
+            (STANDINGS_ZONE_NUMS[i] || "") + " " + esc(z.label) + "</span>";
+        }).join("") + "</div>"
+      : "";
+    return { rows: rows, legend: legend };
+  }
+  function standingsSimHtml(sim) {
+    if (!sim || !sim.blocks || !sim.blocks.length) return "";
+    var typeLabel = { relegation: "残留/降格", promotion: "昇格" };
+    var sentiment = { good: "stg-sim-good", bad: "stg-sim-bad", mixed: "stg-sim-mixed" };
+    var blocks = sim.blocks.map(function (b) {
+      return '<div class="stg-sim-block ' + (sentiment[b.sentiment] || "stg-sim-mixed") + '">' +
+        '<div class="stg-sim-head">' + (typeLabel[b.type] || b.type) + "：<strong>" + esc(b.verdict) + "</strong></div>" +
+        '<div class="stg-sim-detail">' + esc(b.detail) + "</div></div>";
+    }).join("");
+    return '<div class="stg-sim"><div class="stg-sim-title">昇格/降格シミュレーション（残り' + sim.remaining +
+      "試合、勝点" + sim.regaliaMin + "〜" + sim.regaliaMax + "点の範囲）</div>" + blocks + "</div>";
+  }
+  function standingsUpcomingHtml(cat) {
+    var all = cat.regaliaUpcoming || [];
+    if (!all.length) return "";
+    var rows = all.slice(0, 3).map(function (m) {
+      return '<div class="stg-up-row"><span class="stg-up-date">' + (m.match_date ? esc(fmtMd(m.match_date)) : "日程未定") +
+        '</span><span class="stg-up-opp">vs ' + esc(m.opponent || "未定") + '</span><span class="stg-up-venue">' +
+        esc(m.venue || "") + "</span></div>";
+    }).join("");
+    return '<div class="stg-upcoming"><h3>残り対戦相手（' + all.length + '試合）</h3>' + rows + "</div>";
+  }
+  function standingsColHtml(cat) {
+    if (!cat || !cat.ok) {
+      return '<div class="stg-col"><div class="study-note">' + esc((cat && cat.error) || "データがありません") + "</div></div>";
+    }
+    var noteHtml = cat.note ? '<div class="stg-note">' + esc(cat.note) + "</div>" : "";
+    var metaHtml = '<div class="stg-meta">' + esc(cat.group_name || "") + " ／ 最終取得: " + esc(cat.scraped_at || "") + "</div>";
+    var built = standingsRowsHtml(cat);
+    return '<div class="stg-col"><h2 class="stg-title">' + esc(cat.label || "") + "</h2>" + noteHtml + metaHtml +
+      '<table class="stg-table"><thead><tr>' +
+      "<th>#</th><th>クラブ</th><th>勝点</th><th>試合</th><th>勝分敗</th><th>差</th><th>残り</th><th>状況</th>" +
+      "</tr></thead><tbody>" + built.rows + "</tbody></table>" +
+      built.legend + standingsSimHtml(cat.simulation) + standingsUpcomingHtml(cat) + "</div>";
+  }
+  function renderStandings() {
+    var el = $("standings-board");
+    if (!el) return;
+    if (!standingsData) {
+      el.innerHTML = '<div class="study-note">' + (standingsLoadErr ? "順位データを取得できません" : "読み込み中…") + "</div>";
+      return;
+    }
+    el.innerHTML = '<div class="stg-cols">' + STANDINGS_CODES.map(function (code) {
+      return standingsColHtml(standingsCatByCode(code));
+    }).join("") + "</div>";
+  }
+  window.DashStandingsDone = function (id, err, payload) {
+    var cb = standingsPending[id];
+    delete standingsPending[id];
+    if (!cb) return;
+    if (err) cb(err, null);
+    else cb(null, payload);
+  };
+  function applyStandingsPayload(d) {
+    standingsData = d || null;
+    standingsLoadErr = "";
+    if (isStandingsPage(pageKey)) renderStandings();
+  }
+  function applyStandingsFail(err) {
+    standingsData = null;
+    standingsLoadErr = String(err || "fail");
+    if (isStandingsPage(pageKey)) renderStandings();
+  }
+  function loadStandings() {
+    if (window.SonyBridge && typeof SonyBridge.fetchStandings === "function") {
+      standingsCbSeq += 1;
+      standingsPending[standingsCbSeq] = function (err, payload) {
+        if (err) applyStandingsFail(err);
+        else applyStandingsPayload(payload);
+      };
+      SonyBridge.fetchStandings(standingsCbSeq);
+      return;
+    }
+    fetch("/api/standings", { cache: "no-store" }).then(function (res) {
+      if (!res.ok) throw new Error("standings " + res.status);
+      return res.json();
+    }).then(applyStandingsPayload).catch(function (e) {
+      applyStandingsFail(e && e.message);
+    });
+  }
+  // 読み上げはREGALIAの順位のみ（他チームの成績は読まない、ユーザー確認済み）。
+  // U15L/U13Lの「L」はリーグと読む（ユーザー確認済み）。残り試合数も読む。
+  function standingsSpeakLabel(label) {
+    return String(label || "").replace(/U(\d+)L/, "U$1リーグ");
+  }
+  function standingsSpeakOne(cat) {
+    if (!cat || !cat.ok) return "";
+    var t = standingsRegaliaTeam(cat);
+    if (!t) return "";
+    var bits = [standingsSpeakLabel(cat.label) + "、" + (cat.group_name || "") + "のREGALIAの順位は" + t.rank + "位、" +
+      (cat.teams || []).length + "チーム中です。残り" + t.remaining + "試合です。"];
+    var zone = (cat.zones || {})[String(t.rank)];
+    if (zone) bits.push(zone.label + "です。");
+    else if (cat.note) bits.push(cat.note + "。");
+    return bits.join("");
+  }
+  function standingsSpeakText() {
+    return STANDINGS_CODES.map(function (code) {
+      return standingsSpeakOne(standingsCatByCode(code));
+    }).filter(Boolean).join("");
   }
   function dayKey(v) { return String(v || "").slice(0, 10); }
   function $(id) { return document.getElementById(id); }
@@ -2107,17 +2280,16 @@
       el.textContent = "DEBUG";
       return;
     }
+    var at = kioskQueue.indexOf(kioskKey);
+    var pos = (at < 0 ? 1 : at + 1) + "/" + Math.max(1, kioskQueue.length);
     if (isPhone()) {
-      var at = kioskQueue.indexOf(kioskKey);
-      el.textContent = (at < 0 ? 1 : at + 1) + "/" + Math.max(1, kioskQueue.length);
+      el.textContent = pos;
       return;
     }
-    var html = "AUTO ";
-    var i;
-    for (i = 0; i < kioskQueue.length; i++) {
-      html += '<span class="kiosk-dot' + (kioskOn && kioskQueue[i] === kioskKey ? " on" : "") + '"></span>';
-    }
-    el.innerHTML = html;
+    // ページ数が増えるとドット列がヘッダー幅を超えてクロック表示が見切れる
+    // （2026-09-16、リーグ順位ページ追加で再発）ため、桁数の増減に幅が左右されない
+    // コンパクトな数字表記に統一する（ドットは廃止）。
+    el.textContent = "AUTO " + pos;
   }
   function updateKioskHint() {
     var el = $("kiosk-hint");
@@ -2162,6 +2334,7 @@
     if ($("brief-board")) $("brief-board").hidden = !isBriefPage(k);
     if ($("week-head-board")) $("week-head-board").hidden = !isWeekHeadPage(k);
     if ($("study-board")) $("study-board").hidden = !isStudyPage(k);
+    if ($("standings-board")) $("standings-board").hidden = !isStandingsPage(k);
     if ($("transit-board")) $("transit-board").hidden = true;
   }
   function selectPage(key) {
@@ -2203,6 +2376,10 @@
       if (!currentWeekCacheOk(cacheWeek)) prefetchWeek();
     } else if (isStudyPage(parent)) {
       renderStudy();
+    } else if (isStandingsPage(parent)) {
+      $("range-line").textContent = (KIOSK_META[parent] || {}).title || "順位";
+      renderStandings();
+      if (!standingsData) loadStandings();
     } else if (parent === "wx") {
       $("range-line").textContent = phoneRangeTitle() || "2日の天気　1時間ごと";
       var wxFresh = cacheFocus && cacheFocus.days && cacheFocus.days[0] === todayStr() && cacheFocus.days.length === 2;
@@ -3369,21 +3546,34 @@
     return '<div class="rm-cat"><div class="rm-cat-h">' + esc(label) + '</div><div class="wh-list">' +
       weekChipList(collapseFutsalMatchCards(rows), false, true) + "</div></div>";
   }
-  function regaliaMatchBoardHtml() {
+  function regaliaMatchBoardHtml(marinosRows) {
     var rows = regaliaWeekendEvents();
     var days = weekendMatchDays();
     var hol = holidaySet();
+    // 連休（3日以上）表示ではマリノス戦の専用枠を出さない代わりに、開催日のU13枠へ
+    // 差し込む（ユーザー指示、2026-09-16）。カード色はマリノス戦カード共通の
+    // k-marinos（青）がkindChipClass経由で自動的に付く。
+    var renkyu = isRenkyuWeekend();
     var cols = days.map(function (iso) {
       var d = parseLocalDate(iso);
       var di = d ? d.getDay() : -1;
       var dow = d ? WD[di] : "";
       var dom = d ? (d.getMonth() + 1) + "/" + d.getDate() : "";
       var cls = di === 6 ? " is-sat" : (di === 0 || hol[iso] ? " is-sun is-hol" : "");
+      var u13Rows = catMatchList(rows, iso, "u13");
+      if (renkyu && marinosRows && marinosRows.length) {
+        var dayMarinos = marinosRows.filter(function (ev) { return eventIso(ev) === iso; });
+        if (dayMarinos.length) {
+          u13Rows = u13Rows.concat(dayMarinos).sort(function (a, b) {
+            return eventStartKey(a).localeCompare(eventStartKey(b));
+          });
+        }
+      }
       return '<div class="rm-day">' +
         '<div class="rm-dow' + cls + '">' + esc(dow) +
           (dom ? '<span class="rm-dom">' + esc(dom) + "</span>" : "") +
         "</div>" +
-        rmCatHtml("U13", catMatchList(rows, iso, "u13")) +
+        rmCatHtml("U13", u13Rows) +
         rmCatHtml("U14", catMatchList(rows, iso, "u14")) +
         rmCatHtml("U15", catMatchList(rows, iso, "u15")) +
         "</div>";
@@ -3494,7 +3684,7 @@
           '<div class="wh-sec"><div class="wh-h">' + w + 'の塾予定</div><div class="wh-list by-day">' + weekChipList(h.juku, true) + "</div></div>" +
           '<div class="wh-sec"><div class="wh-h">U13平日の活動</div><div class="wh-list">' + weekChipList(h.u13Activity) + "</div></div>" +
         "</div>" +
-        '<div class="wh-sec wh-matches"><div class="wh-h">REGALIA週末予定</div>' + regaliaMatchBoardHtml() + "</div>" +
+        '<div class="wh-sec wh-matches"><div class="wh-h">REGALIA週末予定</div>' + regaliaMatchBoardHtml(h.marinos) + "</div>" +
         (renkyu ? "" : marinosBarHtml(h.marinos)) +
         '<div class="wh-sec wh-wx"><div class="wh-h">' + w + 'の週間天気予報</div>' +
           whWxDaysHtml(wx) +
@@ -3717,7 +3907,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.104" });
+    appLog({ event: "kiosk_on", v: "0.3.111" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;
@@ -3855,9 +4045,10 @@
     else pauseKioskCycle();
   }
   function armKioskAdvance(ms) {
+    if (kioskAwaitSpeak) return;
     clearKioskTimer();
     kioskTimer = setTimeout(function tick() {
-      if (!kioskOn || kioskPaused) return;
+      if (!kioskOn || kioskPaused || kioskAwaitSpeak) return;
       if (fxBusy) {
         kioskTimer = setTimeout(tick, 400);
         return;
@@ -3876,8 +4067,92 @@
   function stopPageSpeak() {
     lastSpeakText = "";
     speakSeq += 1;
+    speakChunks = [];
+    speakChunkI = 0;
     kioskAwaitSpeak = false;
     if (window.SonyBridge && SonyBridge.stopSpeak) SonyBridge.stopSpeak();
+  }
+  function speakIdOf(chunkI) {
+    return String(speakSeq) + "." + String(chunkI);
+  }
+  function splitSpeakChunks(text) {
+    var max = SPEAK_CHUNK_MAX;
+    var t = String(text || "").replace(/\s+/g, " ").trim();
+    if (!t) return [];
+    var parts = [];
+    var i = 0;
+    while (i < t.length) {
+      if (t.length - i <= max) {
+        parts.push(t.slice(i));
+        break;
+      }
+      var slice = t.slice(i, i + max);
+      var cut = -1;
+      var marks = "。！？\n";
+      var m;
+      for (m = 0; m < marks.length; m++) {
+        var p = slice.lastIndexOf(marks.charAt(m));
+        if (p > cut) cut = p;
+      }
+      if (cut < Math.floor(max * 0.4)) {
+        var p2 = slice.lastIndexOf("、");
+        if (p2 > cut) cut = p2;
+      }
+      if (cut < 8) cut = max - 1;
+      var piece = t.slice(i, i + cut + 1).replace(/^\s+|\s+$/g, "");
+      if (piece) parts.push(piece);
+      i += cut + 1;
+      while (i < t.length && t.charAt(i) === " ") i++;
+    }
+    return parts;
+  }
+  function speakMinElapsedMs(chunk) {
+    var n = String(chunk || "").length;
+    if (n <= 8) return 0;
+    return Math.min(6000, 250 + n * 60);
+  }
+  function finishSpeakPage() {
+    speakChunks = [];
+    if (!kioskOn || kioskPaused || !kioskAwaitSpeak) {
+      kioskAwaitSpeak = false;
+      return;
+    }
+    kioskAwaitSpeak = false;
+    armKioskAdvance(SPEAK_HOLD_MS);
+  }
+  function armSpeakFailsafe(chunk) {
+    var id = speakSeq;
+    var idx = speakChunkI;
+    var wait = speakFailsafeMs(chunk);
+    clearKioskTimer();
+    kioskTimer = setTimeout(function () {
+      if (id !== speakSeq || idx !== speakChunkI) return;
+      appLog({ event: "speak_failsafe", chunk: idx, n: String(chunk || "").length });
+      speakChunkI += 1;
+      if (speakChunkI < speakChunks.length) speakCurrentChunk();
+      else finishSpeakPage();
+    }, wait);
+  }
+  function speakCurrentChunk() {
+    if (speakChunkI >= speakChunks.length) {
+      finishSpeakPage();
+      return;
+    }
+    var chunk = speakChunks[speakChunkI];
+    speakChunkAt = Date.now();
+    if (kioskOn && !kioskPaused) {
+      kioskAwaitSpeak = true;
+      armSpeakFailsafe(chunk);
+    }
+    appLog({ event: "speak_chunk", i: speakChunkI, n: chunk.length, id: speakIdOf(speakChunkI) });
+    try {
+      SonyBridge.speak(chunk, speakIdOf(speakChunkI));
+    } catch (e) {
+      appLog({ event: "speak_fail", msg: String(e && e.message || e) });
+      speakChunkI += 1;
+      if (speakChunkI < speakChunks.length) speakCurrentChunk();
+      else finishSpeakPage();
+    }
   }
   function speakIsPlaying() {
     try {
@@ -3890,6 +4165,7 @@
     var parent = parentPage(key);
     var next = "";
     if (parent === "study" || parent === "studyTodo") next = studySpeakText();
+    else if (parent === "standings") next = standingsSpeakText();
     if (next && lastSpeakText === next && speakIsPlaying()) return;
     stopPageSpeak();
     trySpeakPage(key, false);
@@ -3920,6 +4196,7 @@
     else if (parent === "tomo") text = briefSpeakText(true);
     else if (isWeekHeadPage(parent)) text = weekHeadSpeakText(parent);
     else if (parent === "study" || parent === "studyTodo") text = studySpeakText();
+    else if (parent === "standings") text = standingsSpeakText();
     if (forKiosk && headlineParent(parent)) {
       if (phoneSpeakRun !== parent && !shouldSpeakHeadlineKiosk(parent)) {
         appLog({ event: "speak_skip", page: key, reason: "hourly" });
@@ -3932,27 +4209,20 @@
       return false;
     }
     text = body;
-    var id = ++speakSeq;
+    speakSeq += 1;
+    speakChunks = splitSpeakChunks(text);
+    speakChunkI = 0;
     lastSpeakText = text;
-    SonyBridge.speak(text, String(id));
-    appLog({ event: "speak", page: key, n: text.length, text: text });
+    appLog({ event: "speak", page: key, n: text.length, chunks: speakChunks.length, text: text });
     if (forKiosk && headlineParent(parent) && body) phoneSpeakRun = parent;
-    if (forKiosk) {
-      kioskAwaitSpeak = true;
-      clearKioskTimer();
-      var wait = speakFailsafeMs(text);
-      kioskTimer = setTimeout(function () {
-        if (!kioskOn || kioskPaused || id !== speakSeq || !kioskAwaitSpeak) return;
-        kioskAwaitSpeak = false;
-        armKioskAdvance(SPEAK_HOLD_MS);
-      }, wait);
-    }
+    if (forKiosk) kioskAwaitSpeak = true;
+    speakCurrentChunk();
     return true;
   }
   function speakFailsafeMs(text) {
-    var n = String(text || "").length;
-    var est = 1200 + n * 200;
-    return Math.max(25000, Math.min(120000, est + 8000));
+    var len = String(text || "").length;
+    var est = 4000 + len * 280;
+    return Math.max(18000, Math.min(SPEAK_FAILSAFE_MS, est));
   }
   function speakAtStoreKey(page) {
     return "dashSpeakAt_" + page;
@@ -4329,12 +4599,24 @@
     if (parent === "study" || (parent === "studyTodo" && (slice === "today" || !slice))) return studySpeakText();
     return "";
   }
+  window.DashSpeakStart = function (id) {
+    if (String(id) !== speakIdOf(speakChunkI)) return;
+    appLog({ event: "speak_start", id: String(id), chunk: speakChunkI });
+  };
   window.DashSpeakDone = function (ok, id) {
-    if (String(id) !== String(speakSeq)) return;
-    if (!kioskOn || kioskPaused || !kioskAwaitSpeak) return;
-    if (!ok) return;
-    kioskAwaitSpeak = false;
-    armKioskAdvance(SPEAK_HOLD_MS);
+    if (String(id) !== speakIdOf(speakChunkI)) return;
+    if (!speakChunks.length) return;
+    var chunk = speakChunks[speakChunkI] || "";
+    var elapsed = Date.now() - speakChunkAt;
+    var minMs = speakMinElapsedMs(chunk);
+    if (ok && elapsed < minMs) {
+      appLog({ event: "speak_done_too_fast", id: String(id), elapsed: elapsed, min: minMs, n: chunk.length });
+      return;
+    }
+    appLog({ event: ok ? "speak_done" : "speak_err", id: String(id), elapsed: elapsed, n: chunk.length });
+    speakChunkI += 1;
+    if (speakChunkI < speakChunks.length) speakCurrentChunk();
+    else finishSpeakPage();
   };
 
   function setViewMode(mode) {
@@ -4680,6 +4962,7 @@
       $("btn-next-week-head").addEventListener("click", function () { goPage("nextWeekHead"); });
     }
     $("btn-week").addEventListener("click", function () { goPage("week"); });
+    if ($("btn-standings")) $("btn-standings").addEventListener("click", function () { goPage("standings"); });
     $("wk-prev").addEventListener("click", function () { noteInput(true); window.DashWeekColor("prev"); });
     $("wk-today").addEventListener("click", function () { noteInput(true); window.DashWeekColor("today"); });
     $("wk-next").addEventListener("click", function () { noteInput(true); window.DashWeekColor("next"); });
@@ -4745,10 +5028,12 @@
     setInterval(tickClock, 10000);
     load();
     loadStudy();
+    loadStandings();
     if (studyDebug()) selectPage("study");
     resetIdle();
     setInterval(function () { load(); }, 5 * 60 * 1000);
     setInterval(function () { loadStudy(); }, 5 * 60 * 1000);
+    setInterval(function () { loadStandings(); }, 5 * 60 * 1000);
     document.addEventListener("keydown", function (ev) {
       window.DashNoteInput();
       var k = ev.keyCode;
