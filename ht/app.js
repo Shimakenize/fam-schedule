@@ -3968,7 +3968,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.114" });
+    appLog({ event: "kiosk_on", v: "0.3.115" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;
