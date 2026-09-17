@@ -197,7 +197,7 @@
       flex: 1; min-height: 0; background: linear-gradient(180deg, #12151c 0%, #0c0e13 100%);
       color: var(--text);
       border: 1px solid rgba(201,176,138,0.22); border-radius: 4px;
-      display: flex; flex-direction: column; padding: 14px 18px 16px;
+      display: flex; flex-direction: column; padding: 8px 10px 8px;
       overflow: hidden;
     }
     #wx-board[hidden] { display: none !important; }
@@ -1021,8 +1021,8 @@
       50% { filter: brightness(1.28); }
     }
     .wxg-head {
-      flex: 0 0 40px; display: flex; align-items: center; justify-content: space-between;
-      font-size: 22px; font-weight: 500; letter-spacing: 0.18em; color: var(--gold-2);
+      flex: 0 0 28px; display: flex; align-items: center; justify-content: space-between;
+      font-size: 16px; font-weight: 500; letter-spacing: 0.12em; color: var(--gold-2);
     }
     .wxg-legend { display: flex; gap: 8px; font-size: 14px; font-weight: 600; letter-spacing: 0.08em; }
     .wxg-legend span { padding: 4px 12px; border-radius: 999px; border: 1px solid transparent; }
@@ -1030,42 +1030,40 @@
     .wxg-legend .rain-mid { background: rgba(30,58,138,0.45); color: #bfdbfe; }
     .wxg-legend .rain-heavy { background: rgba(127,29,29,0.45); color: #fecaca; }
     .wxg-day {
-      flex: 1 1 0; min-height: 0; min-width: 0; display: flex; flex-direction: column; gap: 6px;
+      flex: 1 1 0; min-height: 0; min-width: 0; display: flex; flex-direction: column; gap: 3px;
       background: rgba(255,255,255,0.03); border: 1px solid rgba(201,176,138,0.12);
-      border-radius: 4px; padding: 8px 12px 10px;
+      border-radius: 4px; padding: 6px 8px 6px;
     }
     .wxg-day.is-today { box-shadow: inset 0 0 0 1px rgba(201,176,138,0.45); }
-    .wxg-day-head { font-size: 20px; font-weight: 500; letter-spacing: 0.12em; color: var(--gold); flex: 0 0 auto; }
+    .wxg-day-head { font-size: 16px; font-weight: 500; letter-spacing: 0.08em; color: var(--gold); flex: 0 0 auto; }
     .wxg-cols {
-      flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px;
+      flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px;
     }
     .wxg-loc { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
-    .wxg-loc-name { font-size: 18px; font-weight: 800; margin-bottom: 2px; }
-    .wxg-hours { flex: 1; min-height: 0; display: flex; gap: 3px; }
+    .wxg-loc-name { font-size: 14px; font-weight: 800; margin-bottom: 1px; }
+    .wxg-hours { flex: 1; min-height: 0; min-width: 0; width: 100%; display: flex; }
+    .wxg-hours .wxg-h + .wxg-h { margin-left: 3px; }
     .wxg-h {
-      flex: 1 1 0; min-width: 0; display: flex; flex-direction: column;
-      align-items: center; justify-content: center; border-radius: 8px; background: #1e293b;
-      padding: 2px 1px; overflow: hidden;
+      flex: 1 1 0%; width: 0; min-width: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: flex-start; border-radius: 6px; background: #1e293b;
+      padding: 1px 1px 2px; overflow: hidden;
     }
     .wxg-h.is-now { box-shadow: inset 0 0 0 2px #facc15; }
-    .wxg-hh { font-size: 13px; font-weight: 700; color: #94a3b8; }
-    .wxg-h .wx-ico { width: 28px; height: 28px; flex: 0 0 28px; margin: 1px 0; }
-    .wxg-tt { font-size: 18px; font-weight: 800; line-height: 1.1; }
-    .wxg-bar-wrap {
-      flex: 0 0 40px; height: 40px; width: 48%; min-height: 40px;
-      display: flex; align-items: flex-end;
-      background: rgba(15,23,42,0.55); border-radius: 6px; overflow: hidden; margin: 3px 0 1px;
+    .wxg-hh { font-size: 11px; font-weight: 700; color: #94a3b8; line-height: 1.1; flex: 0 0 auto; }
+    .wxg-h .wx-ico { width: 16px; height: 16px; flex: 0 0 16px; margin: 0; }
+    .wxg-tt { font-size: 12px; font-weight: 800; line-height: 1.05; flex: 0 0 auto; }
+    .wxg-mm {
+      flex: 1 1 0%; min-height: 0; width: 100%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; line-height: 0.9; letter-spacing: -0.04em;
+      font-variant-numeric: tabular-nums; color: #cbd5e1;
+      white-space: nowrap; overflow: hidden;
     }
-    .wxg-bar { width: 100%; background: #64748b; border-radius: 4px 4px 0 0; }
-    .wxg-mm { font-size: 13px; font-weight: 800; color: #cbd5e1; }
     .wxg-h.rain-light { background: #155e75; }
-    .wxg-h.rain-light .wxg-bar { background: #67e8f9; }
     .wxg-h.rain-light .wxg-mm { color: #a5f3fc; }
     .wxg-h.rain-mid { background: #1e3a8a; }
-    .wxg-h.rain-mid .wxg-bar { background: #93c5fd; }
     .wxg-h.rain-mid .wxg-mm { color: #bfdbfe; }
     .wxg-h.rain-heavy { background: #7f1d1d; }
-    .wxg-h.rain-heavy .wxg-bar { background: #fca5a5; }
     .wxg-h.rain-heavy .wxg-mm { color: #fecaca; }
     #kiosk-ind {
       display: none; flex-shrink: 0; font-size: 12px; font-weight: 600;
@@ -1788,7 +1786,6 @@
     html.phone:not(.phone-scale) .wxg-h .wx-ico {
       width: 14px; height: 14px; flex: 0 0 14px; margin: 0;
     }
-    html.phone:not(.phone-scale) .wxg-bar-wrap { display: none; }
     html.phone:not(.phone-scale) .veil-title { font-size: 36px; }
 
     html.remote, html.remote body {
@@ -1907,6 +1904,6 @@
   <div id="toast" hidden></div>
   <aside id="ev-detail" hidden></aside>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script src="ht/bridge.js?v=20260917-1"></script>
+  <script src="ht/bridge.js?v=20260918-1"></script>
 </body>
 </html>

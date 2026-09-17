@@ -1807,11 +1807,9 @@
           if (rv.kind === "heavy") cls += " rain-heavy";
           var mm = Number(s.rainMm) || 0;
           var showRain = rv.kind !== "none";
-          var pct = !showRain ? 0 : Math.max(5, Math.min(100, mm / BAR_SCALE_MM * 100));
           hours += '<div class="' + cls + '"><div class="wxg-hh">' + h + "</div>" +
-            wxIcoHtml(rv.ico, 28) +
+            wxIcoHtml(rv.ico, 16) +
             '<div class="wxg-tt">' + s.temp + "°</div>" +
-            '<div class="wxg-bar-wrap"><div class="wxg-bar" style="height:' + pct + '%"></div></div>' +
             '<div class="wxg-mm">' + (showRain ? mm.toFixed(1) : "") + "</div></div>";
         }
         return '<div class="wxg-loc"><div class="wxg-loc-name">' + esc(locShort(loc.name)) +
@@ -1823,6 +1821,52 @@
     el.innerHTML = '<div class="wxg-head"><div>' + esc(phoneRangeTitle() || "天気(3日)　1時間ごと") + "</div>" +
       '<div class="wxg-legend"><span class="rain-light">弱雨</span><span class="rain-mid">雨</span><span class="rain-heavy">大雨</span></div></div>' +
       '<div class="wxg-cols">' + cols + "</div>";
+    requestAnimationFrame(function () {
+      requestAnimationFrame(fitWxMmNums);
+    });
+  }
+
+  function fitWxMmNums(tryN) {
+    var root = $("wx-board");
+    if (!root || root.hidden) return;
+    var nums = root.querySelectorAll(".wxg-mm");
+    if (!nums.length) return;
+    var probe = document.createElement("span");
+    var cs0 = window.getComputedStyle(nums[0]);
+    probe.style.cssText = "position:absolute;left:-9999px;top:0;visibility:hidden;white-space:nowrap;font-weight:" +
+      cs0.fontWeight + ";font-family:" + cs0.fontFamily + ";letter-spacing:" + cs0.letterSpacing +
+      ";font-variant-numeric:tabular-nums;line-height:0.9";
+    document.body.appendChild(probe);
+    var i;
+    var sized = false;
+    for (i = 0; i < nums.length; i++) {
+      var el = nums[i];
+      var t = String(el.textContent || "").replace(/\s/g, "");
+      if (!t) continue;
+      var w = el.clientWidth;
+      var h = el.clientHeight;
+      if (w < 4 || h < 4) continue;
+      sized = true;
+      var lo = 8;
+      var hi = Math.max(8, Math.min(96, h));
+      var best = 8;
+      probe.textContent = t;
+      while (lo <= hi) {
+        var mid = (lo + hi) >> 1;
+        probe.style.fontSize = mid + "px";
+        if (probe.offsetWidth <= w && probe.offsetHeight <= h) {
+          best = mid;
+          lo = mid + 1;
+        } else {
+          hi = mid - 1;
+        }
+      }
+      el.style.fontSize = best + "px";
+    }
+    document.body.removeChild(probe);
+    if (!sized && (tryN || 0) < 8) {
+      requestAnimationFrame(function () { fitWxMmNums((tryN || 0) + 1); });
+    }
   }
 
   function bindWxCells() {
@@ -3968,7 +4012,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.115" });
+    appLog({ event: "kiosk_on", v: "0.3.116" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;
