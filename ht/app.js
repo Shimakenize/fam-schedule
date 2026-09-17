@@ -1765,6 +1765,32 @@
     }
   }
 
+  function wxgHiLoHtml(loc, iso, hourlySlots) {
+    var byDate = {};
+    ((loc && loc.days) || []).forEach(function (d) {
+      if (d && d.date) byDate[dayKey(d.date)] = d;
+    });
+    var w = byDate[dayKey(iso)];
+    var hi = (w && w.tmax != null && w.tmax !== "") ? Number(w.tmax) : NaN;
+    var lo = (w && w.tmin != null && w.tmin !== "") ? Number(w.tmin) : NaN;
+    if (isNaN(hi) || isNaN(lo)) {
+      var temps = [];
+      (hourlySlots || []).forEach(function (s) {
+        var t = Number(s && s.temp);
+        if (!isNaN(t)) temps.push(t);
+      });
+      if (temps.length) {
+        if (isNaN(hi)) hi = Math.max.apply(null, temps);
+        if (isNaN(lo)) lo = Math.min.apply(null, temps);
+      }
+    }
+    if (isNaN(hi) && isNaN(lo)) return "";
+    return '<div class="wxg-tt">' +
+      (!isNaN(hi) ? '<span class="wxg-hi">' + hi + "°</span>" : "") +
+      (!isNaN(lo) ? '<span class="wxg-lo">' + lo + "°</span>" : "") +
+      "</div>";
+  }
+
   function renderWxBoard(data) {
     var el = $("wx-board");
     if (!el || !data) return;
@@ -1790,7 +1816,9 @@
         : iso;
       var locRows = locs.map(function (loc) {
         var byH = {};
-        binHourly(locHourly(loc, iso), 1).forEach(function (s) { byH[s.h] = s; });
+        var hourlyList = binHourly(locHourly(loc, iso), 1);
+        hourlyList.forEach(function (s) { byH[s.h] = s; });
+        var hiLo = wxgHiLoHtml(loc, iso, hourlyList);
         var hours = "";
         var h;
         for (h = WX_H0; h <= WX_H1; h++) {
@@ -1808,8 +1836,8 @@
           var mm = Number(s.rainMm) || 0;
           var showRain = rv.kind !== "none";
           hours += '<div class="' + cls + '"><div class="wxg-hh">' + h + "</div>" +
-            wxIcoHtml(rv.ico, 16) +
-            '<div class="wxg-tt">' + s.temp + "°</div>" +
+            '<div class="wxg-meta">' + wxIcoHtml(rv.ico, 24) +
+            hiLo + "</div>" +
             '<div class="wxg-mm">' + (showRain ? mm.toFixed(1) : "") + "</div></div>";
         }
         return '<div class="wxg-loc"><div class="wxg-loc-name">' + esc(locShort(loc.name)) +
@@ -1848,7 +1876,7 @@
       if (w < 4 || h < 4) continue;
       sized = true;
       var lo = 8;
-      var hi = Math.max(8, Math.min(96, h));
+      var hi = Math.max(8, Math.min(36, Math.floor(h * 0.78)));
       var best = 8;
       probe.textContent = t;
       while (lo <= hi) {
@@ -4012,7 +4040,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.116" });
+    appLog({ event: "kiosk_on", v: "0.3.117" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;
