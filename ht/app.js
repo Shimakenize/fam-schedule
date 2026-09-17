@@ -71,22 +71,22 @@
   var fxBusy = false;
   var fxGen = 0;
   var KIOSK_META = {
-    brief: { title: "今日のHeadline", sub: "TODAY" },
-    tomo: { title: "明日のHeadline", sub: "TOMORROW" },
-    focus: { title: "今日明日の予定", sub: "TIMELINE" },
-    wx: { title: "今日明日の天気", sub: "FORECAST" },
-    weekHead: { title: "今週のHeadline", sub: "THIS WEEK" },
-    nextWeekHead: { title: "来週のHeadline", sub: "NEXT WEEK" },
-    week: { title: "週タイムライン", sub: "TIMELINE" },
+    brief: { title: "今日のHL", sub: "TODAY" },
+    tomo: { title: "明日のHL", sub: "TOMORROW" },
+    focus: { title: "予定(2日)", sub: "TIMELINE" },
+    wx: { title: "天気(3日)", sub: "FORECAST" },
+    weekHead: { title: "今週のHL", sub: "THIS WEEK" },
+    nextWeekHead: { title: "来週のHL", sub: "NEXT WEEK" },
+    week: { title: "週TL", sub: "TIMELINE" },
     study: { title: "試験Status", sub: "STUDY" },
     studyTodo: { title: "試験Todo", sub: "STUDY" },
-    standings: { title: "U15L2部 ／ U14L ／ U13L2部", sub: "順位" }
+    standings: { title: "順位", sub: "順位" }
   };
   var studyData = null;
   var studyLoadErr = "";
   var studyCbSeq = 0;
   var studyPending = {};
-  var STANDINGS_CODES = ["U-15", "U-14", "U-13L"];
+  var STANDINGS_CODES = ["U-15", "U-13L"];
   var standingsData = null;
   var standingsLoadErr = "";
   var standingsCbSeq = 0;
@@ -272,7 +272,7 @@
       return out;
     }
     if (parent === "focus" || parent === "week") return [];
-    if (parent === "wx") return ["wx|today", "wx|tomo"];
+    if (parent === "wx") return ["wx|today", "wx|tomo", "wx|asatte"];
     if (parent === "weekHead" || parent === "nextWeekHead") {
       var h = weekHeadData(parent);
       var prefix = parent + "|";
@@ -320,6 +320,7 @@
     if (p === "wx") {
       if (s === "today") return { title: "今日の天気", sub: "FORECAST" };
       if (s === "tomo") return { title: "明日の天気", sub: "FORECAST" };
+      if (s === "asatte") return { title: "明後日の天気", sub: "FORECAST" };
     }
     if (p === "weekHead" || p === "nextWeekHead") {
       var w = weekHeadWord(p);
@@ -848,7 +849,7 @@
   function standingsUpcomingHtml(cat) {
     var all = cat.regaliaUpcoming || [];
     if (!all.length) return "";
-    var rows = all.slice(0, 3).map(function (m) {
+    var rows = all.slice(0, 2).map(function (m) {
       return '<div class="stg-up-row"><span class="stg-up-date">' + (m.match_date ? esc(fmtMd(m.match_date)) : "日程未定") +
         '</span><span class="stg-up-opp">vs ' + esc(m.opponent || "未定") + '</span><span class="stg-up-venue">' +
         esc(m.venue || "") + "</span></div>";
@@ -861,13 +862,34 @@
     }
     var noteHtml = cat.note ? '<div class="stg-note">' + esc(cat.note) + "</div>" : "";
     var metaHtml = '<div class="stg-meta">' + esc(cat.group_name || "") + " ／ 最終取得: " + esc(cat.scraped_at || "") + "</div>";
+    var titleText = esc(cat.label || "") + (cat.group_name ? "（" + esc(cat.group_name) + "）" : "");
     var built = standingsRowsHtml(cat);
-    return '<div class="stg-col"><h2 class="stg-title">' + esc(cat.label || "") + "</h2>" + noteHtml + metaHtml +
+    return '<div class="stg-col"><h2 class="stg-title">' + titleText + "</h2>" + noteHtml + metaHtml +
       '<table class="stg-table"><thead><tr>' +
       "<th>#</th><th>クラブ</th><th>勝点</th><th>試合</th><th>勝分敗</th><th>差</th><th>残り</th><th>状況</th>" +
       "</tr></thead><tbody>" + built.rows + "</tbody></table>" +
       built.legend + standingsSimHtml(cat.simulation) + standingsUpcomingHtml(cat) + "</div>";
   }
+  // U15L2部の隣にREGALIA非所属の参考グループ（extraGroup、GAS側でハードコード）を
+  // 表示する（ユーザー指示、2026-09-17）。REGALIA不在のためsimulation/残り対戦相手は無く、
+  // standingsColHtmlに渡す形だけ合わせて表・凡例のみ描画する。
+  function standingsExtraColHtml(parentCat, extra) {
+    if (!extra) return '<div class="stg-col"></div>';
+    return standingsColHtml({
+      ok: true,
+      label: (parentCat && parentCat.label) || "",
+      group_name: extra.group_name,
+      scraped_at: parentCat && parentCat.scraped_at,
+      teams: extra.teams,
+      zones: extra.zones || {},
+      note: "",
+      simulation: null,
+      regaliaUpcoming: []
+    });
+  }
+  // 左列: U15L2部REGALIA所属グループ（上）／その参考グループ（下）。
+  // 右列: U13L2部REGALIA所属グループ（上）／その参考グループ（下）。
+  // 2分割のまま各列を上下に割る2x2構成（ユーザー指示、2026-09-17。U14L表示案からの変更）。
   function renderStandings() {
     var el = $("standings-board");
     if (!el) return;
@@ -875,9 +897,13 @@
       el.innerHTML = '<div class="study-note">' + (standingsLoadErr ? "順位データを取得できません" : "読み込み中…") + "</div>";
       return;
     }
-    el.innerHTML = '<div class="stg-cols">' + STANDINGS_CODES.map(function (code) {
-      return standingsColHtml(standingsCatByCode(code));
-    }).join("") + "</div>";
+    var u15 = standingsCatByCode("U-15");
+    var u13 = standingsCatByCode("U-13L");
+    var leftTop = standingsColHtml(u15);
+    var leftBottom = standingsExtraColHtml(u15, u15 && u15.extraGroup);
+    var rightTop = standingsColHtml(u13);
+    var rightBottom = standingsExtraColHtml(u13, u13 && u13.extraGroup);
+    el.innerHTML = '<div class="stg-grid">' + leftTop + rightTop + leftBottom + rightBottom + "</div>";
   }
   window.DashStandingsDone = function (id, err, payload) {
     var cb = standingsPending[id];
@@ -1014,6 +1040,30 @@
   function focusDays() {
     var t = todayStr();
     return [addDaysIso(t, focusDayOffset), addDaysIso(t, focusDayOffset + 1)];
+  }
+  function wxDays() {
+    var t = todayStr();
+    return [t, addDaysIso(t, 1), addDaysIso(t, 2)];
+  }
+  function uniqueIsos(list) {
+    var seen = {};
+    var out = [];
+    (list || []).forEach(function (iso) {
+      if (!iso || seen[iso]) return;
+      seen[iso] = 1;
+      out.push(iso);
+    });
+    out.sort();
+    return out;
+  }
+  function focusFetchDays() {
+    return uniqueIsos(focusDays().concat(wxDays()));
+  }
+  function cacheHasDays(cache, wanted) {
+    var days = (cache && cache.days) || [];
+    return !!(wanted && wanted.length && wanted.every(function (iso) {
+      return days.indexOf(iso) >= 0;
+    }));
   }
   function fmtMd(iso) {
     var p = String(iso || "").split("-");
@@ -1718,10 +1768,11 @@
   function renderWxBoard(data) {
     var el = $("wx-board");
     if (!el || !data) return;
-    var days = data.days || [];
     var today = data.today || todayStr();
     if (isPhone() && pageKey === "wx") {
-      var iso = phoneSlice === "tomo" ? addDaysIso(today, 1) : today;
+      var iso = today;
+      if (phoneSlice === "tomo") iso = addDaysIso(today, 1);
+      else if (phoneSlice === "asatte") iso = addDaysIso(today, 2);
       el.classList.add("phone-wx-pair");
       el.innerHTML = briefWxPanelHtml(iso);
       return;
@@ -1730,11 +1781,12 @@
     var allLocs = (data.weather && data.weather.locations) || [];
     var locs = [locForWxRow(allLocs, 0), locForWxRow(allLocs, 1)];
     var nowH = new Date().getHours();
-    var cols = days.map(function (iso) {
+    var daysWanted = wxDays();
+    var cols = daysWanted.map(function (iso) {
       var d = parseLocalDate(iso);
+      var dayWord = iso === today ? "今日 " : iso === addDaysIso(today, 1) ? "明日 " : iso === addDaysIso(today, 2) ? "明後日 " : "";
       var title = d
-        ? ((iso === today ? "今日 " : iso === addDaysIso(today, 1) ? "明日 " : "") +
-          (d.getMonth() + 1) + "/" + d.getDate() + "（" + WD[d.getDay()] + "）")
+        ? (dayWord + (d.getMonth() + 1) + "/" + d.getDate() + "（" + WD[d.getDay()] + "）")
         : iso;
       var locRows = locs.map(function (loc) {
         var byH = {};
@@ -1768,7 +1820,7 @@
       return '<div class="wxg-day' + (iso === today ? " is-today" : "") + '"><div class="wxg-day-head">' +
         esc(title) + "</div>" + locRows + "</div>";
     }).join("");
-    el.innerHTML = '<div class="wxg-head"><div>' + esc(phoneRangeTitle() || "2日の天気　1時間ごと") + "</div>" +
+    el.innerHTML = '<div class="wxg-head"><div>' + esc(phoneRangeTitle() || "天気(3日)　1時間ごと") + "</div>" +
       '<div class="wxg-legend"><span class="rain-light">弱雨</span><span class="rain-mid">雨</span><span class="rain-heavy">大雨</span></div></div>' +
       '<div class="wxg-cols">' + cols + "</div>";
   }
@@ -2005,21 +2057,24 @@
     if (data.briefing && data.briefing.nextWeekEvents) {
       data.briefing.nextWeekEvents = activeEvents(data.briefing.nextWeekEvents);
     }
-    if ((pageKey === "focus" || pageKey === "wx") && (data.days || []).length > 2) {
-      data = clipDashboard(data, focusDays());
-    }
+    var src = data;
+    if (pageKey === "wx") data = clipDashboard(src, wxDays());
+    else if (pageKey === "focus") data = clipDashboard(src, focusDays());
     lastData = data;
-    if ((data.days || []).length > 2) cacheWeek = data;
-    else cacheFocus = data;
+    if ((src.days || []).length >= 7) cacheWeek = src;
+    else if ((src.days || []).length) {
+      var prevN = (cacheFocus && cacheFocus.days && cacheFocus.days.length) || 0;
+      if ((src.days || []).length >= prevN) cacheFocus = src;
+    }
     var from = data.from || "";
     var to = data.to || "";
     var vis = visibleEvents(data.events);
-    if (pageKey === "wx") $("range-line").textContent = phoneRangeTitle() || "2日の天気　1時間ごと";
+    if (pageKey === "wx") $("range-line").textContent = phoneRangeTitle() || "天気(3日)　1時間ごと";
     else if (isBriefPage(pageKey)) $("range-line").textContent = phoneRangeTitle() || briefRangeLine();
-    else if (isWeekHeadPage(pageKey)) $("range-line").textContent = phoneRangeTitle() || (weekHeadWord() + "のHeadline");
+    else if (isWeekHeadPage(pageKey)) $("range-line").textContent = phoneRangeTitle() || (weekHeadWord() + "のHL");
     else if (isStudyPage(pageKey)) $("range-line").textContent = studyRangeLine();
     else $("range-line").textContent = phoneRangeTitle() || (viewMode === "focus"
-      ? ("2日  " + fmtMd(from) + " – " + fmtMd(to))
+      ? ("予定(2日)  " + fmtMd(from) + " – " + fmtMd(to))
       : (weekLabel(weekOffset) + "  " + fmtMd(from) + " – " + fmtMd(to)));
     syncBodyClass();
     if (!kioskOn) setPanelVisibility();
@@ -2074,7 +2129,14 @@
     if (!src) return null;
     var wanted = focusDays();
     var days = src.days || [];
-    if (days.length === 2 && days[0] === wanted[0] && days[1] === wanted[1]) return src;
+    if (days.length === wanted.length && wanted.every(function (iso, i) { return days[i] === iso; })) return src;
+    return clipDashboard(src, wanted);
+  }
+  function wxViewData(src) {
+    if (!src) return null;
+    var wanted = wxDays();
+    var days = src.days || [];
+    if (days.length === wanted.length && wanted.every(function (iso, i) { return days[i] === iso; })) return src;
     return clipDashboard(src, wanted);
   }
   function clipDashboard(data, wanted) {
@@ -2203,7 +2265,7 @@
       if (done) done(new Error(data.error));
       return;
     }
-    kind = kind || ((data.days && data.days.length > 2) ? "week" : "focus");
+    kind = kind || ((data.days && data.days.length >= 7) ? "week" : "focus");
     if (data.briefing && (parseInt(data.week_offset, 10) || 0) === 0) homeBriefing = data.briefing;
     if (data.transit && (parseInt(data.week_offset, 10) || 0) === 0) homeTransit = data.transit;
     if (kind === "week") cacheWeek = data;
@@ -2233,9 +2295,9 @@
     }
     fetchLock = true;
     if (viewMode === "focus") {
-      var wanted = focusDays();
+      var wanted = focusFetchDays();
       var o0 = weekOffsetOf(wanted[0]);
-      var o1 = weekOffsetOf(wanted[1]);
+      var o1 = weekOffsetOf(wanted[wanted.length - 1]);
       requestDashboard(o0, function (err, d0) {
         if (err || !d0 || d0.error) {
           finishLoad(err || (d0 && d0.error), d0, done, "focus");
@@ -2381,15 +2443,14 @@
       renderStandings();
       if (!standingsData) loadStandings();
     } else if (parent === "wx") {
-      $("range-line").textContent = phoneRangeTitle() || "2日の天気　1時間ごと";
-      var wxFresh = cacheFocus && cacheFocus.days && cacheFocus.days[0] === todayStr() && cacheFocus.days.length === 2;
-      var wxData = wxFresh ? cacheFocus : (focusViewData(cacheFocus) || focusViewData(lastData) || focusViewData(cacheWeek));
+      $("range-line").textContent = phoneRangeTitle() || "天気(3日)　1時間ごと";
+      var wxFresh = cacheHasDays(cacheFocus, wxDays()) && wxDays()[0] === todayStr();
+      var wxData = wxFresh ? wxViewData(cacheFocus) : (wxViewData(cacheFocus) || wxViewData(lastData) || wxViewData(cacheWeek));
       if (wxData) renderWxBoard(wxData);
       if (!wxFresh) load();
     } else if (parent === "focus") {
-      var want0 = todayStr();
-      var fresh = cacheFocus && cacheFocus.days && cacheFocus.days[0] === want0 && cacheFocus.days.length === 2;
-      var focusData = fresh ? cacheFocus : (focusViewData(cacheFocus) || focusViewData(lastData) || focusViewData(cacheWeek));
+      var fresh = cacheHasDays(cacheFocus, focusDays());
+      var focusData = fresh ? focusViewData(cacheFocus) : (focusViewData(cacheFocus) || focusViewData(lastData) || focusViewData(cacheWeek));
       if (focusData) paintFromCache(focusData, "focus");
       if (!fresh) load();
     } else if (!paintFromCache(weekCacheOk(cacheWeek) && (parseInt(cacheWeek.week_offset, 10) || 0) === weekOffset ? cacheWeek : null, "week")) {
@@ -3690,7 +3751,7 @@
           whWxDaysHtml(wx) +
         "</div></div>";
     }
-    $("range-line").textContent = phoneRangeTitle() || (w + "のHeadline");
+    $("range-line").textContent = phoneRangeTitle() || (w + "のHL");
     weekPastStamp = weekEventsPastStamp();
   }
   function weekEventsPastStamp() {
@@ -3721,12 +3782,12 @@
   }
   function briefRangeLine() {
     var w = transitWorst();
-    var title = pageKey === "tomo" ? "明日のHeadline" : "今日のHeadline";
+    var title = pageKey === "tomo" ? "明日のHL" : "今日のHL";
     if (pageKey === "tomo") {
       var iso = addDaysIso(todayStr(), 1);
       var d = parseLocalDate(iso);
       var wd = d ? WD[d.getDay()] : "";
-      title = "明日のHeadline　" + fmtMd(iso) + (wd ? "（" + wd + "）" : "");
+      title = "明日のHL　" + fmtMd(iso) + (wd ? "（" + wd + "）" : "");
     }
     if (w === "stop") return title + "　運行停止あり";
     if (w === "delay") return title + "　運行遅れあり";
@@ -3907,7 +3968,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.111" });
+    appLog({ event: "kiosk_on", v: "0.3.114" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;
@@ -4656,7 +4717,7 @@
       else focusDayOffset = 0;
       uiMode = "event";
       apply._focused = false;
-      $("range-line").textContent = "2日　読み込み中…";
+      $("range-line").textContent = "予定(2日)　読み込み中…";
       $("status").textContent = "読み込み中…";
       setWeekBusy(true, which);
       load();

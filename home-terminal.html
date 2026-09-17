@@ -1035,9 +1035,9 @@
       border-radius: 4px; padding: 8px 12px 10px;
     }
     .wxg-day.is-today { box-shadow: inset 0 0 0 1px rgba(201,176,138,0.45); }
-    .wxg-day-head { font-size: 20px; font-weight: 500; letter-spacing: 0.12em; color: var(--gold); flex: 0 0 auto; }
+    .wxg-day-head { font-size: 18px; font-weight: 500; letter-spacing: 0.08em; color: var(--gold); flex: 0 0 auto; }
     .wxg-cols {
-      flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px;
+      flex: 1; min-height: 0; display: flex; flex-direction: row; gap: 10px;
     }
     .wxg-loc { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
     .wxg-loc-name { font-size: 18px; font-weight: 800; margin-bottom: 2px; }
@@ -1855,15 +1855,15 @@
     </div>
     <div class="hdr-gap" aria-hidden="true"></div>
     <div class="hdr-view">
-      <button type="button" id="btn-brief">今日のHeadline</button>
-      <button type="button" id="btn-tomo" hidden>明日のHeadline</button>
+      <button type="button" id="btn-brief">今日のHL</button>
+      <button type="button" id="btn-tomo" hidden>明日のHL</button>
       <button type="button" id="btn-study" hidden>試験Status</button>
       <button type="button" id="btn-study-todo" hidden>試験Todo</button>
-      <button type="button" id="btn-focus">2日</button>
-      <button type="button" id="btn-wx">天気</button>
-      <button type="button" id="btn-week-head">今週のHeadline</button>
-      <button type="button" id="btn-next-week-head" hidden>来週のHeadline</button>
-      <button type="button" id="btn-week">週タイムライン</button>
+      <button type="button" id="btn-focus">予定(2日)</button>
+      <button type="button" id="btn-wx">天気(3日)</button>
+      <button type="button" id="btn-week-head">今週のHL</button>
+      <button type="button" id="btn-next-week-head" hidden>来週のHL</button>
+      <button type="button" id="btn-week">週TL</button>
     </div>
     <div id="kiosk-ind">AUTO</div>
     <div class="week-keys">
@@ -1889,7 +1889,7 @@
   </div>
   <div id="kiosk-hint">リモコンで停止</div>
   <div id="kiosk-veil" hidden>
-    <div class="veil-title" id="veil-title">2日</div>
+    <div class="veil-title" id="veil-title">予定(2日)</div>
     <div class="veil-line"></div>
     <div class="veil-sub" id="veil-sub">TIMELINE</div>
   </div>
