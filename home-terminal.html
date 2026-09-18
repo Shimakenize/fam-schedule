@@ -540,11 +540,12 @@
       line-height: 1.2; word-break: break-word; font-weight: 700;
     }
     .brief-chip.k-match {
-      color: var(--gold-2); border-color: rgba(201,176,138,0.55);
-      background: rgba(184,148,58,0.22);
+      color: #fbcfe8; border-color: rgba(244,114,182,0.55);
+      background: rgba(236,72,153,0.32);
     }
-    .brief-chip.k-match .vs { color: #fff8e1; }
-    .brief-chip.k-match .venue { color: var(--gold-2); }
+    .brief-chip.k-match .vs { color: #fce7f3; }
+    .brief-chip.k-match .venue,
+    .brief-chip.k-match .league { color: #f9a8d4; }
     .brief-chip.k-match.k-futsal {
       color: #d1fae5; border-color: rgba(52,211,153,0.55);
       background: rgba(16,185,129,0.30);
@@ -1668,7 +1669,7 @@
       border-radius: 4px; background: rgba(15,23,42,0.45);
     }
     html.phone:not(.phone-scale) .phone-wk-mini.k-match {
-      background: rgba(184,148,58,0.28); border: 1px solid rgba(201,176,138,0.45);
+      background: rgba(236,72,153,0.32); border: 1px solid rgba(244,114,182,0.5);
     }
     html.phone:not(.phone-scale) .phone-wk-mini.k-futsal {
       background: rgba(16,185,129,0.30); border: 1px solid rgba(52,211,153,0.5);
@@ -1782,8 +1783,8 @@
       background: rgba(30,58,95,0.45); color: #e8eef7;
     }
     html.phone:not(.phone-scale) .phone-match-card.k-match {
-      border-color: rgba(201,176,138,0.55);
-      background: rgba(139,105,20,0.48); color: #fff8e1;
+      border-color: rgba(244,114,182,0.55);
+      background: rgba(219,39,119,0.38); color: #fce7f3;
     }
     html.phone:not(.phone-scale) .phone-match-card.k-match.k-futsal {
       border-color: rgba(52,211,153,0.55);
@@ -1799,7 +1800,9 @@
         linear-gradient(180deg, rgba(8,12,20,0.28), rgba(8,12,20,0.42)),
         linear-gradient(135deg, #1e3a8a 0 33%, #e2e8f0 33% 67%, #b91c1c 67% 100%);
     }
-    html.phone:not(.phone-scale) .phone-match-card.k-match .venue { color: var(--gold-2); }
+    html.phone:not(.phone-scale) .phone-match-card.k-match .venue { color: #f9a8d4; }
+    html.phone:not(.phone-scale) .phone-match-card.k-match.k-futsal .venue { color: #a7f3d0; }
+    html.phone:not(.phone-scale) .phone-match-card.k-match.k-trg .venue { color: #7dd3fc; }
     html.phone:not(.phone-scale) .phone-match-top {
       display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
     }
@@ -1985,6 +1988,6 @@
   <div id="toast" hidden></div>
   <aside id="ev-detail" hidden></aside>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script src="ht/bridge.js?v=20260918-4"></script>
+  <script src="ht/bridge.js?v=20260918-5"></script>
 </body>
 </html>
