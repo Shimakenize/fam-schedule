@@ -3676,7 +3676,7 @@
     return out;
   }
   function rmCatHtml(label, rows) {
-    return '<div class="rm-cat"><div class="rm-cat-h">' + esc(label) + '</div><div class="wh-list">' +
+    return '<div class="rm-cat' + (label === "U13" ? " is-u13" : "") + '"><div class="rm-cat-h">' + esc(label) + '</div><div class="wh-list">' +
       weekChipList(collapseFutsalMatchCards(rows), false, true) + "</div></div>";
   }
   function regaliaMatchBoardHtml(marinosRows) {
@@ -3773,7 +3773,7 @@
       days.forEach(function (iso) {
         collapseFutsalMatchCards(catMatchList(rows, iso, cat.key)).forEach(function (ev) { items.push(ev); });
       });
-      return '<div class="phone-wk-cat">' +
+      return '<div class="phone-wk-cat' + (cat.key === "u13" ? " is-u13" : "") + '">' +
         '<div class="phone-wk-cat-h">' + esc(cat.label) + "</div>" +
         '<div class="phone-wk-cat-list">' +
           (items.length ? items.map(function (ev) {
@@ -3798,7 +3798,7 @@
         body = '<div class="wh-sec"><div class="wh-list by-day">' + weekChipList(h.juku, true) + "</div></div>";
       } else if (phoneSlice === "u13") {
         var u13h = (pageKey === "nextWeekHead" ? "来週の" : "") + "U13平日の活動";
-        body = '<div class="wh-sec"><div class="wh-h">' + u13h + '</div><div class="wh-list">' + weekChipList(h.u13Activity) + "</div></div>";
+        body = '<div class="wh-sec is-u13"><div class="wh-h">' + u13h + '</div><div class="wh-list">' + weekChipList(h.u13Activity) + "</div></div>";
       } else if (isWeekendPhoneSlice(phoneSlice)) {
         body = '<div class="wh-sec wh-matches">' + phoneWeekendCatBoardHtml(weekendIsoForSlice(phoneSlice, pageKey), pageKey) + "</div>";
       } else if (phoneSlice === "miscMarinos") {
@@ -3815,7 +3815,7 @@
       el.innerHTML = '<div class="wh-grid' + (renkyu ? " wh-grid-renkyu" : "") + '">' +
         '<div class="wh-stack">' +
           '<div class="wh-sec"><div class="wh-h">' + w + 'の塾予定</div><div class="wh-list by-day">' + weekChipList(h.juku, true) + "</div></div>" +
-          '<div class="wh-sec"><div class="wh-h">U13平日の活動</div><div class="wh-list">' + weekChipList(h.u13Activity) + "</div></div>" +
+          '<div class="wh-sec is-u13"><div class="wh-h">U13平日の活動</div><div class="wh-list">' + weekChipList(h.u13Activity) + "</div></div>" +
         "</div>" +
         '<div class="wh-sec wh-matches"><div class="wh-h">REGALIA週末予定</div>' + regaliaMatchBoardHtml(h.marinos) + "</div>" +
         (renkyu ? "" : marinosBarHtml(h.marinos)) +
@@ -4040,7 +4040,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.117" });
+    appLog({ event: "kiosk_on", v: "0.3.118" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;

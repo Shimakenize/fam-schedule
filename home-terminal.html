@@ -774,6 +774,12 @@
       background: rgba(255,255,255,0.03); padding: 8px 8px 6px; overflow: hidden;
     }
     .wh-sec.wh-wx { grid-column: 1 / -1; overflow: visible; flex: 0 0 auto; }
+    .wh-sec.is-u13 {
+      border-color: rgba(232,215,184,0.55);
+      background: rgba(201,176,138,0.10);
+      box-shadow: inset 0 0 0 1px rgba(201,176,138,0.28);
+    }
+    .wh-sec.is-u13 .wh-h { color: var(--gold-2); }
     .wh-sec.wh-matches, .wh-sec.wh-marinos { min-height: 0; }
     .rm-days {
       flex: 1; min-height: 0; display: grid; gap: 6px;
@@ -807,6 +813,11 @@
       flex: 1 1 0; min-height: 0; display: flex; flex-direction: column;
       border-top: 1px solid rgba(201,176,138,0.12); padding: 4px 6px 6px;
     }
+    .rm-cat.is-u13 {
+      background: rgba(201,176,138,0.18);
+      box-shadow: inset 0 0 0 1px rgba(232,215,184,0.5);
+    }
+    .rm-cat.is-u13 .rm-cat-h { color: var(--gold-2); }
     .rm-cat-h {
       flex: 0 0 auto; font-size: 22px; font-weight: 800; letter-spacing: 0.1em;
       color: #f6edd9; line-height: 1.1; margin-bottom: 4px;
@@ -1616,6 +1627,10 @@
       border: 1px solid rgba(158,192,230,0.28); border-radius: 6px;
       background: rgba(30,58,95,0.35);
     }
+    html.phone:not(.phone-scale) .phone-wk-cat.is-u13 {
+      border-color: rgba(232,215,184,0.55);
+      background: rgba(201,176,138,0.16);
+    }
     html.phone:not(.phone-scale) .phone-wk-cat-h {
       flex: 0 0 auto; text-align: center; font-size: 14px; font-weight: 800;
       letter-spacing: 0.08em; color: var(--gold-2); margin-bottom: 4px;
@@ -1917,6 +1932,6 @@
   <div id="toast" hidden></div>
   <aside id="ev-detail" hidden></aside>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script src="ht/bridge.js?v=20260918-2"></script>
+  <script src="ht/bridge.js?v=20260918-3"></script>
 </body>
 </html>
