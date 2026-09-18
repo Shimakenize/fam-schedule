@@ -2572,7 +2572,11 @@
   }
   function kindChipClass(kind, ev) {
     var k = canonicalKind(kind);
-    if (k === "match") return "k-match";
+    if (k === "match") {
+      if (isFutsalLeagueEv(ev)) return "k-match k-futsal";
+      if (isTrgEv(ev)) return "k-match k-trg";
+      return "k-match";
+    }
     if (k === "TR") return "k-tr";
     if (k === "塾") return "k-juku k-sub-" + jukuSubjectKey(ev);
     if (k === "adhoc") return "k-adhoc";
@@ -3606,6 +3610,11 @@
     var s = [eventLeague(ev), ev.title, matchCardText(ev)].join(" ");
     return /フットサル/.test(s) || /U\d+FL\b/i.test(s);
   }
+  function isTrgEv(ev) {
+    if (canonicalKind(ev && (ev.kind || ev.event_kind)) !== "match") return false;
+    var s = [eventLeague(ev), ev.title, matchCardText(ev), matchOpponentName(ev)].join(" ");
+    return /(^|[^A-Za-z0-9])TRG([^A-Za-z0-9]|$)/.test(s);
+  }
   function uniqueNonempty(values) {
     var seen = {};
     var out = [];
@@ -3747,7 +3756,7 @@
     var k = canonicalKind(ev.kind);
     var kind = k === "match" ? "試合" : (k === "合宿" ? "合宿" : "TR");
     var league = leagueLabel(ev);
-    return '<div class="phone-wk-mini' + (eventIsPast(ev) ? " is-past" : "") + '">' +
+    return '<div class="phone-wk-mini ' + kindChipClass(ev.kind, ev) + (eventIsPast(ev) ? " is-past" : "") + '">' +
       rainBadgeHtml(ev) +
       '<div class="phone-wk-mini-top">' +
         (!hideDow && dow ? '<span class="dow' + (di === 6 ? " is-sat" : di === 0 ? " is-sun" : "") + '">' + esc(dow) + "</span>" : "") +

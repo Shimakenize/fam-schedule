@@ -545,6 +545,20 @@
     }
     .brief-chip.k-match .vs { color: #fff8e1; }
     .brief-chip.k-match .venue { color: var(--gold-2); }
+    .brief-chip.k-match.k-futsal {
+      color: #d1fae5; border-color: rgba(52,211,153,0.55);
+      background: rgba(16,185,129,0.30);
+    }
+    .brief-chip.k-match.k-futsal .vs { color: #ecfdf5; }
+    .brief-chip.k-match.k-futsal .venue,
+    .brief-chip.k-match.k-futsal .league { color: #a7f3d0; }
+    .brief-chip.k-match.k-trg {
+      color: #e0f2fe; border-color: rgba(56,189,248,0.55);
+      background: rgba(14,165,233,0.30);
+    }
+    .brief-chip.k-match.k-trg .vs { color: #f0f9ff; }
+    .brief-chip.k-match.k-trg .venue,
+    .brief-chip.k-match.k-trg .league { color: #7dd3fc; }
     .brief-chip.k-tr { color: #4ade80; border-color: rgba(74,222,128,0.35); }
     .brief-chip.k-juku { color: #fb923c; border-color: rgba(251,146,60,0.4); }
     .brief-chip.k-juku.k-sub-sci { color: #6ee7b7; border-color: rgba(16,185,129,0.55); background: rgba(16,185,129,0.12); }
@@ -560,7 +574,17 @@
     .brief-chip.k-private { color: #c4b5fd; border-color: rgba(196,181,253,0.35); }
     .brief-chip.k-adhoc { color: #fde68a; border-color: rgba(253,230,138,0.45); background: rgba(253,230,138,0.08); }
     .brief-chip.k-gasshuku { color: #e0b06a; border-color: rgba(224,176,106,0.4); }
-    .brief-chip.k-marinos { color: #60a5fa; border-color: rgba(96,165,250,0.4); }
+    .brief-chip.k-marinos {
+      color: #f8fafc; border-color: rgba(248,250,252,0.42);
+      background:
+        linear-gradient(180deg, rgba(8,12,20,0.28), rgba(8,12,20,0.42)),
+        linear-gradient(135deg, #1e3a8a 0 33%, #e2e8f0 33% 67%, #b91c1c 67% 100%);
+    }
+    .brief-chip.k-marinos .vs,
+    .brief-chip.k-marinos .ttl,
+    .brief-chip.k-marinos .t { color: #f8fafc; }
+    .brief-chip.k-marinos .venue,
+    .brief-chip.k-marinos .league { color: #e2e8f0; }
     .brief-empty-ico { display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--muted); }
     .brief-empty-ico .ui-ico { width: 72px; height: 72px; opacity: 0.45; }
     .brief-empty-ico .st-cap { font-size: 18px; }
@@ -1643,6 +1667,21 @@
       flex: 1 1 0; min-height: 0; overflow: hidden; padding: 4px 6px;
       border-radius: 4px; background: rgba(15,23,42,0.45);
     }
+    html.phone:not(.phone-scale) .phone-wk-mini.k-match {
+      background: rgba(184,148,58,0.28); border: 1px solid rgba(201,176,138,0.45);
+    }
+    html.phone:not(.phone-scale) .phone-wk-mini.k-futsal {
+      background: rgba(16,185,129,0.30); border: 1px solid rgba(52,211,153,0.5);
+    }
+    html.phone:not(.phone-scale) .phone-wk-mini.k-trg {
+      background: rgba(14,165,233,0.30); border: 1px solid rgba(56,189,248,0.5);
+    }
+    html.phone:not(.phone-scale) .phone-wk-mini.k-marinos {
+      border: 1px solid rgba(248,250,252,0.35);
+      background:
+        linear-gradient(180deg, rgba(8,12,20,0.28), rgba(8,12,20,0.42)),
+        linear-gradient(135deg, #1e3a8a 0 33%, #e2e8f0 33% 67%, #b91c1c 67% 100%);
+    }
     html.phone:not(.phone-scale) .phone-wk-mini-top {
       display: flex; align-items: baseline; gap: 6px;
     }
@@ -1745,6 +1784,20 @@
     html.phone:not(.phone-scale) .phone-match-card.k-match {
       border-color: rgba(201,176,138,0.55);
       background: rgba(139,105,20,0.48); color: #fff8e1;
+    }
+    html.phone:not(.phone-scale) .phone-match-card.k-match.k-futsal {
+      border-color: rgba(52,211,153,0.55);
+      background: rgba(16,185,129,0.38); color: #ecfdf5;
+    }
+    html.phone:not(.phone-scale) .phone-match-card.k-match.k-trg {
+      border-color: rgba(56,189,248,0.55);
+      background: rgba(14,165,233,0.38); color: #e0f2fe;
+    }
+    html.phone:not(.phone-scale) .phone-match-card.k-marinos {
+      border-color: rgba(248,250,252,0.4); color: #f8fafc;
+      background:
+        linear-gradient(180deg, rgba(8,12,20,0.28), rgba(8,12,20,0.42)),
+        linear-gradient(135deg, #1e3a8a 0 33%, #e2e8f0 33% 67%, #b91c1c 67% 100%);
     }
     html.phone:not(.phone-scale) .phone-match-card.k-match .venue { color: var(--gold-2); }
     html.phone:not(.phone-scale) .phone-match-top {
@@ -1932,6 +1985,6 @@
   <div id="toast" hidden></div>
   <aside id="ev-detail" hidden></aside>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script src="ht/bridge.js?v=20260918-3"></script>
+  <script src="ht/bridge.js?v=20260918-4"></script>
 </body>
 </html>

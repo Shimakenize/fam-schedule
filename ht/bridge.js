@@ -101,7 +101,7 @@
     if (appLoaded) return;
     appLoaded = true;
     var s = document.createElement("script");
-    s.src = "ht/app.js?v=20260918-3";
+    s.src = "ht/app.js?v=20260918-4";
     s.onerror = function () { gateMsg("画面の読み込みに失敗しました。"); };
     document.body.appendChild(s);
     var gate = document.getElementById("ht-gate");
