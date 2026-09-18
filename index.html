@@ -678,7 +678,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260910-3';
+    var __UI_BUILD__ = '20260918-1';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -2822,7 +2822,12 @@
       return String(ev.event_kind || '').trim();
     }
 
-    /** 保存直前: TRG 練習試合なら API に送る patch を match + TRG に揃える（ローカルキャッシュも正しくする） */
+    /** 保存直前: TRG 練習試合なら API に送る patch を match + TRG に揃える（ローカルキャッシュも正しくする）
+     * 注意: title は絶対に上書きしない。以前はここで out.title = 'TRG' としていたが、
+     * 「TRG（通常）→ title=対戦相手名、league_or_competition='TRG'」という実際のデータ規約と矛盾し、
+     * league_or_competitionが既に'TRG'である既存の試合（対戦相手名入り）を編集フォームで
+     * 何か1つでも保存するたびにtitleが問答無用で'TRG'に上書きされ対戦相手名が消える不具合の
+     * 原因になっていた（2026-09-18指摘、2026-07-08〜09-17の間に少なくとも11件の試合で発生）。 */
     function normalizeTrgTrainingPatch(patch) {
       var p = patch || {};
       if (!isTrgLeagueOrTitleFields(p.league_or_competition, p.title)) return p;
@@ -2832,7 +2837,6 @@
       }
       out.event_kind = 'match';
       out.league_or_competition = 'TRG';
-      out.title = 'TRG';
       return out;
     }
 
