@@ -996,8 +996,29 @@
     d.setDate(d.getDate() + (dow === 0 ? -6 : 1 - dow));
     return ymd(d);
   }
-  function headWeekMonday(parent) {
+  // 今週のHLは、連休で土日の翌週末まで祝日が連続する場合、その連休が終わるまで
+  // 前週のまま据え置く（Sony_HomeTerminal側と同じ修正、2026-09-21。詳細は
+  // Sony_HomeTerminal/web/app.js の同名関数コメント参照）。
+  function headWeekAnchorMonday() {
     var mon = mondayIso(todayStr());
+    var prevMon = addDaysIso(mon, -7);
+    var prevSat = addDaysIso(prevMon, 5);
+    var today = todayStr();
+    if (today < prevSat) return mon;
+    var hol = holidaySet();
+    var blockEnd = prevSat;
+    var cur = addDaysIso(prevSat, 1);
+    var guard = 0;
+    while (guard < 10 && isRenkyuOffDay(cur, hol)) {
+      blockEnd = cur;
+      cur = addDaysIso(cur, 1);
+      guard++;
+    }
+    if (today >= prevSat && today <= blockEnd) return prevMon;
+    return mon;
+  }
+  function headWeekMonday(parent) {
+    var mon = headWeekAnchorMonday();
     if (isNextWeekHead(parent)) return addDaysIso(mon, 7);
     return mon;
   }
