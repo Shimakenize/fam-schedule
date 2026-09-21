@@ -1350,6 +1350,11 @@
       line-height: 1.25; margin-top: 2px; word-break: break-word;
     }
     .tl-cat-u14 .tl-block-seg-regalia, .tl-cat-u15 .tl-block-seg-regalia { color: #fde68a !important; }
+    /* フットサル併合カード用の縮小フォント（Sony_HomeTerminal側と同じ修正、2026-09-21）。 */
+    .tl-block-seg-regalia--multi { font-size: 9px; line-height: 1.1; margin-top: 1px; }
+    body.mode-focus .tl-block-seg-regalia--multi { font-size: 12px; line-height: 1.1; }
+    .tl-block--narrow .tl-block-seg-regalia--multi { font-size: 8px; }
+    body.mode-focus .tl-block--narrow .tl-block-seg-regalia--multi { font-size: 10px; }
     .tl-block.nav {
       box-shadow: 0 0 0 2px var(--gold), 0 0 12px rgba(201,176,138,0.35);
       z-index: 8;

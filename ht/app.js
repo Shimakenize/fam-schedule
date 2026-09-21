@@ -1384,13 +1384,19 @@
     var mainS = Math.max(clip.ds, core.start);
     var mainE = Math.min(clip.de, core.end);
     if (mainE > mainS) {
+      // フットサル併合カードは対戦カードが複数行になるため、実時間の比例配分だけでは
+      // 縦が足りず文字が欠ける（Sony_HomeTerminal側と同じ修正、2026-09-21）。
+      var isGroup = !!(ev.groupEvents && ev.groupEvents.length > 1);
+      var mainWeight = Math.max(1, mainE - mainS);
+      if (isGroup) mainWeight *= ev.groupEvents.length;
+      var cardText = matchCardTextGroup(ev);
       h += '<div class="tl-block-seg tl-block-seg--main' + (badgeHtml ? " tl-block-seg--wx" : "") +
-        '" style="flex:' + Math.max(1, mainE - mainS) + ' 1 0">' +
+        '" style="flex:' + mainWeight + ' 1 0">' +
         (badgeHtml || "") +
         '<span class="tl-block-seg-time">' + esc(hm(core.start) + (core.end > core.start ? "-" + hm(core.end) : "")) + "</span>" +
-        '<span class="tl-block-seg-sub">' + esc(mainSub(ev)) + "</span>" +
+        (isGroup ? "" : '<span class="tl-block-seg-sub">' + esc(mainSub(ev)) + "</span>") +
         (ev.venue ? '<span class="tl-block-seg-venue">' + esc(ev.venue) + "</span>" : "") +
-        (matchCardText(ev) ? '<span class="tl-block-seg-regalia">' + esc(matchCardText(ev)) + "</span>" : "") +
+        (cardText ? '<span class="tl-block-seg-regalia' + (isGroup ? " tl-block-seg-regalia--multi" : "") + '">' + esc(cardText) + "</span>" : "") +
         "</div>";
     }
     for (i = 0; i < postMarks.length; i++) {
@@ -1477,7 +1483,10 @@
           grids += '<div class="now" style="top:' + hourTop(mins, ch) + 'px"></div>';
         }
       }
-      var dayEvents = events.filter(function (ev) { return dayKey(ev.event_date) === dayIso; }).map(function (ev) {
+      var dayEventsRaw = collapseFutsalTimelineCards(
+        events.filter(function (ev) { return dayKey(ev.event_date) === dayIso; })
+      );
+      var dayEvents = dayEventsRaw.map(function (ev) {
         var rng = displayRange(ev);
         if (!rng) return null;
         var ds = Math.max(tlHour0 * 60, rng.start);
@@ -3704,6 +3713,83 @@
       }
     });
     return out;
+  }
+  function abbrevTeamName(name, maxLen) {
+    var s = String(name || "").trim();
+    var n = maxLen || 5;
+    return s.length > n ? s.slice(0, n) + "…" : s;
+  }
+  // 予定(2日)/週タイムライン用のフットサル併合（Sony_HomeTerminal側と同じ修正、
+  // 2026-09-21）。mergeFutsalGroup()（REGALIA週末予定ボード用）はpre/post（出発/
+  // 集合/解散）の生データを引き継がないためタイムラインの時間軸計算に使えず、
+  // 専用の関数にする。
+  function mergeFutsalGroupTimeline(rows) {
+    var first = rows[0];
+    var sorted = rows.slice().sort(function (a, b) {
+      var ca = parseCore(a);
+      var cb = parseCore(b);
+      return (ca ? ca.start : 0) - (cb ? cb.start : 0);
+    });
+    var cores = sorted.map(parseCore).filter(Boolean);
+    var envStart = cores.length ? Math.min.apply(null, cores.map(function (c) { return c.start; })) : null;
+    var envEnd = cores.length ? Math.max.apply(null, cores.map(function (c) { return c.end; })) : null;
+    var mergedTime = (envStart !== null && envEnd !== null) ? (hm(envStart) + "-" + hm(envEnd)) : first.event_time;
+    return {
+      id: first.id,
+      kind: first.kind,
+      event_kind: first.event_kind,
+      date: first.date || eventIso(first),
+      event_date: eventIso(first),
+      title: "",
+      league_or_competition: sharedLeagueLabel(rows),
+      venue: uniqueNonempty(rows.map(matchVenueName)).join(" / "),
+      event_time: mergedTime,
+      time: mergedTime,
+      category: first.category,
+      category_code: first.category_code,
+      pre_event_coach: first.pre_event_coach,
+      pre_event_user: first.pre_event_user,
+      post_event_coach: first.post_event_coach,
+      post_event_user: first.post_event_user,
+      display_status: first.display_status,
+      groupEvents: sorted
+    };
+  }
+  function collapseFutsalTimelineCards(rows) {
+    var list = (rows || []).slice();
+    var futsal = list.filter(isFutsalLeagueEv);
+    if (futsal.length < 2) return list;
+    var placed = false;
+    var out = [];
+    list.forEach(function (ev) {
+      if (!isFutsalLeagueEv(ev)) {
+        out.push(ev);
+        return;
+      }
+      if (!placed) {
+        out.push(mergeFutsalGroupTimeline(futsal));
+        placed = true;
+      }
+    });
+    return out;
+  }
+  function matchCardLine(ev) {
+    var card = matchCardText(ev);
+    if (card) return card;
+    if (canonicalKind(ev.kind || ev.event_kind) !== "match") return "";
+    var opp = matchOpponentName(ev);
+    return opp ? ("vs " + opp) : "";
+  }
+  function matchCardTextGroup(ev) {
+    if (!ev.groupEvents || ev.groupEvents.length < 2) return matchCardLine(ev);
+    return ev.groupEvents.map(function (sub) {
+      var core = parseCore(sub);
+      var prefix = core ? (hm(core.start) + "-" + hm(core.end) + " ") : "";
+      var line = matchCardLine(sub).replace(/^vs\s*(.+)$/i, function (_, name) {
+        return "vs " + abbrevTeamName(name, 3);
+      });
+      return prefix + line;
+    }).join("\n");
   }
   function rmCatHtml(label, rows) {
     return '<div class="rm-cat' + (label === "U13" ? " is-u13" : "") + '"><div class="rm-cat-h">' + esc(label) + '</div><div class="wh-list">' +
