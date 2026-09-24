@@ -141,6 +141,8 @@
     .badge-match { background: #1e3a5f; color: #bfdbfe; }
     .badge-marinos { background: #003f8a; color: #fbbf24; }
     .badge-marinos-muted { background: #374151; color: #9ca3af; }
+    .badge-daihyo { background: #ffffff; color: #bc002d; }
+    .badge-daihyo-muted { background: #374151; color: #9ca3af; }
     .badge-adhoc { background: #3d2a5c; color: #e9d5ff; }
     .badge-tr { background: #14532d; color: #bbf7d0; }
     .badge-trg { background: #164e63; color: #a5f3fc; }
@@ -522,6 +524,7 @@
     .tl-block--stacked.tl-kind-private .tl-block-seg--main { background: #3f2a56; color: #ede9fe; }
     .tl-block--stacked.tl-kind-gasshuku .tl-block-seg--main { background: #422006; color: #fef3c7; }
     .tl-block--stacked.tl-kind-marinos .tl-block-seg--main { background: #003f8a; color: #dbeafe; }
+    .tl-block--stacked.tl-kind-daihyo .tl-block-seg--main { background: #ffffff; color: #7a0026; }
     .tl-block-em {
       position: absolute; left: 2px; right: 2px; box-sizing: border-box; border-radius: 4px;
       pointer-events: none; z-index: 0;
@@ -550,6 +553,8 @@
     .tl-block.tl-kind-private { background: #3f2a56; border-color: #5c3d75; }
     .tl-block.tl-kind-gasshuku { background: #422006; border-color: #713f12; }
     .tl-block.tl-kind-marinos { background: #003f8a; border-color: #1e40af; }
+    /* 日本代表戦: 日の丸（白地に赤丸）を模したカード背景 */
+    .tl-block.tl-kind-daihyo { background: radial-gradient(circle at 50% 50%, #bc002d 34%, #ffffff 36%); border-color: #bc002d; color: #7a0026; }
     .tl-block, .tl-chip { cursor: pointer; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
     .tl-detail-backdrop {
       position: fixed; inset: 0; z-index: 9998; background: rgba(0, 0, 0, 0.55);
@@ -644,6 +649,7 @@
         <option value="私用">私用</option>
         <option value="合宿">合宿</option>
         <option value="マリノス戦">マリノス戦</option>
+        <option value="日本代表戦">日本代表戦</option>
       </select>
       <label class="cat-filter-item"><input type="checkbox" id="filterCatU13" checked /><span class="cat-filter-label">U-13</span></label>
       <label class="cat-filter-item"><input type="checkbox" id="filterCatU14" checked /><span class="cat-filter-label">U-14</span></label>
@@ -678,7 +684,7 @@
     window.__LIFF_ID__ = '';
     window.__APP_VERSION__ = '';
     /** GitHub Pages 配信の HTML リビジョン（GAS と独立・キャッシュ確認用） */
-    var __UI_BUILD__ = '20260918-1';
+    var __UI_BUILD__ = '20260924-1';
     window.__ALLOWED_GROUP_IDS__ = [];
     window.__SCHEDULE_REQUIRE_APPROVAL__ = true;
     window.__SHOW_IDENTITY_UI__ = false;
@@ -1203,6 +1209,7 @@
       if (low === '私用' || low === 'shiyou' || low === 'private') return '私用';
       if (low === '合宿' || low === 'gasshuku') return '合宿';
       if (low === 'マリノス戦') return 'マリノス戦';
+      if (low === '日本代表戦') return '日本代表戦';
       if (low === 'practice') return 'TR';
       if (low === 'trg') return 'match';
       if (low === 'match') return 'match';
@@ -1307,6 +1314,7 @@
       if (ck === '私用') return true;
       if (ck === '合宿') return true;
       if (ck === 'マリノス戦') return true;
+      if (ck === '日本代表戦') return true;
       return false;
     }
 
@@ -1533,7 +1541,7 @@
     function applyProvisionalEndIfNeeded(ev, tr) {
       if (!tr || tr.end > tr.start) return tr;
       var ck = canonicalEventKind(ev && ev.event_kind);
-      if (ck !== 'match' && ck !== 'TR' && ck !== 'マリノス戦') return tr;
+      if (ck !== 'match' && ck !== 'TR' && ck !== 'マリノス戦' && ck !== '日本代表戦') return tr;
       var add = isFutsalLeagueTimelineEvent(ev) ? 45 : 120;
       return { start: tr.start, end: tr.start + add };
     }
@@ -2134,6 +2142,7 @@
         if (k === '私用') return '<span class="badge badge-private-muted">私用</span>';
         if (k === '合宿') return '<span class="badge badge-gasshuku-muted">合宿</span>';
         if (k === 'マリノス戦') return '<span class="badge badge-marinos-muted">マリ</span>';
+        if (k === '日本代表戦') return '<span class="badge badge-daihyo-muted">代表</span>';
         return '<span class="badge badge-match-muted">試合</span>';
       }
       if (k === 'adhoc') return '<span class="badge badge-adhoc">単発</span>';
@@ -2142,6 +2151,7 @@
       if (k === '私用') return '<span class="badge badge-private">私用</span>';
       if (k === '合宿') return '<span class="badge badge-gasshuku">合宿</span>';
       if (k === 'マリノス戦') return '<span class="badge badge-marinos">マリ</span>';
+      if (k === '日本代表戦') return '<span class="badge badge-daihyo">代表</span>';
       return '<span class="badge badge-match">試合</span>';
     }
 
@@ -2169,7 +2179,8 @@
         ['塾', '塾'],
         ['私用', '私用'],
         ['合宿', '合宿'],
-        ['マリノス戦', 'マリノス戦']
+        ['マリノス戦', 'マリノス戦'],
+        ['日本代表戦', '日本代表戦']
       ];
       var h = '';
       for (var i = 0; i < opts.length; i++) {
@@ -3745,7 +3756,8 @@
         ['塾', '塾'],
         ['私用', '私用'],
         ['合宿', '合宿'],
-        ['マリノス戦', 'マリノス戦']
+        ['マリノス戦', 'マリノス戦'],
+        ['日本代表戦', '日本代表戦']
       ];
       var h = '<option value="">' + esc('種別を選択') + '</option>';
       for (var i = 0; i < opts.length; i++) {
@@ -4376,6 +4388,7 @@
       if (k === '私用') return 'tl-kind-private';
       if (k === '合宿') return 'tl-kind-gasshuku';
       if (k === 'マリノス戦') return 'tl-kind-marinos';
+      if (k === '日本代表戦') return 'tl-kind-daihyo';
       return 'tl-kind-match';
     }
 
@@ -4669,8 +4682,8 @@
     function assignTimelineLanesByGroup(timedItems) {
       if (!timedItems || !timedItems.length) return [];
 
-      var normal  = timedItems.filter(function(it) { return it.ev.event_kind !== 'マリノス戦'; });
-      var marinos = timedItems.filter(function(it) { return it.ev.event_kind === 'マリノス戦'; });
+      var normal  = timedItems.filter(function(it) { return it.ev.event_kind !== 'マリノス戦' && it.ev.event_kind !== '日本代表戦'; });
+      var marinos = timedItems.filter(function(it) { return it.ev.event_kind === 'マリノス戦' || it.ev.event_kind === '日本代表戦'; });
 
       var sorted = normal.slice().sort(function(a, b) {
         return a.clip.ds - b.clip.ds || a.clip.de - b.clip.de;
