@@ -1134,7 +1134,7 @@
     if (low === "tr" || k === "練習") return "TR";
     if (low === "match" || k === "試合") return "match";
     if (low === "adhoc" || k === "単発") return "adhoc";
-    if (k === "塾" || k === "私用" || k === "合宿" || k === "マリノス戦") return k;
+    if (k === "塾" || k === "私用" || k === "合宿" || k === "マリノス戦" || k === "日本代表戦") return k;
     return k || "match";
   }
   function kindClass(kind) {
@@ -1144,7 +1144,7 @@
     if (k === "塾") return "tl-kind-juku";
     if (k === "私用") return "tl-kind-private";
     if (k === "合宿") return "tl-kind-gasshuku";
-    if (k === "マリノス戦") return "tl-kind-marinos";
+    if (k === "マリノス戦" || k === "日本代表戦") return "tl-kind-marinos";
     return "tl-kind-match";
   }
   function mainSub(ev) {
@@ -2592,7 +2592,7 @@
   }
   function kindIcoName(kind) {
     var k = canonicalKind(kind);
-    if (k === "match" || k === "マリノス戦") return "ball";
+    if (k === "match" || k === "マリノス戦" || k === "日本代表戦") return "ball";
     if (k === "TR") return "cone";
     if (k === "塾") return "book";
     if (k === "私用") return "person";
@@ -2612,7 +2612,7 @@
     if (k === "adhoc") return "k-adhoc";
     if (k === "私用") return "k-private";
     if (k === "合宿") return "k-gasshuku";
-    if (k === "マリノス戦") return "k-marinos";
+    if (k === "マリノス戦" || k === "日本代表戦") return "k-marinos";
     return "";
   }
   function jukuSubjectKey(ev) {
@@ -2728,7 +2728,7 @@
     if (raw) return raw;
     var title = String((ev && ev.title) || "").replace(/^vs\s*/i, "").trim();
     var kind = (ev && (ev.kindLabel || kindLabel(ev.kind))) || "";
-    if (!title || title === kind || title === "試合" || title === "マリノス戦" || title === "練習") return "";
+    if (!title || title === kind || title === "試合" || title === "マリノス戦" || title === "日本代表戦" || title === "練習") return "";
     return title;
   }
   function matchVenueName(ev) {
@@ -2845,7 +2845,7 @@
   }
   function wantsWxBadge(ev) {
     var k = canonicalKind(ev && (ev.kind || ev.event_kind));
-    return k === "match" || k === "TR" || k === "合宿" || k === "マリノス戦" || k === "塾";
+    return k === "match" || k === "TR" || k === "合宿" || k === "マリノス戦" || k === "日本代表戦" || k === "塾";
   }
   function rainBadgeHtml(ev, opts) {
     if (ev && ev.groupEvents && ev.groupEvents.length) {
@@ -2893,13 +2893,13 @@
     var title = String(ev.title || "").trim();
     if (title && title === kind) title = "";
     var vs = "";
-    if (canonicalKind(ev.kind) === "match" || canonicalKind(ev.kind) === "マリノス戦") {
+    if (canonicalKind(ev.kind) === "match" || canonicalKind(ev.kind) === "マリノス戦" || canonicalKind(ev.kind) === "日本代表戦") {
       vs = matchOpponentName(ev);
       if (title && (title === vs || /^vs\s/i.test(title))) title = "";
     }
     var time = ev.displaySpan || briefEventSpan(ev);
     var leave = "";
-    if (canonicalKind(ev.kind) === "match" || canonicalKind(ev.kind) === "マリノス戦") {
+    if (canonicalKind(ev.kind) === "match" || canonicalKind(ev.kind) === "マリノス戦" || canonicalKind(ev.kind) === "日本代表戦") {
       leave = briefHm(ev);
       if (leave && time && leave === time) leave = "";
     }
@@ -2931,10 +2931,11 @@
   }
   function isSoccerEv(ev) {
     var k = canonicalKind(ev && (ev.kind || ev.event_kind));
-    return k === "match" || k === "TR" || k === "合宿" || k === "マリノス戦";
+    return k === "match" || k === "TR" || k === "合宿" || k === "マリノス戦" || k === "日本代表戦";
   }
   function isMarinosEv(ev) {
-    return canonicalKind(ev && (ev.kind || ev.event_kind)) === "マリノス戦";
+    var k = canonicalKind(ev && (ev.kind || ev.event_kind));
+    return k === "マリノス戦" || k === "日本代表戦";
   }
   function ownBeforeMarinos(rows) {
     var own = [];
@@ -3208,7 +3209,7 @@
       u13Match: evs.filter(function (e) {
         if (!isU13e(e)) return false;
         var k = canonicalKind(e.kind || e.event_kind);
-        return k === "match" || k === "マリノス戦";
+        return k === "match" || k === "マリノス戦" || k === "日本代表戦";
       }).map(asHeadLine),
       marinos: [],
       misc: miscRows(evs),
@@ -3899,7 +3900,7 @@
     }).join("") + "</div>";
   }
   function marinosBarHtml(rows) {
-    return '<div class="wh-sec wh-marinos"><div class="wh-h">マリノス戦</div><div class="wh-list">' +
+    return '<div class="wh-sec wh-marinos"><div class="wh-h">マリノス・代表戦</div><div class="wh-list">' +
       weekChipList(rows) + "</div></div>";
   }
   function renderWeekHeadline() {
@@ -4596,9 +4597,9 @@
     var day = dayWord || "今日";
     var k = canonicalKind(ev.kind);
     var t = speakClock(briefKick(ev) || briefHm(ev));
-    if (k === "match" || k === "マリノス戦") {
+    if (k === "match" || k === "マリノス戦" || k === "日本代表戦") {
       var vs = matchOpponentName(ev);
-      var s = day + (k === "マリノス戦" ? "はマリノス戦です。" : "は試合です。");
+      var s = day + (k === "マリノス戦" ? "はマリノス戦です。" : (k === "日本代表戦" ? "は日本代表戦です。" : "は試合です。"));
       if (vs) s += "対戦相手は" + vs + "です。";
       var venue = matchVenueName(ev);
       if (venue) s += "場所は" + venue + "です。";
@@ -4719,7 +4720,8 @@
     var vs = matchOpponentName(ev);
     var venue = matchVenueName(ev);
     var t = matchKickClock(ev);
-    var s = dow + "、マリノス戦です。";
+    var k = canonicalKind(ev.kind || ev.event_kind);
+    var s = dow + "、" + (k === "日本代表戦" ? "日本代表戦です。" : "マリノス戦です。");
     s += speakLeagueText(ev);
     if (vs) s += "対戦相手は" + vs + "です。";
     if (venue) s += "場所は" + venue + "です。";
