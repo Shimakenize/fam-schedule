@@ -29,6 +29,7 @@
   var lastData = null;
   var cacheFocus = null;
   var cacheWeek = null;
+  var cacheWeekTl = null;
   var kioskOn = false;
   var kioskPaused = false;
   var phoneWantSpeak = false;
@@ -98,8 +99,18 @@
   function isSunday() {
     return new Date().getDay() === 0;
   }
+  // 来週のHLは日曜固定ではなく、今週のHL（REGALIA週末予定）が連休で伸びている
+  // 場合はその最終日から表示する（例: 9/19-23の5連休なら9/23水曜から。
+  // 混乱を避けるためユーザー指示、2026-09-20）。月曜0:00には「今週」の週範囲
+  // 自体が翌週へ進むため、weekendMatchDays("weekHead")の最終日も未来日へ
+  // 動き、todayStr() >= 最終日 が自然にfalseへ戻り追加処理なしで消える。
+  function nextWeekHeadAvailable() {
+    var days = weekendMatchDays("weekHead");
+    if (!days.length) return isSunday();
+    return todayStr() >= days[days.length - 1];
+  }
   function isWeekHeadPage(k) {
-    var p = parentPage(k);
+    var p = parentPage(k || pageKey);
     return p === "weekHead" || p === "nextWeekHead";
   }
   function isNextWeekHead(parent) {
@@ -109,7 +120,7 @@
     return isNextWeekHead(parent) ? "来週" : "今週";
   }
   function insertNextWeekHeadPages(keys, btns) {
-    if (!isSunday()) return { keys: keys, btns: btns };
+    if (!nextWeekHeadAvailable()) return { keys: keys, btns: btns };
     var k = [];
     var b = [];
     var i;
@@ -223,7 +234,7 @@
     var wb = $("btn-week");
     if (wb) wb.hidden = isPhone();
     var nwb = $("btn-next-week-head");
-    if (nwb) nwb.hidden = !isSunday();
+    if (nwb) nwb.hidden = !nextWeekHeadAvailable();
     var sb = $("btn-study");
     if (sb) sb.hidden = !studyPagesOn();
     var stb = $("btn-study-todo");
@@ -238,6 +249,9 @@
     return parentPage(k) === "brief" || parentPage(k) === "tomo";
   }
   function isPhone() { return !!window.PHONE_KIOSK; }
+  // 外出先ダイニングTV（LIFF。REGALIA_schedule_management の home-terminal.html）。
+  // remote/bridge.js が立てる。自動巡回なし・読み上げなし・スワイプで1ページずつ（2026-10-05）。
+  function isRemote() { return !!window.REMOTE_LIFF; }
   function parentPage(key) {
     var s = String(key || "");
     var i = s.indexOf("|");
@@ -798,7 +812,89 @@
   function standingsRegaliaTeam(cat) {
     return (cat.teams || []).filter(function (t) { return /REGALIA|レガリア/i.test(t.club || ""); })[0];
   }
-  function standingsRowsHtml(cat) {
+  // 星取り表（results-matrix、2026-09-20新設）のセル値エンコード:
+  // null/undefined=自分自身、""=未対戦、"W1-0"/"L0-1"/"D0-0"=対戦済み（先頭が結果、
+  // 続けてrow側チームの得点-column側チームの得点）。REGALIA_ChkMatchScheduleの
+  // api/standingsから取得（IMPLEMENTATION.md参照）。
+  function standingsMatrixCellHtml(v, changed) {
+    var chCls = changed ? " stg-mx-changed" : "";
+    if (v === null || v === undefined) return '<td class="stg-mx-cell stg-mx-self' + chCls + '"></td>';
+    if (v === "") return '<td class="stg-mx-cell' + chCls + '"></td>';
+    var m = /^([WLD])(.*)$/.exec(v);
+    if (!m) return '<td class="stg-mx-cell' + chCls + '"></td>';
+    var cls = m[1] === "W" ? "stg-mx-w" : m[1] === "L" ? "stg-mx-l" : "stg-mx-d";
+    return '<td class="stg-mx-cell ' + cls + chCls + '">' + esc(m[2]) + "</td>";
+  }
+  // 星取り表の列ヘッダー用チーム名省略（2026-09-20、ユーザーレビュー・修正済み）。
+  // 機械的な「組織種別語を除去して先頭2文字」だけだと同一枠内で衝突するケース
+  // （横浜FTAR FC/横浜ジュニオールJY、エストレーラ/エスペランサ）があったため、
+  // 手動で確認・調整した一覧をハードコードする（シーズンが変わりチーム構成が
+  // 変わったら見直しが必要。マップに無いチームはstandingsAbbrevTeamName()の
+  // フォールバックで機械的に生成するが衝突チェックはしないため、判明次第この
+  // マップへ追記すること）。キーはteams[].clubの正式名称（matrix[].clubの
+  // 短縮名ではない。公式サイトの星取り表自体が使う短縮名は一貫性が無いため）。
+  var STANDINGS_TEAM_ABBREV = {
+    "FC Kanaloa B": "Ka",
+    "FC HORTENCIA": "HO",
+    "FC厚木ジュニアユースDREAMS": "厚木D",
+    "AC等々力": "A等",
+    "大豆戸FC JY A": "大豆",
+    "SC相模原": "S相",
+    "横浜FC JY B": "横B",
+    "FC湘南JY": "湘南",
+    "F.C.REGALIA": "RE",
+    "和光ユナイテッド 川崎FC": "和光",
+    "湘南リーヴレ・エスチーロJY": "湘南",
+    "SCH.FC": "SCH",
+    "Fスタジオ": "Fス",
+    "横浜ジュニオールJY": "ジュニ",
+    "エストレーラFC インファンチル": "エスト",
+    "SUERTE FC Chigasaki": "SU",
+    "エスペランサSC JY A": "エスペ",
+    "横浜FTAR FC": "FTR",
+    "FC. vinculo": "vi",
+    "FC厚木ジュニアユースMELLIZO": "厚木M",
+    "シュートJrユースFC": "シュ",
+    "クラブテアトロJY": "テア",
+    "FC川崎CHAMP JY": "川崎",
+    "カルぺソール湘南": "カル",
+    "MGFアカデミー": "MGF",
+    "P.S.T.C. LONDRINA": "LO",
+    "AZ FCエスペランサ": "AZ",
+    "横須賀シーガルズFC": "横須",
+    "SC相模原JY": "S相",
+    "BANFF横浜": "BAF",
+    "JFC FUTURO": "FUT",
+    "バオムFC川崎": "バオ",
+    "FC CLIO川崎": "CLI",
+    "FCパルピターレJrユース": "パル"
+  };
+  function standingsAbbrevTeamName(name) {
+    var s = String(name || "").trim();
+    if (STANDINGS_TEAM_ABBREV[s]) return STANDINGS_TEAM_ABBREV[s];
+    var core = s
+      .replace(/^(F\.?C\.?|クラブ|A\.?C\.?|S\.?C\.?)\s*/i, "")
+      .replace(/\s*(F\.?C\.?|JY(\s*[A-Z])?|Jrユース|ジュニアユース)\s*$/i, "")
+      .trim();
+    return (core || s).slice(0, 2);
+  }
+  // 列ヘッダーはアイコン＋省略名（2026-09-20。行のクラブ名の表示終わり付近から
+  // 星取り表を開始できるよう列幅を確保したため、アイコンのみからアイコン＋
+  // 文字に変更。teamsをmatrixと同じ順位順インデックスで対応付けて省略名を引く
+  // （matrix[].club自体は公式サイトの短縮名で一貫性が無いため使わない）。
+  function standingsMatrixHeaderHtml(matrix, teams) {
+    if (!matrix || !matrix.length) return "";
+    return matrix.map(function (r, i) {
+      var name = (teams && teams[i] && teams[i].club) || r.club;
+      var abbr = esc(standingsAbbrevTeamName(name));
+      return '<th class="stg-mx-h">' + (r.icon ? '<img src="' + esc(r.icon) + '" alt="">' : "") +
+        '<div class="stg-mx-h-txt">' + abbr + "</div></th>";
+    }).join("");
+  }
+  function standingsRowsHtml(cat, changedCells) {
+    var matrix = cat.matrix || null;
+    var changedSet = {};
+    (changedCells || []).forEach(function (k) { changedSet[k] = true; });
     var footnoteOrder = [];
     var footnoteIdx = {};
     (cat.teams || []).forEach(function (t) {
@@ -808,22 +904,30 @@
         footnoteOrder.push(zone);
       }
     });
-    var rows = (cat.teams || []).map(function (t) {
+    var rows = (cat.teams || []).map(function (t, i) {
       var isRegalia = /REGALIA|レガリア/i.test(t.club || "");
       var zone = (cat.zones || {})[String(t.rank)];
       var zoneHtml = zone
         ? '<span class="stg-zone"><span class="stg-dot" style="background:' + zone.color + '"></span><span class="stg-num">' +
           (STANDINGS_ZONE_NUMS[footnoteIdx[zone.kind]] || "") + "</span></span>"
         : "";
+      // 星取り表の行は勝点表と同じ順位順（配列インデックス=順位-1）で並ぶことを
+      // スクレイパー側で保証済み（IMPLEMENTATION.md参照）、そのままインデックスで対応付ける。
+      var mxRow = matrix && matrix[i];
+      var iconHtml = mxRow && mxRow.icon ? '<img class="stg-club-icon" src="' + esc(mxRow.icon) + '" alt="">' : "";
+      var mxCellsHtml = mxRow ? (mxRow.cells || []).map(function (v, j) {
+        return standingsMatrixCellHtml(v, !!changedSet[i + ":" + j]);
+      }).join("") : "";
       return '<tr class="' + (isRegalia ? "is-regalia" : "") + '">' +
-        "<td>" + t.rank + "</td>" +
-        "<td>" + esc(t.club) + (isRegalia ? " ★" : "") + "</td>" +
-        "<td>" + t.points + "</td>" +
-        "<td>" + t.played + "</td>" +
-        "<td>" + t.win + "-" + t.draw + "-" + t.lose + "</td>" +
-        "<td>" + (t.diff > 0 ? "+" + t.diff : t.diff) + "</td>" +
-        "<td>" + t.remaining + "</td>" +
-        "<td>" + zoneHtml + "</td>" +
+        '<td class="stg-c-rank">' + t.rank + "</td>" +
+        '<td class="stg-c-club">' + iconHtml + esc(t.club) + (isRegalia ? " ★" : "") + "</td>" +
+        mxCellsHtml +
+        '<td class="stg-c-pts">' + t.points + "</td>" +
+        '<td class="stg-c-played">' + t.played + "</td>" +
+        '<td class="stg-c-wdl">' + t.win + "-" + t.draw + "-" + t.lose + "</td>" +
+        '<td class="stg-c-diff">' + (t.diff > 0 ? "+" + t.diff : t.diff) + "</td>" +
+        '<td class="stg-c-remain">' + t.remaining + "</td>" +
+        '<td class="stg-c-zone">' + zoneHtml + "</td>" +
         "</tr>";
     }).join("");
     var legend = footnoteOrder.length
@@ -832,7 +936,7 @@
             (STANDINGS_ZONE_NUMS[i] || "") + " " + esc(z.label) + "</span>";
         }).join("") + "</div>"
       : "";
-    return { rows: rows, legend: legend };
+    return { rows: rows, legend: legend, matrixHeader: standingsMatrixHeaderHtml(matrix, cat.teams) };
   }
   function standingsSimHtml(sim) {
     if (!sim || !sim.blocks || !sim.blocks.length) return "";
@@ -856,24 +960,114 @@
     }).join("");
     return '<div class="stg-upcoming"><h3>残り対戦相手（' + all.length + '試合）</h3>' + rows + "</div>";
   }
-  function standingsColHtml(cat) {
+  // 公式ソースはGitHub Actions cron（JST 3/9/15/21時）で6時間ごとにスクレイプされるが、
+  // scraped_atは成功する度に更新される（内容が変わっていなくても）。「直近6時間以内に
+  // 取得できたか」ではなく「直近のスクレイプで表の中身が実際に変わったか」をNewバッジの
+  // 条件にする（ユーザー指示、2026-09-26。取得はできたが内容が変わらない場合はNewにしない）。
+  // 前回見た中身の署名をlocalStorageへ保存し、次回取得時に差分があれば変わった時刻を
+  // 記録、その時刻からSTANDINGS_NEW_WINDOW_MS以内はNewを立て続ける（次のサイクルの
+  // 目安である6時間で自然に消える）。初回（保存が無い状態）はNewにしない。
+  var STANDINGS_NEW_WINDOW_MS = 6 * 60 * 60 * 1000;
+  function standingsScrapedAtMs(cat) {
+    var m = String((cat && cat.scraped_at) || "").match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+    if (!m) return null;
+    return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5])).getTime();
+  }
+  function standingsContentSig(cat) {
+    var copy = {};
+    Object.keys(cat || {}).forEach(function (k) {
+      if (k !== "scraped_at") copy[k] = cat[k];
+    });
+    try { return JSON.stringify(copy); } catch (e) { return ""; }
+  }
+  // 変わったセル（試合結果）だけを特定する。星取表の行・列は現在の順位順なので、
+  // 配列インデックスは順位が動くたびに別カードを指す（2026-10-04。インデックス比較は
+  // 結果が入っているマスの大半を更新扱いにしていた）。同一性は
+  // 「行の matrix.club × 列の matrix.club」（公式短縮名。列 j の相手は matrix[j]）。
+  // 順位だけ入れ替わったセルは差分にしない。新規結果は勝側・敗側が別値なので両方残る。
+  var STANDINGS_DIFF_VER = 2;
+  function standingsMatrixDiffCells(prevMatrix, curMatrix) {
+    var out = [];
+    if (!prevMatrix || !curMatrix) return out;
+    var prevMap = {};
+    var i, j;
+    for (i = 0; i < prevMatrix.length; i++) {
+      var prevRow = prevMatrix[i];
+      if (!prevRow || !prevRow.cells || prevRow.club == null) continue;
+      for (j = 0; j < prevRow.cells.length; j++) {
+        var prevCol = prevMatrix[j];
+        if (!prevCol || prevCol.club == null) continue;
+        prevMap[prevRow.club + "\t" + prevCol.club] = prevRow.cells[j];
+      }
+    }
+    for (i = 0; i < curMatrix.length; i++) {
+      var curRow = curMatrix[i];
+      if (!curRow || !curRow.cells || curRow.club == null) continue;
+      for (j = 0; j < curRow.cells.length; j++) {
+        var curCol = curMatrix[j];
+        if (!curCol || curCol.club == null) continue;
+        var key = curRow.club + "\t" + curCol.club;
+        var curVal = curRow.cells[j];
+        if (!Object.prototype.hasOwnProperty.call(prevMap, key)) {
+          if (curVal) out.push(i + ":" + j);
+          continue;
+        }
+        if (curVal !== prevMap[key]) out.push(i + ":" + j);
+      }
+    }
+    return out;
+  }
+  function standingsCheckNew(storeKey, cat) {
+    var sig = standingsContentSig(cat);
+    var lsKey = "dashStgNew:" + storeKey;
+    var prev = null;
+    try { prev = JSON.parse(localStorage.getItem(lsKey) || "null"); } catch (e) { prev = null; }
+    if (!prev) {
+      // 保存が無い＝比較対象が無いので「変わった」とは判定しない。changedAtMs は
+      // 十分に古い値（0）で保存し、次回以降の実際の差分だけをNew判定の起点にする。
+      try { localStorage.setItem(lsKey, JSON.stringify({ sig: sig, changedAtMs: 0, changedCells: [], matrix: cat.matrix || null, diffVer: STANDINGS_DIFF_VER })); } catch (e) {}
+      return { isNew: false, changedCells: [] };
+    }
+    // 旧差分（diffVer 無し）は順位インデックスで changedCells を保存しており、
+    // 変化前の matrix は上書き済みで復元できない。誤ハイライトだけ捨て、New の時刻は残す。
+    if (prev.diffVer !== STANDINGS_DIFF_VER) {
+      prev.changedCells = [];
+      prev.diffVer = STANDINGS_DIFF_VER;
+      try { localStorage.setItem(lsKey, JSON.stringify(prev)); } catch (e) {}
+    }
+    var changedAtMs = Number(prev.changedAtMs) || 0;
+    var changedCells = prev.changedCells || [];
+    if (prev.sig !== sig) {
+      changedAtMs = standingsScrapedAtMs(cat) || Date.now();
+      changedCells = standingsMatrixDiffCells(prev.matrix, cat.matrix);
+      try { localStorage.setItem(lsKey, JSON.stringify({ sig: sig, changedAtMs: changedAtMs, changedCells: changedCells, matrix: cat.matrix || null, diffVer: STANDINGS_DIFF_VER })); } catch (e) {}
+    }
+    var age = Date.now() - changedAtMs;
+    var isNew = age >= 0 && age <= STANDINGS_NEW_WINDOW_MS;
+    return { isNew: isNew, changedCells: isNew ? changedCells : [] };
+  }
+  function standingsColHtml(cat, storeKey) {
     if (!cat || !cat.ok) {
       return '<div class="stg-col"><div class="study-note">' + esc((cat && cat.error) || "データがありません") + "</div></div>";
     }
     var noteHtml = cat.note ? '<div class="stg-note">' + esc(cat.note) + "</div>" : "";
-    var metaHtml = '<div class="stg-meta">' + esc(cat.group_name || "") + " ／ 最終取得: " + esc(cat.scraped_at || "") + "</div>";
+    var newInfo = storeKey ? standingsCheckNew(storeKey, cat) : { isNew: false, changedCells: [] };
+    var newBadge = newInfo.isNew ? '<span class="stg-new-badge">New</span>' : "";
+    var metaHtml = '<div class="stg-meta">' + esc(cat.group_name || "") + " ／ 最終取得: " + esc(cat.scraped_at || "") + newBadge + "</div>";
     var titleText = esc(cat.label || "") + (cat.group_name ? "（" + esc(cat.group_name) + "）" : "");
-    var built = standingsRowsHtml(cat);
+    var built = standingsRowsHtml(cat, newInfo.changedCells);
     return '<div class="stg-col"><h2 class="stg-title">' + titleText + "</h2>" + noteHtml + metaHtml +
       '<table class="stg-table"><thead><tr>' +
-      "<th>#</th><th>クラブ</th><th>勝点</th><th>試合</th><th>勝分敗</th><th>差</th><th>残り</th><th>状況</th>" +
+      '<th class="stg-c-rank">#</th><th class="stg-c-club">クラブ</th>' + built.matrixHeader +
+      '<th class="stg-c-pts">勝点</th><th class="stg-c-played">試合</th><th class="stg-c-wdl">勝分敗</th>' +
+      '<th class="stg-c-diff">差</th><th class="stg-c-remain">残り</th><th class="stg-c-zone">状況</th>' +
       "</tr></thead><tbody>" + built.rows + "</tbody></table>" +
       built.legend + standingsSimHtml(cat.simulation) + standingsUpcomingHtml(cat) + "</div>";
   }
   // U15L2部の隣にREGALIA非所属の参考グループ（extraGroup、GAS側でハードコード）を
   // 表示する（ユーザー指示、2026-09-17）。REGALIA不在のためsimulation/残り対戦相手は無く、
   // standingsColHtmlに渡す形だけ合わせて表・凡例のみ描画する。
-  function standingsExtraColHtml(parentCat, extra) {
+  function standingsExtraColHtml(parentCat, extra, storeKey) {
     if (!extra) return '<div class="stg-col"></div>';
     return standingsColHtml({
       ok: true,
@@ -884,8 +1078,9 @@
       zones: extra.zones || {},
       note: "",
       simulation: null,
-      regaliaUpcoming: []
-    });
+      regaliaUpcoming: [],
+      matrix: extra.matrix || null
+    }, storeKey);
   }
   // 左列: U15L2部REGALIA所属グループ（上）／その参考グループ（下）。
   // 右列: U13L2部REGALIA所属グループ（上）／その参考グループ（下）。
@@ -899,10 +1094,10 @@
     }
     var u15 = standingsCatByCode("U-15");
     var u13 = standingsCatByCode("U-13L");
-    var leftTop = standingsColHtml(u15);
-    var leftBottom = standingsExtraColHtml(u15, u15 && u15.extraGroup);
-    var rightTop = standingsColHtml(u13);
-    var rightBottom = standingsExtraColHtml(u13, u13 && u13.extraGroup);
+    var leftTop = standingsColHtml(u15, "U-15");
+    var leftBottom = standingsExtraColHtml(u15, u15 && u15.extraGroup, "U-15:extra");
+    var rightTop = standingsColHtml(u13, "U-13L");
+    var rightBottom = standingsExtraColHtml(u13, u13 && u13.extraGroup, "U-13L:extra");
     el.innerHTML = '<div class="stg-grid">' + leftTop + rightTop + leftBottom + rightBottom + "</div>";
   }
   window.DashStandingsDone = function (id, err, payload) {
@@ -997,8 +1192,13 @@
     return ymd(d);
   }
   // 今週のHLは、連休で土日の翌週末まで祝日が連続する場合、その連休が終わるまで
-  // 前週のまま据え置く（Sony_HomeTerminal側と同じ修正、2026-09-21。詳細は
-  // Sony_HomeTerminal/web/app.js の同名関数コメント参照）。
+  // 前週のまま据え置く（例: 2026-09-21 敬老の日(月)〜9/23秋分の日(水)の5連休。
+  // 月曜0:00の通常の週次ロールオーバーでheadWeekMondayが先に進んでしまうと、
+  // まだ連休中なのに今週のHLが来週の内容に置き換わって見える不具合になっていた。
+  // ユーザー指摘で2026-09-21修正。GAS側`_dashboardHeadlineWeekAnchor()`と同じ
+  // 判定ロジックをミラーする＝weekendMatchDays()と同じ「土日、または前後を祝日に
+  // 挟まれた平日(国民の休日)を含む祝日」の連続日数を、直近の土曜日から前方向へ
+  // 数える方式）。
   function headWeekAnchorMonday() {
     var mon = mondayIso(todayStr());
     var prevMon = addDaysIso(mon, -7);
@@ -1057,6 +1257,30 @@
     var t0 = parseLocalDate(mondayIso(todayStr())).getTime();
     var t1 = parseLocalDate(mondayIso(iso)).getTime();
     return Math.round((t1 - t0) / (7 * 86400000));
+  }
+  // 週TLは暦の月曜始まりではなく、本日から7日間（weekOffset は7日ブロック。
+  // 0=今日〜+6日、+1=その次の7日。2026-10-04）。今週のHLの週境界とは別。
+  function weekTlDays() {
+    var start = addDaysIso(todayStr(), (weekOffset || 0) * 7);
+    var out = [];
+    var i;
+    for (i = 0; i < 7; i++) out.push(addDaysIso(start, i));
+    return out;
+  }
+  function weekTlOffsetContaining(iso) {
+    var t0 = parseLocalDate(todayStr());
+    var t1 = parseLocalDate(iso);
+    if (!t0 || !t1) return 0;
+    var days = Math.round((t1.getTime() - t0.getTime()) / 86400000);
+    return Math.floor(days / 7);
+  }
+  function weekTlCacheOk(c) {
+    var want = weekTlDays();
+    var days = (c && c.days) || [];
+    if (days.length !== want.length) return false;
+    var i;
+    for (i = 0; i < want.length; i++) if (days[i] !== want[i]) return false;
+    return true;
   }
   function focusDays() {
     var t = todayStr();
@@ -1118,9 +1342,13 @@
     if (f.hasGk) return "all";
     return "other";
   }
+  // ALLカテゴリは「まだ実カテゴリが未確定」という意味合いで、U13自身の予定とは
+  // 限らない（例: category_code="all"だが実際はU-15の相模原市リーグ戦、という
+  // データが実在。2026-09-28、ユーザー指摘で確認）。週タイムライン等の「U-13のみ」
+  // 表示ではALLを含めない（HL週末予定ボードのALL→仮U15集約と同じ考え方）。
   function includesU13(code) {
     var f = categoryFlags(code);
-    return !!(f.hasU13 || f.isAll || f.hasGk);
+    return !!(f.hasU13 || f.hasGk);
   }
   function isU14U15Only(ev) {
     var f = categoryFlags((ev && (ev.category || ev.category_code)) || "");
@@ -1134,7 +1362,7 @@
     if (low === "tr" || k === "練習") return "TR";
     if (low === "match" || k === "試合") return "match";
     if (low === "adhoc" || k === "単発") return "adhoc";
-    if (k === "塾" || k === "私用" || k === "合宿" || k === "マリノス戦" || k === "日本代表戦") return k;
+    if (k === "塾" || k === "私用" || k === "合宿" || k === "マリノス戦") return k;
     return k || "match";
   }
   function kindClass(kind) {
@@ -1144,7 +1372,8 @@
     if (k === "塾") return "tl-kind-juku";
     if (k === "私用") return "tl-kind-private";
     if (k === "合宿") return "tl-kind-gasshuku";
-    if (k === "マリノス戦" || k === "日本代表戦") return "tl-kind-marinos";
+    if (k === "マリノス戦") return "tl-kind-marinos";
+    if (k === "日本代表戦") return "tl-kind-japan";
     return "tl-kind-match";
   }
   function mainSub(ev) {
@@ -1271,12 +1500,16 @@
     return { start: start, end: end, core: core };
   }
 
-  function isDisplayHidden(ev) {
+  // 親アプリで削除（display_status: off/removed）された予定は、完全に消えるまでは
+  // 訂正線表示＋読み上げ「中止です」で残す（2026-09-20、ユーザー指示）。
+  // 親アプリでさらに完全消去された予定はAPIレスポンスの配列自体から消えるため、
+  // 特別な扱いは不要（自然に表示も読み上げもされない）。
+  function isCancelledEv(ev) {
     var ds = String((ev && ev.display_status) || "").toLowerCase();
     return ds === "removed" || ds === "off";
   }
   function activeEvents(events) {
-    return (events || []).filter(function (ev) { return !isDisplayHidden(ev); });
+    return (events || []).slice();
   }
   function pageShowAll() {
     return viewMode === "week" ? showAllWeek : showAllFocus;
@@ -1385,7 +1618,9 @@
     var mainE = Math.min(clip.de, core.end);
     if (mainE > mainS) {
       // フットサル併合カードは対戦カードが複数行になるため、実時間の比例配分だけでは
-      // 縦が足りず文字が欠ける（Sony_HomeTerminal側と同じ修正、2026-09-21）。
+      // 縦が足りず文字が欠ける（2026-09-21確認）。行数分だけ比例配分を底上げし、
+      // さらに冗長な sub（併合時はタイトルが空でリーグ名のみ）を省略、対戦カード行は
+      // 専用の小さいフォントにして省スペース化する。
       var isGroup = !!(ev.groupEvents && ev.groupEvents.length > 1);
       var mainWeight = Math.max(1, mainE - mainS);
       if (isGroup) mainWeight *= ev.groupEvents.length;
@@ -1512,7 +1747,7 @@
         var w = 100 / ev._lanes;
         var left = ev._lane * w;
         var cls = "tl-block tl-block--stacked " + kindClass(ev.event_kind) + " tl-cat-" + categoryTier(ev.category_code);
-        if (String(ev.display_status).toLowerCase() === "off") cls += " off";
+        if (isCancelledEv(ev)) cls += " is-cancelled";
         if (ev._lanes > 1) cls += " tl-block--narrow";
         if (ht < 48) cls += " tl-block--short";
         blocks += '<div class="' + cls + '" data-col="' + i + '" data-idx="' + ei + '" data-eid="' + esc(ev.id || "") +
@@ -1966,20 +2201,21 @@
     var focus = viewMode === "focus";
     var todayOn = focus ? (focusDayOffset === 0) : (weekOffset === 0);
     if ($("wk-today")) {
-      $("wk-today").textContent = focus ? "青 今日" : "青 今週";
+      $("wk-today").textContent = "青 今日";
       $("wk-today").className = "wk wk-b" + (todayOn ? " on" : "") + (weekBusyWhich === "today" ? " wait" : "");
     }
     if ($("wk-prev")) {
-      $("wk-prev").textContent = focus ? "緑 −2日" : "緑 前週";
+      $("wk-prev").textContent = focus ? "緑 −2日" : "緑 −7日";
       $("wk-prev").className = "wk wk-g" + (weekBusyWhich === "prev" ? " wait" : "");
     }
     if ($("wk-next")) {
-      $("wk-next").textContent = focus ? "黄 ＋2日" : "黄 翌週";
+      $("wk-next").textContent = focus ? "黄 ＋2日" : "黄 ＋7日";
       $("wk-next").className = "wk wk-y" + (weekBusyWhich === "next" ? " wait" : "");
     }
   }
   function weekLabel(off) {
-    return off === 0 ? "今週" : ((off > 0 ? "+" : "") + off + "週");
+    if (!off) return "今日から7日";
+    return (off > 0 ? "+" : "") + (off * 7) + "日";
   }
   function setWeekBusy(on, which) {
     weekBusyWhich = on ? (which || "") : "";
@@ -2163,7 +2399,7 @@
     if (pageKey === "wx") data = clipDashboard(src, wxDays());
     else if (pageKey === "focus") data = clipDashboard(src, focusDays());
     lastData = data;
-    if ((src.days || []).length >= 7) cacheWeek = src;
+    if (weekCacheOk(src)) cacheWeek = src;
     else if ((src.days || []).length) {
       var prevN = (cacheFocus && cacheFocus.days && cacheFocus.days.length) || 0;
       if ((src.days || []).length >= prevN) cacheFocus = src;
@@ -2368,11 +2604,15 @@
       return;
     }
     kind = kind || ((data.days && data.days.length >= 7) ? "week" : "focus");
-    if (data.briefing && (parseInt(data.week_offset, 10) || 0) === 0) homeBriefing = data.briefing;
-    if (data.transit && (parseInt(data.week_offset, 10) || 0) === 0) homeTransit = data.transit;
+    if (kind !== "weekTl") {
+      if (data.briefing && (parseInt(data.week_offset, 10) || 0) === 0) homeBriefing = data.briefing;
+      if (data.transit && (parseInt(data.week_offset, 10) || 0) === 0) homeTransit = data.transit;
+    }
     if (kind === "week") cacheWeek = data;
+    else if (kind === "weekTl") cacheWeekTl = data;
     else cacheFocus = data;
-    var applyIt = (kind === "week" && viewMode === "week" && pageKey === "week")
+    var applyIt = (kind === "weekTl" && viewMode === "week" && pageKey === "week")
+      || (kind === "week" && viewMode === "week" && pageKey === "week")
       || (kind === "focus" && (pageKey === "focus" || pageKey === "wx"));
     if (isBriefPage(pageKey) || isWeekHeadPage(pageKey)) applyIt = false;
     if (applyIt) {
@@ -2417,9 +2657,48 @@
       });
       return;
     }
-    requestDashboard(weekOffset, function (err, data) {
-      finishLoad(err, data, done, "week");
+    var wanted = weekTlDays();
+    var seenOff = {};
+    var offsets = [];
+    wanted.forEach(function (iso) {
+      var o = weekOffsetOf(iso);
+      if (seenOff[o]) return;
+      seenOff[o] = 1;
+      offsets.push(o);
     });
+    offsets.sort(function (a, b) { return a - b; });
+    var acc = null;
+    var oi = 0;
+    function nextWeekTl() {
+      if (oi >= offsets.length) {
+        if (!acc) {
+          finishLoad(new Error("empty"), null, done, "weekTl");
+          return;
+        }
+        finishLoad(null, clipDashboard(acc, wanted), done, "weekTl");
+        return;
+      }
+      var off = offsets[oi];
+      oi += 1;
+      requestDashboard(off, function (err, d) {
+        if (err || !d || d.error) {
+          if (!acc) {
+            finishLoad(err || (d && d.error), d, done, "weekTl");
+            return;
+          }
+          appLog({ event: "week_tl_merge_partial", err: String(err || (d && d.error)), off: off });
+          nextWeekTl();
+          return;
+        }
+        if (off === 0) {
+          if (d.briefing) homeBriefing = d.briefing;
+          if (d.transit) homeTransit = d.transit;
+        }
+        acc = acc ? mergeDash(acc, d) : d;
+        nextWeekTl();
+      });
+    }
+    nextWeekTl();
   }
 
   function appLog(obj) {
@@ -2469,6 +2748,7 @@
   }
   function resetIdle() {
     clearTimeout(idleTimer);
+    if (isRemote()) return;
     if (studyDebug()) return;
     if (kioskOn || kioskPaused) return;
     idleTimer = setTimeout(enterKiosk, IDLE_MS);
@@ -2507,7 +2787,7 @@
     var slice = sliceOf(key);
     if (parent === "transit") parent = "brief";
     if (parent === "tomo" && !afterSixPm()) parent = "brief";
-    if (parent === "nextWeekHead" && !isSunday()) parent = "weekHead";
+    if (parent === "nextWeekHead" && !nextWeekHeadAvailable()) parent = "weekHead";
     if (isPhone() && parent === "studyTodo") parent = "study";
     if (isStudyPage(parent) && !studyPagesOn()) parent = isPhone() ? "brief" : "focus";
     if (isPhone() && (parent === "focus" || parent === "week")) parent = "brief";
@@ -2555,7 +2835,7 @@
       var focusData = fresh ? focusViewData(cacheFocus) : (focusViewData(cacheFocus) || focusViewData(lastData) || focusViewData(cacheWeek));
       if (focusData) paintFromCache(focusData, "focus");
       if (!fresh) load();
-    } else if (!paintFromCache(weekCacheOk(cacheWeek) && (parseInt(cacheWeek.week_offset, 10) || 0) === weekOffset ? cacheWeek : null, "week")) {
+    } else if (!paintFromCache(weekTlCacheOk(cacheWeekTl) ? cacheWeekTl : null, "week")) {
       weekOffset = 0;
       load();
     }
@@ -2586,13 +2866,15 @@
       check: '<circle cx="32" cy="32" r="24" fill="none" stroke="currentColor" stroke-width="2.4"/><path fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" d="M18 33l9 9 19-20"/>',
       delay: '<circle cx="32" cy="32" r="24" fill="none" stroke="currentColor" stroke-width="2.4"/><path fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" d="M32 16v18l12 6"/>',
       stop: '<path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round" d="M22 8h20l14 14v20L42 56H22L8 42V22z"/><path fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" d="M22 22l20 20M42 22L22 42"/>',
-      moon: '<path fill="currentColor" d="M42 10a22 22 0 1 0 8 40 20 20 0 0 1-8-40z"/>'
+      moon: '<path fill="currentColor" d="M42 10a22 22 0 1 0 8 40 20 20 0 0 1-8-40z"/>',
+      hinomaru: '<circle cx="32" cy="32" r="26" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/><circle cx="32" cy="32" r="17" fill="#bc002d"/>'
     };
     return '<span class="ui-ico">' + uiSvg(g[name] || g.cal) + "</span>";
   }
   function kindIcoName(kind) {
     var k = canonicalKind(kind);
-    if (k === "match" || k === "マリノス戦" || k === "日本代表戦") return "ball";
+    if (k === "match" || k === "マリノス戦") return "ball";
+    if (k === "日本代表戦") return "hinomaru";
     if (k === "TR") return "cone";
     if (k === "塾") return "book";
     if (k === "私用") return "person";
@@ -2612,7 +2894,8 @@
     if (k === "adhoc") return "k-adhoc";
     if (k === "私用") return "k-private";
     if (k === "合宿") return "k-gasshuku";
-    if (k === "マリノス戦" || k === "日本代表戦") return "k-marinos";
+    if (k === "マリノス戦") return "k-marinos";
+    if (k === "日本代表戦") return "k-japan";
     return "";
   }
   function jukuSubjectKey(ev) {
@@ -2895,6 +3178,9 @@
     var vs = "";
     if (canonicalKind(ev.kind) === "match" || canonicalKind(ev.kind) === "マリノス戦" || canonicalKind(ev.kind) === "日本代表戦") {
       vs = matchOpponentName(ev);
+      // フットサルリーグの対戦相手は複数チーム併記時と同じ基準で省略する
+      // （単独開催でも長いチーム名がカードのフォントを不必要に小さくするため、2026-09-19）。
+      if (vs && !ev.groupEvents && isFutsalLeagueEv(ev)) vs = abbrevTeamName(vs);
       if (title && (title === vs || /^vs\s/i.test(title))) title = "";
     }
     var time = ev.displaySpan || briefEventSpan(ev);
@@ -2916,7 +3202,7 @@
       venue = matchVenueName(ev);
     }
     var league = (withDow || slim) ? leagueLabel(ev) : "";
-    return '<div class="brief-chip ' + kindChipClass(ev.kind, ev) + (ev.groupEvents ? " is-group" : "") + (slim ? " is-slim" : "") + (eventIsPast(ev) ? " is-past" : "") + '">' +
+    return '<div class="brief-chip ' + kindChipClass(ev.kind, ev) + (ev.groupEvents ? " is-group" : "") + (slim ? " is-slim" : "") + (eventIsPast(ev) ? " is-past" : "") + (isCancelledEv(ev) ? " is-cancelled" : "") + '">' +
       rainBadgeHtml(ev) +
       dowHtml +
       (slim ? "" : uiIco(kindIcoName(ev.kind))) +
@@ -2927,6 +3213,7 @@
       (venue ? '<div class="venue">' + esc(venue) + "</div>" : "") +
       (time ? '<div class="t">' + esc(time) + "</div>" : "") +
       (leave && !slim ? '<div class="who">出 ' + esc(leave) + "</div>" : "") +
+      (ev._tentativeAllBadge ? '<span class="brief-tentative-badge">all仮</span>' : "") +
       "</div>";
   }
   function isSoccerEv(ev) {
@@ -3038,7 +3325,7 @@
         return eventIso(e) === iso;
       }).map(asHeadLine);
     }
-    return rows.filter(function (ev) { return !isU14U15Only(ev); });
+    return sortHeadRows(rows.filter(function (ev) { return !isU14U15Only(ev); }));
   }
   function deltaHtml(n) {
     if (n == null || n === "" || isNaN(Number(n))) return "";
@@ -3136,7 +3423,11 @@
       card: ev.card || matchCardText(ev) || ev.regalia_match_text,
       league_or_competition: eventLeague(ev),
       assemble: ev.assemble,
-      depart: ev.depart
+      depart: ev.depart,
+      // 週末予定カード等の訂正線判定（isCancelledEv）に必須。これが無いとasHeadLine()を
+      // 経由するカードだけdisplay_statusが失われ中止扱いされない不具合になっていた
+      // （2026-09-20、実機で発覚）。
+      display_status: ev.display_status
     };
   }
   function fillMatchSpeakFields(row) {
@@ -3569,8 +3860,14 @@
     }
     return [eventIso(ev), canonicalKind(ev.kind), String((ev && ev.title) || ""), eventStartKey(ev)].join("|");
   }
-  function matchCatKeys(ev) {
+  // 今週・来週のHLではALLカテゴリの予定をU13/U14/U15の3枠すべてに出さず、仮でU15枠
+  // のみに入れる（ユーザー指示、2026-09-27・2026-09-28で今週のHLにも対象拡大）。
+  // 実際のカテゴリが未確定なことが多く、3枠に複製すると3チーム分の予定であるかの
+  // ように見えてしまうため。2日・週タイムライン等の他ページはALLを従来どおり3枠
+  // すべてに表示する（対象はHL（今週・来週）の週末予定ボードのみ）。
+  function matchCatKeys(ev, tentativeAllToU15) {
     var f = categoryFlags((ev && (ev.category || ev.category_code)) || "");
+    if (tentativeAllToU15 && f.isAll) return ["u15"];
     var keys = [];
     if (f.hasU13 || f.isAll || f.hasGk) keys.push("u13");
     if (f.hasU14 || f.isAll) keys.push("u14");
@@ -3589,9 +3886,14 @@
       return row;
     });
   }
-  function catMatchList(rows, iso, cat) {
+  function catMatchList(rows, iso, cat, tentativeAllToU15) {
     return (rows || []).filter(function (ev) {
-      return eventIso(ev) === iso && matchCatKeys(ev).indexOf(cat) >= 0;
+      if (eventIso(ev) !== iso) return false;
+      if (matchCatKeys(ev, tentativeAllToU15).indexOf(cat) < 0) return false;
+      if (tentativeAllToU15 && cat === "u15" && categoryFlags(ev.category || ev.category_code).isAll) {
+        ev._tentativeAllBadge = true;
+      }
+      return true;
     }).slice().sort(function (a, b) {
       return eventStartKey(a).localeCompare(eventStartKey(b));
     });
@@ -3673,9 +3975,17 @@
     if (/フットサル|FL/i.test(prefix)) return prefix;
     return labels.join(" / ");
   }
+  // フットサルリーグ等で2〜3チームを1枚に併記すると行数・文字数が増え見切れるため、
+  // 複数チーム併記のときだけ各チーム名を5文字程度に省略する（ユーザー指示、2026-09-19）。
+  function abbrevTeamName(name, maxLen) {
+    var s = String(name || "").trim();
+    var n = maxLen || 5;
+    return s.length > n ? s.slice(0, n) + "…" : s;
+  }
   function mergeFutsalGroup(rows) {
     var first = rows[0];
-    var vs = uniqueNonempty(rows.map(matchOpponentName)).join(" / ");
+    var opponents = uniqueNonempty(rows.map(matchOpponentName));
+    var vs = (opponents.length > 1 ? opponents.map(abbrevTeamName) : opponents).join(" / ");
     var venue = uniqueNonempty(rows.map(matchVenueName)).join(" / ");
     var spans = uniqueNonempty(rows.map(function (ev) { return briefEventSpan(ev); }));
     return {
@@ -3694,7 +4004,8 @@
       category: first.category,
       category_code: first.category_code,
       groupEvents: rows,
-      displaySpan: spans.join(" / ")
+      displaySpan: spans.join(" / "),
+      display_status: first.display_status
     };
   }
   function collapseFutsalMatchCards(rows) {
@@ -3715,15 +4026,11 @@
     });
     return out;
   }
-  function abbrevTeamName(name, maxLen) {
-    var s = String(name || "").trim();
-    var n = maxLen || 5;
-    return s.length > n ? s.slice(0, n) + "…" : s;
-  }
-  // 予定(2日)/週タイムライン用のフットサル併合（Sony_HomeTerminal側と同じ修正、
-  // 2026-09-21）。mergeFutsalGroup()（REGALIA週末予定ボード用）はpre/post（出発/
-  // 集合/解散）の生データを引き継がないためタイムラインの時間軸計算に使えず、
-  // 専用の関数にする。
+  // 予定(2日)/週タイムライン用のフットサル併合（2026-09-21、ユーザー指摘: 親アプリ
+  // REGALIA_schedule_managementでは1件のカードなのに、Sony側タイムラインでは
+  // 10:00-10:45と11:00-11:45が別々の2ブロックに分かれて表示されていた不具合）。
+  // mergeFutsalGroup()（REGALIA週末予定ボード用）はpre/post（出発/集合/解散）の
+  // 生データを引き継がないためタイムラインの時間軸計算に使えず、専用の関数にする。
   function mergeFutsalGroupTimeline(rows) {
     var first = rows[0];
     var sorted = rows.slice().sort(function (a, b) {
@@ -3756,24 +4063,43 @@
       groupEvents: sorted
     };
   }
+  // 同日に複数カテゴリ（U-13/U-14/U-15）のフットサルリーグ試合が別会場・別チームで
+  // 同時に開催されることがある（league_or_competitionが全カテゴリ共通で「フットサル」
+  // を含むため、isFutsalLeagueEv自体はカテゴリを区別しない）。カテゴリで束ねずに
+  // マージすると、無関係な他カテゴリの試合まで1枚のカードに混在し、カード自体の
+  // category_codeも先頭に来た試合のものになってしまう（2026-09-27、U-13の試合が
+  // U-15表示になっていたとの指摘で判明）。「同日・同カテゴリ」だけをまとめる。
   function collapseFutsalTimelineCards(rows) {
     var list = (rows || []).slice();
     var futsal = list.filter(isFutsalLeagueEv);
     if (futsal.length < 2) return list;
-    var placed = false;
+    var groups = {};
+    futsal.forEach(function (ev) {
+      var key = String(ev.category_code || ev.category || "");
+      (groups[key] || (groups[key] = [])).push(ev);
+    });
+    var placed = {};
     var out = [];
     list.forEach(function (ev) {
       if (!isFutsalLeagueEv(ev)) {
         out.push(ev);
         return;
       }
-      if (!placed) {
-        out.push(mergeFutsalGroupTimeline(futsal));
-        placed = true;
-      }
+      var key = String(ev.category_code || ev.category || "");
+      if (placed[key]) return;
+      placed[key] = true;
+      var group = groups[key];
+      out.push(group.length > 1 ? mergeFutsalGroupTimeline(group) : ev);
     });
     return out;
   }
+  // 併合済みカードは対戦カード情報を試合ごとに改行して列挙する（tl-block-seg-regalia
+  // は white-space:pre-line 対応済みのためエスケープ後の\nがそのまま改行になる）。
+  // matchCardText()はregalia_match_text/opponentが空だと""を返すが、この2件の
+  // フットサル試合のように対戦相手名がtitleにしか入っていないケースがある（親アプリの
+  // 表示を確認して判明、2026-09-21）。matchOpponentName()はtitleへのフォールバックを
+  // 持つため、matchかつtitleが実際の対戦相手名らしいときだけ"vs "を補って使う
+  // （kind制限が無いと私用・TR等のtitleに誤って"vs "が付いてしまうため必須）。
   function matchCardLine(ev) {
     var card = matchCardText(ev);
     if (card) return card;
@@ -3781,6 +4107,9 @@
     var opp = matchOpponentName(ev);
     return opp ? ("vs " + opp) : "";
   }
+  // 併合カードは1試合分より横幅が狭い（他イベントとレーン分割される可能性もある）
+  // 中に複数行を収める必要があるため、ボード側と同じabbrevTeamName()でチーム名を
+  // 省略する（そのままだと2026-09-21確認で文字がボックス外へ欠けた）。
   function matchCardTextGroup(ev) {
     if (!ev.groupEvents || ev.groupEvents.length < 2) return matchCardLine(ev);
     return ev.groupEvents.map(function (sub) {
@@ -3793,24 +4122,31 @@
     }).join("\n");
   }
   function rmCatHtml(label, rows) {
-    return '<div class="rm-cat' + (label === "U13" ? " is-u13" : "") + '"><div class="rm-cat-h">' + esc(label) + '</div><div class="wh-list">' +
-      weekChipList(collapseFutsalMatchCards(rows), false, true) + "</div></div>";
+    var list = collapseFutsalMatchCards(rows);
+    var n = list.length;
+    // カード枚数で並びを変える（ユーザー指示、2026-09-19）:
+    // 1枚=枠いっぱいの大カード / 2枚=縦割りではなく横割り（横長2枚を上下）/
+    // 3枚=上段1/4を2枚＋下段は横長1枚 / 4枚=1/4を4枚（2×2）。
+    var nCls = n >= 1 && n <= 4 ? " wh-n" + n : "";
+    return '<div class="rm-cat' + (label === "U13" ? " is-u13" : "") + '"><div class="rm-cat-h">' + esc(label) + '</div><div class="wh-list' + nCls + '">' +
+      weekChipList(list, false, true) + "</div></div>";
   }
   function regaliaMatchBoardHtml(marinosRows) {
     var rows = regaliaWeekendEvents();
     var days = weekendMatchDays();
     var hol = holidaySet();
-    // 連休（3日以上）表示ではマリノス戦の専用枠を出さない代わりに、開催日のU13枠へ
-    // 差し込む（ユーザー指示、2026-09-16）。カード色はマリノス戦カード共通の
-    // k-marinos（青）がkindChipClass経由で自動的に付く。
+    // 連休（3日以上）表示ではマリノス戦・日本代表戦の専用枠を出さない代わりに、開催日の
+    // U13枠へ差し込む（ユーザー指示、2026-09-16）。カード色はkindChipClass経由で
+    // マリノス戦=k-marinos（トリコロール背景）、日本代表戦=k-japan（日の丸背景、2026-09-24）が付く。
     var renkyu = isRenkyuWeekend();
+    var tentativeAllToU15 = isWeekHeadPage();
     var cols = days.map(function (iso) {
       var d = parseLocalDate(iso);
       var di = d ? d.getDay() : -1;
       var dow = d ? WD[di] : "";
       var dom = d ? (d.getMonth() + 1) + "/" + d.getDate() : "";
       var cls = di === 6 ? " is-sat" : (di === 0 || hol[iso] ? " is-sun is-hol" : "");
-      var u13Rows = catMatchList(rows, iso, "u13");
+      var u13Rows = catMatchList(rows, iso, "u13", tentativeAllToU15);
       if (renkyu && marinosRows && marinosRows.length) {
         var dayMarinos = marinosRows.filter(function (ev) { return eventIso(ev) === iso; });
         if (dayMarinos.length) {
@@ -3824,8 +4160,8 @@
           (dom ? '<span class="rm-dom">' + esc(dom) + "</span>" : "") +
         "</div>" +
         rmCatHtml("U13", u13Rows) +
-        rmCatHtml("U14", catMatchList(rows, iso, "u14")) +
-        rmCatHtml("U15", catMatchList(rows, iso, "u15")) +
+        rmCatHtml("U14", catMatchList(rows, iso, "u14", tentativeAllToU15)) +
+        rmCatHtml("U15", catMatchList(rows, iso, "u15", tentativeAllToU15)) +
         "</div>";
     }).join("");
     var n = days.length;
@@ -3845,7 +4181,7 @@
       var title = String(ev.title || "").trim();
       if (title && title === kind) title = "";
       var time = briefEventSpan(ev);
-      return '<div class="phone-match-card phone-head-row ' + kindChipClass(ev.kind, ev) + (eventIsPast(ev) ? " is-past" : "") + '">' +
+      return '<div class="phone-match-card phone-head-row ' + kindChipClass(ev.kind, ev) + (eventIsPast(ev) ? " is-past" : "") + (isCancelledEv(ev) ? " is-cancelled" : "") + '">' +
         rainBadgeHtml(ev) +
         '<div class="phone-match-top">' +
           (dow ? '<span class="dow' + (di === 6 ? " is-sat" : di === 0 ? " is-sun" : "") + '">' + esc(dow) + "</span>" : "") +
@@ -3864,7 +4200,7 @@
     var k = canonicalKind(ev.kind);
     var kind = k === "match" ? "試合" : (k === "合宿" ? "合宿" : "TR");
     var league = leagueLabel(ev);
-    return '<div class="phone-wk-mini ' + kindChipClass(ev.kind, ev) + (eventIsPast(ev) ? " is-past" : "") + '">' +
+    return '<div class="phone-wk-mini ' + kindChipClass(ev.kind, ev) + (eventIsPast(ev) ? " is-past" : "") + (isCancelledEv(ev) ? " is-cancelled" : "") + '">' +
       rainBadgeHtml(ev) +
       '<div class="phone-wk-mini-top">' +
         (!hideDow && dow ? '<span class="dow' + (di === 6 ? " is-sat" : di === 0 ? " is-sun" : "") + '">' + esc(dow) + "</span>" : "") +
@@ -3874,6 +4210,7 @@
       (league ? '<div class="league">' + esc(league) + "</div>" : "") +
       (vs ? '<div class="vs">vs ' + esc(vs) + "</div>" : "") +
       (venue ? '<div class="venue">' + esc(venue) + "</div>" : "") +
+      (ev._tentativeAllBadge ? '<span class="brief-tentative-badge">all仮</span>' : "") +
       "</div>";
   }
   function phoneWeekendCatBoardHtml(onlyIso, parent) {
@@ -3885,10 +4222,11 @@
       { key: "u15", label: "U15" }
     ];
     var single = !!onlyIso;
+    var tentativeAllToU15 = isWeekHeadPage(parent);
     return '<div class="phone-wk-cats">' + cats.map(function (cat) {
       var items = [];
       days.forEach(function (iso) {
-        collapseFutsalMatchCards(catMatchList(rows, iso, cat.key)).forEach(function (ev) { items.push(ev); });
+        collapseFutsalMatchCards(catMatchList(rows, iso, cat.key, tentativeAllToU15)).forEach(function (ev) { items.push(ev); });
       });
       return '<div class="phone-wk-cat' + (cat.key === "u13" ? " is-u13" : "") + '">' +
         '<div class="phone-wk-cat-h">' + esc(cat.label) + "</div>" +
@@ -3902,6 +4240,86 @@
   function marinosBarHtml(rows) {
     return '<div class="wh-sec wh-marinos"><div class="wh-h">マリノス・代表戦</div><div class="wh-list">' +
       weekChipList(rows) + "</div></div>";
+  }
+  var CHIP_FONT_FAMILY = '"Noto Sans JP","Yu Gothic UI",sans-serif';
+  var CHIP_FIELD_SPECS = [
+    { sel: ".ttl", weight: 700 },
+    { sel: ".league", weight: 700 },
+    { sel: ".vs", weight: 400 },
+    { sel: ".venue", weight: 400 },
+    { sel: ".t", weight: 300, ls: 0.04, tabular: true }
+  ];
+  var chipFitSpan = null;
+  function chipFitTextWidth(text, spec, size) {
+    if (!chipFitSpan) {
+      chipFitSpan = document.createElement("span");
+      chipFitSpan.style.cssText = "position:fixed;top:-9999px;left:-9999px;visibility:hidden;white-space:nowrap;font-family:" + CHIP_FONT_FAMILY + ";";
+      document.body.appendChild(chipFitSpan);
+    }
+    chipFitSpan.style.fontWeight = String(spec.weight);
+    chipFitSpan.style.letterSpacing = spec.ls ? (spec.ls * size) + "px" : "normal";
+    chipFitSpan.style.fontVariantNumeric = spec.tabular ? "tabular-nums" : "normal";
+    chipFitSpan.style.fontSize = size + "px";
+    chipFitSpan.textContent = text;
+    return chipFitSpan.getBoundingClientRect().width;
+  }
+  // REGALIA週末予定カードのフォントは固定pxではなく、カード実寸（幅・高さ）と
+  // 各行の文字数から、折り返さず収まる最大サイズをカードごとに算出する
+  // （2026-09-19）。当初は実要素へ--chip-fsを仮適用してscrollWidth/scrollHeight
+  // を読む方式にしたが、このネストしたflex+gridの組み合わせだと
+  // clientWidth/clientHeight/scrollWidth/scrollHeightが実際の描画サイズと
+  // 大きく乖離する（例: 実際は55px四方の枠なのにclientHeightが102pxを返す）
+  // ことが判明したため撤回（2026-09-19、2回目の指摘で発覚）。
+  // getBoundingClientRect()は乖離せず安定して正しい値を返すことを確認したため、
+  // 幅はbody直下の隠しspanでテキストの自然幅を測り、高さはgetBoundingClientRect
+  // で取ったカード自身の実寸を使う方式にする。
+  function fitBriefChipFonts() {
+    var board = $("week-head-board");
+    if (!board || isPhone()) return;
+    var chips = board.querySelectorAll(".rm-cat .brief-chip");
+    if (!chips.length) return;
+    var MIN = 9, MAX = 40, LINE_H = 1.25;
+    for (var i = 0; i < chips.length; i++) {
+      var chip = chips[i];
+      var isGroup = chip.classList.contains("is-group");
+      var entries = [];
+      for (var j = 0; j < CHIP_FIELD_SPECS.length; j++) {
+        var spec = CHIP_FIELD_SPECS[j];
+        var el = chip.querySelector(spec.sel);
+        if (el && el.offsetParent !== null) {
+          var txt = el.textContent.trim();
+          if (txt) entries.push({ text: txt, spec: spec, lines: (spec.sel === ".t" && isGroup) ? 2 : 1 });
+        }
+      }
+      if (!entries.length) continue;
+      var chipRect = chip.getBoundingClientRect();
+      var cs = getComputedStyle(chip);
+      var availW = chipRect.width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      var availH = chipRect.height - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+      if (availW <= 0 || availH <= 0) continue;
+      var totalLines = 0;
+      for (var e = 0; e < entries.length; e++) totalLines += entries[e].lines;
+      var fits = function (size) {
+        for (var k = 0; k < entries.length; k++) {
+          if (chipFitTextWidth(entries[k].text, entries[k].spec, size) > availW + 1) return false;
+        }
+        return totalLines * size * LINE_H <= availH + 1;
+      };
+      var best = MIN;
+      if (fits(MAX)) {
+        best = MAX;
+      } else if (!fits(MIN)) {
+        best = MIN;
+      } else {
+        var lo = MIN, hi = MAX;
+        while (lo <= hi) {
+          var mid = (lo + hi) >> 1;
+          if (fits(mid)) { best = mid; lo = mid + 1; }
+          else { hi = mid - 1; }
+        }
+      }
+      chip.style.setProperty("--chip-fs", best + "px");
+    }
   }
   function renderWeekHeadline() {
     var el = $("week-head-board");
@@ -3939,6 +4357,7 @@
         '<div class="wh-sec wh-wx"><div class="wh-h">' + w + 'の週間天気予報</div>' +
           whWxDaysHtml(wx) +
         "</div></div>";
+      fitBriefChipFonts();
     }
     $("range-line").textContent = phoneRangeTitle() || (w + "のHL");
     weekPastStamp = weekEventsPastStamp();
@@ -4129,6 +4548,7 @@
     withKioskVeil(key, function () { paintKioskPage(key); });
   }
   function enterKiosk() {
+    if (isRemote()) return;
     if (studyDebug()) return;
     if (kioskOn || kioskPaused) return;
     if (!lastData && !cacheFocus && !cacheWeek && !homeBriefing) {
@@ -4157,7 +4577,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.118" });
+    appLog({ event: "kiosk_on", v: "0.3.145" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;
@@ -4596,10 +5016,11 @@
   function speakSoccerEv(ev, dayWord) {
     var day = dayWord || "今日";
     var k = canonicalKind(ev.kind);
+    if (isCancelledEv(ev)) return day + "は中止です。";
     var t = speakClock(briefKick(ev) || briefHm(ev));
     if (k === "match" || k === "マリノス戦" || k === "日本代表戦") {
       var vs = matchOpponentName(ev);
-      var s = day + (k === "マリノス戦" ? "はマリノス戦です。" : (k === "日本代表戦" ? "は日本代表戦です。" : "は試合です。"));
+      var s = day + (k === "マリノス戦" ? "はマリノス戦です。" : k === "日本代表戦" ? "は日本代表戦です。" : "は試合です。");
       if (vs) s += "対戦相手は" + vs + "です。";
       var venue = matchVenueName(ev);
       if (venue) s += "場所は" + venue + "です。";
@@ -4628,6 +5049,13 @@
     var t = speakClock(briefKick(ev) || briefHm(ev));
     var venue = String(ev.venue || "").trim();
     var s = "";
+    if (isCancelledEv(ev)) {
+      if (weekly) {
+        var dc = parseLocalDate(eventIso(ev));
+        return (dc ? WD[dc.getDay()] + "曜日、" : "") + label + "は中止です。";
+      }
+      return (dayWord || "今日") + "の" + label + "は中止です。";
+    }
     if (weekly) {
       var d = parseLocalDate(eventIso(ev));
       s = (d ? WD[d.getDay()] + "曜日、" : "") + label;
@@ -4650,6 +5078,7 @@
     var k = canonicalKind(ev.kind);
     var cat = matchCatSpeakLabel(ev);
     var kindWord = k === "match" ? "試合" : (k === "合宿" ? "合宿" : "練習");
+    if (isCancelledEv(ev)) return dow + "、" + (cat ? cat : "") + kindWord + "は中止です。";
     var s = dow + "、" + (cat ? cat : "") + kindWord + "です。";
     if (k === "match") {
       var vs = matchOpponentName(ev);
@@ -4717,11 +5146,12 @@
   function speakWeekMarinos(ev) {
     var d = parseLocalDate(eventIso(ev));
     var dow = d ? WD[d.getDay()] + "曜日" : "";
+    var label = canonicalKind(ev.kind) === "日本代表戦" ? "日本代表戦" : "マリノス戦";
+    if (isCancelledEv(ev)) return dow + "、" + label + "は中止です。";
     var vs = matchOpponentName(ev);
     var venue = matchVenueName(ev);
     var t = matchKickClock(ev);
-    var k = canonicalKind(ev.kind || ev.event_kind);
-    var s = dow + "、" + (k === "日本代表戦" ? "日本代表戦です。" : "マリノス戦です。");
+    var s = dow + "、" + label + "です。";
     s += speakLeagueText(ev);
     if (vs) s += "対戦相手は" + vs + "です。";
     if (venue) s += "場所は" + venue + "です。";
@@ -4795,6 +5225,7 @@
         var juku = rows.filter(function (ev) { return canonicalKind(ev.kind) === "塾"; });
         if (!juku.length) return "";
         return dayWord + "の塾は、" + juku.map(function (ev) {
+          if (isCancelledEv(ev)) return "中止";
           var sub = jukuSubjectLabel(ev);
           var t = speakClock(briefKick(ev) || briefHm(ev));
           return sub + (t ? "、" + t + "から" : "");
@@ -4824,6 +5255,7 @@
           jukuW.forEach(function (ev) {
             var d = parseLocalDate(eventIso(ev));
             var dow = d ? WD[d.getDay()] + "曜日" : "";
+            if (isCancelledEv(ev)) { parts.push((dow ? dow + "、" : "") + "中止。"); return; }
             var sub = jukuSubjectLabel(ev);
             var t = speakClock(briefKick(ev) || briefHm(ev));
             parts.push((dow ? dow + "、" : "") + sub + (t ? "、" + t + "から" : "") + "。");
@@ -4876,7 +5308,7 @@
       toast("読み込み中です");
       return;
     }
-    if (mode === "week") weekOffset = weekOffsetOf(focusDays()[0]);
+    if (mode === "week") weekOffset = weekTlOffsetContaining(focusDays()[0]);
     if (mode === "focus") focusDayOffset = 0;
     try { localStorage.setItem("dashViewMode", mode); } catch (e) {}
     selectPage(mode);
@@ -4914,7 +5346,7 @@
       return;
     }
     if (which === "today" && weekOffset === 0 && lastData) {
-      toast("今週を表示中");
+      toast("今日からの7日間を表示中");
       return;
     }
     closeWxDetail();
@@ -5049,6 +5481,20 @@
     }
     if (dir === "ok") openEvDetail();
   };
+  // ダイニングTV: 左右スワイプでヘッダーのページ順に1ページずつ移動（端で折り返す）
+  window.DashRemoteSwipe = function (dir) {
+    if (!isRemote()) return;
+    rebuildPageLists();
+    var n = PAGE_KEYS.length;
+    if (!n) return;
+    var i = PAGE_KEYS.indexOf(pageKey);
+    if (i < 0) i = 0;
+    selectPage(PAGE_KEYS[(i + (dir === "left" ? 1 : n - 1)) % n]);
+  };
+  // ダイニングTV: 端末キャッシュを先に描画したあと、最新データが届いたら取り直す
+  window.DashReload = function () {
+    load();
+  };
   window.DashPhoneSwipe = function (dir) {
     if (!isPhone()) return;
     refreshKioskQueue();
@@ -5151,7 +5597,7 @@
         pg = "brief";
         storedParent = "brief";
       }
-      if (storedParent === "nextWeekHead" && !isSunday()) {
+      if (storedParent === "nextWeekHead" && !nextWeekHeadAvailable()) {
         pg = "weekHead";
         storedParent = "weekHead";
       }
@@ -5227,6 +5673,7 @@
     if (prevDay && prevDay !== day) {
       appLog({ event: "day_roll", from: prevDay, to: day });
       cacheWeek = null;
+      cacheWeekTl = null;
       cacheFocus = null;
       homeBriefing = null;
       load();
@@ -5237,7 +5684,7 @@
     var h = n.getHours();
     $("night").hidden = !(h >= 23 || h < 6);
     rebuildPageLists();
-    if (pageKey === "nextWeekHead" && !isSunday()) selectPage("weekHead");
+    if (pageKey === "nextWeekHead" && !nextWeekHeadAvailable()) selectPage("weekHead");
     else if (pageKey === "tomo" && !afterSixPm()) selectPage("brief");
     else syncFilterUi();
     if (kioskOn || isPhone()) refreshKioskQueue();
@@ -5281,6 +5728,7 @@
     loadStudy();
     loadStandings();
     if (studyDebug()) selectPage("study");
+    if (isRemote()) selectPage("brief");
     resetIdle();
     setInterval(function () { load(); }, 5 * 60 * 1000);
     setInterval(function () { loadStudy(); }, 5 * 60 * 1000);
