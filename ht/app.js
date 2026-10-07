@@ -23,6 +23,14 @@
   var tlIdx = 0;
   var evDetailOpen = false;
   var fetchLock = false;
+  // 取得が固まってもロックが残り続けないよう時刻を持つ（2026-10-08: ダイニングTVで
+  // 「取得失敗」のまま更新されなくなった件の再発防止）。
+  var fetchLockAt = 0;
+  var FETCH_LOCK_MAX_MS = 150 * 1000;
+  var DASH_REQ_TIMEOUT_MS = 100 * 1000;
+  var loadFailCount = 0;
+  var loadRetryTimer = 0;
+  var lastLoadOkAt = 0;
   var weekBusyWhich = "";
   var cbSeq = 0;
   var pending = {};
@@ -2451,10 +2459,44 @@
     else cb(null, payload);
   };
 
+  // ネイティブ/ブリッジの応答が来ない（HTML混入でJS評価が失敗、スレッド詰まり等）と
+  // コールバックもロックも永久に残り「更新されない」状態になるため、必ずタイムアウトさせる。
+  // 遅れて届いた応答は pending から消してあるので DashDone 側で無視される。
   function requestDashboard(off, cb) {
     cbSeq += 1;
-    pending[cbSeq] = cb;
-    SonyBridge.fetchDashboard(off, cbSeq);
+    var id = cbSeq;
+    var timer = setTimeout(function () {
+      if (!pending[id]) return;
+      delete pending[id];
+      appLog({ event: "dash_req_timeout", off: off, ms: DASH_REQ_TIMEOUT_MS });
+      cb("timeout", null);
+    }, DASH_REQ_TIMEOUT_MS);
+    pending[id] = function (err, payload) {
+      clearTimeout(timer);
+      cb(err, payload);
+    };
+    try {
+      SonyBridge.fetchDashboard(off, id);
+    } catch (e) {
+      clearTimeout(timer);
+      delete pending[id];
+      cb(String((e && e.message) || e), null);
+    }
+  }
+  function fmtHm(ms) {
+    var d = new Date(ms);
+    return pad(d.getHours()) + ":" + pad(d.getMinutes());
+  }
+  // 失敗したら5分待たず短い間隔で取り直す（30秒→1分→2分→…最大5分）。成功で解除。
+  function scheduleLoadRetry() {
+    if (loadRetryTimer) return;
+    loadFailCount += 1;
+    var wait = Math.min(300, 30 * Math.pow(2, Math.min(loadFailCount - 1, 4))) * 1000;
+    appLog({ event: "load_retry_scheduled", fails: loadFailCount, waitMs: wait });
+    loadRetryTimer = setTimeout(function () {
+      loadRetryTimer = 0;
+      load();
+    }, wait);
   }
   function friendlyFetchErr(err) {
     var s = String(err || "empty");
@@ -2592,17 +2634,23 @@
       err = null;
     }
     if (err || !data) {
-      $("status").textContent = "取得失敗: " + friendlyFetchErr(err || "empty");
+      $("status").textContent = "取得失敗: " + friendlyFetchErr(err || "empty") +
+        (lastLoadOkAt ? "（最終取得 " + fmtHm(lastLoadOkAt) + "）" : "");
       toast("予定を取得できません");
+      scheduleLoadRetry();
       if (done) done(err || new Error("empty"));
       return;
     }
     if (data.error) {
       $("status").textContent = friendlyFetchErr(data.error);
       toast(friendlyFetchErr(data.error));
+      scheduleLoadRetry();
       if (done) done(new Error(data.error));
       return;
     }
+    loadFailCount = 0;
+    lastLoadOkAt = Date.now();
+    if (loadRetryTimer) { clearTimeout(loadRetryTimer); loadRetryTimer = 0; }
     kind = kind || ((data.days && data.days.length >= 7) ? "week" : "focus");
     if (kind !== "weekTl") {
       if (data.briefing && (parseInt(data.week_offset, 10) || 0) === 0) homeBriefing = data.briefing;
@@ -2632,10 +2680,16 @@
       return;
     }
     if (fetchLock) {
-      if (done) done(new Error("busy"));
-      return;
+      if (Date.now() - fetchLockAt > FETCH_LOCK_MAX_MS) {
+        appLog({ event: "fetch_lock_force_release", ageMs: Date.now() - fetchLockAt });
+        fetchLock = false;
+      } else {
+        if (done) done(new Error("busy"));
+        return;
+      }
     }
     fetchLock = true;
+    fetchLockAt = Date.now();
     if (viewMode === "focus") {
       var wanted = focusFetchDays();
       var o0 = weekOffsetOf(wanted[0]);
@@ -4577,7 +4631,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.145" });
+    appLog({ event: "kiosk_on", v: "0.3.146" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;
@@ -5731,6 +5785,11 @@
     if (isRemote()) selectPage("brief");
     resetIdle();
     setInterval(function () { load(); }, 5 * 60 * 1000);
+    // Wi-Fi 復帰・画面復帰ですぐ取り直す（TV の待機復帰後に古い画面のまま残らないように）
+    window.addEventListener("online", function () { load(); loadStudy(); loadStandings(); });
+    document.addEventListener("visibilitychange", function () {
+      if (!document.hidden && Date.now() - lastLoadOkAt > 2 * 60 * 1000) load();
+    });
     setInterval(function () { loadStudy(); }, 5 * 60 * 1000);
     setInterval(function () { loadStandings(); }, 5 * 60 * 1000);
     document.addEventListener("keydown", function (ev) {
