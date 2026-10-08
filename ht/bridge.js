@@ -170,10 +170,12 @@
   }
 
   // ---- 画面に収める（1920×1080 を縮小して中央に置く） ----
+  // ピンチで拡大できるよう、合わせる基準は拡大で変わらないレイアウト幅（clientWidth/Height）。
+  // visualViewport を基準にすると拡大のたびに縮め直してしまう（2026-10-08 指摘「ピンチインがきかない」）
   function fit() {
-    var vv = window.visualViewport;
-    var w = (vv && vv.width) || window.innerWidth || 1920;
-    var h = (vv && vv.height) || window.innerHeight || 1080;
+    var de = document.documentElement;
+    var w = de.clientWidth || window.innerWidth || 1920;
+    var h = de.clientHeight || window.innerHeight || 1080;
     var s = Math.min(w / 1920, h / 1080);
     if (!isFinite(s) || s <= 0) s = 1;
     var b = document.body;
@@ -181,9 +183,12 @@
     b.style.left = Math.round((w - 1920 * s) / 2) + "px";
     b.style.top = Math.round((h - 1080 * s) / 2) + "px";
   }
-  window.addEventListener("resize", fit);
+  window.addEventListener("resize", function () { if (!zoomed()) fit(); });
   window.addEventListener("orientationchange", function () { setTimeout(fit, 250); });
-  if (window.visualViewport) window.visualViewport.addEventListener("resize", fit);
+  function zoomed() {
+    var vv = window.visualViewport;
+    return !!(vv && vv.scale > 1.05);
+  }
 
   // ---- 左右スワイプでページ移動 ----
   var sx = 0, sy = 0, st = 0;
@@ -203,6 +208,8 @@
     var det = document.getElementById("ev-detail");
     var wxd = document.getElementById("wx-detail");
     if ((det && !det.hidden) || (wxd && !wxd.hidden)) return;
+    // 拡大中の1本指ドラッグは見る場所の移動。ページ送りにしない
+    if (zoomed()) return;
     if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.4 && dt < 900) {
       if (window.DashRemoteSwipe) window.DashRemoteSwipe(dx < 0 ? "left" : "right");
     }

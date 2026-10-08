@@ -3,7 +3,7 @@
 <html lang="ja" class="remote">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
@@ -2080,14 +2080,14 @@
       /* ===== 外出先ダイニングTV（remote/remote.css → scripts/build_remote.py が差し込む） ===== */
     html.remote {
       width: 100%; height: 100%; overflow: hidden; background: #000;
-      touch-action: pan-x pan-y; overscroll-behavior: none;
+      touch-action: pan-x pan-y pinch-zoom; overscroll-behavior: none;
       -webkit-text-size-adjust: 100%;
     }
     html.remote body {
       position: absolute; left: 0; top: 0;
       width: 1920px; height: 1080px; overflow: hidden;
       transform-origin: top left;
-      touch-action: pan-x pan-y;
+      touch-action: pan-x pan-y pinch-zoom;
     }
     html.remote #kiosk-hint,
     html.remote #kiosk-ind,
@@ -2187,6 +2187,6 @@
   <div id="toast" hidden></div>
   <aside id="ev-detail" hidden></aside>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script src="ht/bridge.js?v=0.3.146"></script>
+  <script src="ht/bridge.js?v=0.3.146-bb2f5b22"></script>
 </body>
 </html>
