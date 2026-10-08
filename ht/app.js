@@ -89,7 +89,8 @@
     week: { title: "週TL", sub: "TIMELINE" },
     study: { title: "試験Status", sub: "STUDY" },
     studyTodo: { title: "試験Todo", sub: "STUDY" },
-    standings: { title: "順位", sub: "順位" }
+    standings: { title: "順位", sub: "順位" },
+    takumi: { title: "Takumi", sub: "TAKUMI" }
   };
   var studyData = null;
   var studyLoadErr = "";
@@ -172,6 +173,11 @@
     btns = btns.slice().concat(["btn-standings"]);
     return { keys: keys, btns: btns };
   }
+  // Takumi は学校データなので家の TV/PC のみ（外出先LIFF・iPhone には出さない）
+  function insertTakumiPages(keys, btns) {
+    if (!takumiAvailable()) return { keys: keys, btns: btns };
+    return { keys: keys.slice().concat(["takumi"]), btns: btns.slice().concat(["btn-takumi"]) };
+  }
   function insertStudyPages(keys, btns) {
     if (!studyPagesOn()) return { keys: keys, btns: btns };
     var at = keys.indexOf("tomo");
@@ -212,6 +218,7 @@
       hidePageBtn("btn-next-week-head", true);
       hidePageBtn("btn-week", true);
       hidePageBtn("btn-standings", true);
+      hidePageBtn("btn-takumi", true);
       hidePageBtn("btn-study", false);
       return;
     }
@@ -233,6 +240,7 @@
     var packed = insertNextWeekHeadPages(PAGE_KEYS, PAGE_BTNS);
     packed = insertStudyPages(packed.keys, packed.btns);
     packed = insertStandingsPages(packed.keys, packed.btns);
+    packed = insertTakumiPages(packed.keys, packed.btns);
     PAGE_KEYS = packed.keys;
     PAGE_BTNS = packed.btns;
     var tb = $("btn-tomo");
@@ -248,6 +256,7 @@
     var stb = $("btn-study-todo");
     if (stb) stb.hidden = isPhone() || !studyPagesOn();
     hidePageBtn("btn-standings", isPhone());
+    hidePageBtn("btn-takumi", !takumiAvailable());
   }
   function filterSelMax() {
     rebuildPageLists();
@@ -1141,6 +1150,199 @@
     }).then(applyStandingsPayload).catch(function (e) {
       applyStandingsFail(e && e.message);
     });
+  }
+  // ---- Takumi（TakumiDailyTodo の時間割・行事。2026-10-09）----
+  // 学校データは非公開のため、家のTV・PC・iPhoneだけに出す。外出先LIFFには出さない
+  // （取得もトークンも持たせない）。取得はTV=Kotlin(fetchTakumi) / PC=/api/takumi。
+  var takumiData = null;
+  var takumiLoadErr = "";
+  var takumiLoadedAt = 0;
+  var takumiCbSeq = 0;
+  var takumiPending = {};
+  var takumiRetryTimer = 0;
+  var TAKUMI_REQ_TIMEOUT_MS = 100 * 1000;
+  var TAKUMI_COLORS = {
+    "英語": ["#DCE8FB", "#1D4E9E"], "数学": ["#FCE4CF", "#8F430A"], "国語": ["#F8DDE1", "#952237"],
+    "理科": ["#D8EFE0", "#1C6436"], "社会": ["#F5EBC4", "#6E5200"], "体育": ["#D3EEEE", "#0B5E5E"],
+    "音楽": ["#EAE0F7", "#55298A"], "美術": ["#F7DEEE", "#86245F"], "音美": ["#EEEAF4", "#4E3F66"],
+    "技術": ["#E3E7EC", "#334050"], "家庭": ["#E3E7EC", "#334050"], "行事": ["#FFF0D9", "#7A4300"],
+    "授業なし": ["#F1F3F5", "#8A96A1"]
+  };
+  var TAKUMI_MARKS = ["①", "②", "③", "④", "⑤", "⑥"];
+  function takumiAvailable() { return !isRemote() && !isPhone(); }
+  function isTakumiPage(k) { return parentPage(k) === "takumi"; }
+  window.DashTakumiDone = function (id, err, payload) {
+    var cb = takumiPending[id];
+    delete takumiPending[id];
+    if (cb) cb(err, payload);
+  };
+  function scheduleTakumiRetry() {
+    if (takumiRetryTimer) return;
+    takumiRetryTimer = setTimeout(function () {
+      takumiRetryTimer = 0;
+      loadTakumi();
+    }, 60 * 1000);
+  }
+  function applyTakumiPayload(d) {
+    if (!d || d.error || !d.school || !d.school.days) {
+      applyTakumiFail((d && d.error) || "empty");
+      return;
+    }
+    takumiData = d;
+    takumiLoadErr = "";
+    takumiLoadedAt = Date.now();
+    if (takumiRetryTimer) { clearTimeout(takumiRetryTimer); takumiRetryTimer = 0; }
+    if (isTakumiPage(pageKey)) renderTakumi();
+  }
+  // 失敗しても前回取れた学校データは消さない（読み込み中の表示に戻さない）
+  function applyTakumiFail(err) {
+    takumiLoadErr = String(err || "fail");
+    appLog({ event: "takumi_err", msg: takumiLoadErr.slice(0, 120) });
+    scheduleTakumiRetry();
+    if (isTakumiPage(pageKey)) renderTakumi();
+  }
+  function loadTakumi() {
+    if (!takumiAvailable()) return;
+    if (window.SonyBridge && typeof SonyBridge.fetchTakumi === "function") {
+      takumiCbSeq += 1;
+      var id = takumiCbSeq;
+      var timer = setTimeout(function () {
+        if (!takumiPending[id]) return;
+        delete takumiPending[id];
+        applyTakumiFail("timeout");
+      }, TAKUMI_REQ_TIMEOUT_MS);
+      takumiPending[id] = function (err, payload) {
+        clearTimeout(timer);
+        if (err) applyTakumiFail(err);
+        else applyTakumiPayload(payload);
+      };
+      try { SonyBridge.fetchTakumi(id); } catch (e) {
+        clearTimeout(timer);
+        delete takumiPending[id];
+        applyTakumiFail(String((e && e.message) || e));
+      }
+      return;
+    }
+    fetch("/api/takumi", { cache: "no-store" }).then(function (res) {
+      if (!res.ok) throw new Error("takumi " + res.status);
+      return res.json();
+    }).then(applyTakumiPayload).catch(function (e) {
+      applyTakumiFail(e && e.message);
+    });
+  }
+  function takumiDay(iso) {
+    var s = takumiData && takumiData.school;
+    return (s && s.days && s.days[iso]) || null;
+  }
+  function takumiIsOff(iso) {
+    var d = takumiDay(iso);
+    if (d) return !!d.holiday;
+    var dow = parseLocalDate(iso).getDay();
+    return dow === 0 || dow === 6;
+  }
+  function takumiPeriods(iso) {
+    var d = takumiDay(iso);
+    if (!d || d.holiday || !d.periods) return [];
+    var slots = (takumiData.school && takumiData.school.slots) || {};
+    var ov = takumiData.overrides || {};
+    return d.periods.map(function (code, i) {
+      var name = code === null ? "授業なし" : (slots[code] || code);
+      var o = ov[iso + "#" + (i + 1)];
+      if (code === "14" && o) name = o;
+      return { name: name, otobi: code === "14" };
+    });
+  }
+  // 土日は翌週の月〜金を出す（TakumiDailyApp の時間割と同じ）
+  function takumiWeekMonday() {
+    var today = todayStr();
+    var dow = parseLocalDate(today).getDay();
+    return addDaysIso(today, dow === 0 ? 1 : dow === 6 ? 2 : 1 - dow);
+  }
+  function takumiMd(iso) {
+    var p = iso.split("-");
+    return Number(p[1]) + "/" + Number(p[2]);
+  }
+  function takumiMdw(iso) {
+    return takumiMd(iso) + "(" + WD[parseLocalDate(iso).getDay()] + ")";
+  }
+  // 明らかに他学年だけの予定（「3年：5校時まで」等）は出さない（TakumiDailyApp と同じ判定）
+  function takumiOtherGrade(t) { return /[23]年/.test(t) && !/1年/.test(t); }
+  function takumiEventsHtml() {
+    var today = todayStr();
+    var dow = parseLocalDate(today).getDay();
+    var start = addDaysIso(today, dow === 0 ? -6 : 1 - dow);
+    var out = [];
+    var i;
+    for (i = 0; i < 14; i++) {
+      var iso = addDaysIso(start, i);
+      var d = takumiDay(iso);
+      var evs = ((d && d.events) || []).filter(function (t) { return !takumiOtherGrade(t); });
+      if (!evs.length) continue;
+      var cls = iso === today ? " is-today" : (iso < today ? " is-past" : "");
+      var wd = parseLocalDate(iso).getDay();
+      var dcls = wd === 6 ? " is-sat" : (wd === 0 || (d && d.holiday) ? " is-sun" : "");
+      out.push('<div class="tk-ev' + cls + '"><div class="tk-ev-d' + dcls + '">' + esc(takumiMdw(iso)) + "</div>" +
+        '<div class="tk-ev-t">' + evs.map(esc).join("<br>") + "</div></div>");
+    }
+    if (!out.length) return '<div class="brief-empty-ico">' + uiIco("cal") + '<div class="st-cap">なし</div></div>';
+    return '<div class="tk-ev-list">' + out.join("") + "</div>";
+  }
+  function takumiTableHtml(mon) {
+    var today = todayStr();
+    var days = [0, 1, 2, 3, 4].map(function (i) { return addDaysIso(mon, i); });
+    // 行: 見出し / ①〜④ / 昼 / ⑤⑥ / 清
+    var rowOf = [2, 3, 4, 5, 7, 8];
+    var LUNCH_ROW = 6;
+    var CLEAN_ROW = 9;
+    var h = '<div class="tk-wk">';
+    function cell(r, c, cls, style, html) {
+      return '<div class="tk-c ' + cls + '" style="grid-row:' + r + ";grid-column:" + c + ";" + (style || "") + '">' + html + "</div>";
+    }
+    h += cell(1, 1, "tk-lab", "", "");
+    TAKUMI_MARKS.forEach(function (m, i) { h += cell(rowOf[i], 1, "tk-lab", "", m); });
+    h += cell(LUNCH_ROW, 1, "tk-lab", "", "昼");
+    h += cell(CLEAN_ROW, 1, "tk-lab", "", "清");
+    days.forEach(function (iso, di) {
+      var c = di + 2;
+      var st = iso === today ? " is-today" : (iso < today ? " is-past" : "");
+      h += cell(1, c, "tk-h" + st, "", "<b>" + Number(iso.slice(8)) + "</b><span>" + WD[parseLocalDate(iso).getDay()] + "</span>");
+      var d = takumiDay(iso);
+      if (!d || d.holiday || takumiIsOff(iso)) {
+        var lab = d && d.holiday ? ((d.events || [])[0] || "休み") : (d ? "休み" : "未登録");
+        h += cell(2, c, "tk-off" + st, "grid-row:2 / span 8;", esc(lab));
+        return;
+      }
+      var ps = takumiPeriods(iso);
+      TAKUMI_MARKS.forEach(function (m, i) {
+        var p = ps[i];
+        if (!p) { h += cell(rowOf[i], c, "tk-s" + st, "", ""); return; }
+        var col = TAKUMI_COLORS[p.name] || ["#EEF0F3", "#46525F"];
+        var nm = p.name === "授業なし" ? "—" : p.name;
+        h += cell(rowOf[i], c, "tk-s" + (p.otobi ? " tk-otobi" : "") + st, "background:" + col[0] + ";color:" + col[1] + ";", esc(nm));
+      });
+      var lt = { "○": "給食", "△": "弁当", "?": "？" }[d.lunch] || "";
+      h += cell(LUNCH_ROW, c, "tk-m" + (d.lunch !== "○" ? " warn" : "") + st, "", lt);
+      var ct = { "○": "あり", "×": "なし", "△": "簡単" }[d.cleaning] || "";
+      h += cell(CLEAN_ROW, c, "tk-m" + (d.cleaning !== "○" ? " warn" : "") + st, "", ct);
+    });
+    return h + "</div>";
+  }
+  function renderTakumi() {
+    var el = $("takumi-board");
+    if (!el) return;
+    if (!takumiData) {
+      el.innerHTML = '<div class="study-note">' + (takumiLoadErr ? "Takumiのデータを取得できません（" + esc(takumiLoadErr.slice(0, 60)) + "）" : "読み込み中…") + "</div>";
+      return;
+    }
+    var mon = takumiWeekMonday();
+    var fri = addDaysIso(mon, 4);
+    var wx = weekHeadWxSrc("weekHead");
+    var stale = takumiLoadErr ? '<span class="tk-stale">更新失敗・前回データ</span>' : "";
+    el.innerHTML = '<div class="wh-grid tk-grid">' +
+      '<div class="wh-sec tk-events"><div class="wh-h">今週〜来週の行事</div>' + takumiEventsHtml() + "</div>" +
+      '<div class="wh-sec tk-table"><div class="wh-h">時間割 ' + esc(takumiMd(mon) + "〜" + takumiMd(fri)) + stale + "</div>" + takumiTableHtml(mon) + "</div>" +
+      '<div class="wh-sec wh-wx"><div class="wh-h">今週の週間天気予報</div>' + whWxDaysHtml(wx) + "</div>" +
+      "</div>";
   }
   // 読み上げはREGALIAの順位のみ（他チームの成績は読まない、ユーザー確認済み）。
   // U15L/U13Lの「L」はリーグと読む（ユーザー確認済み）。残り試合数も読む。
@@ -2833,6 +3035,7 @@
     if ($("week-head-board")) $("week-head-board").hidden = !isWeekHeadPage(k);
     if ($("study-board")) $("study-board").hidden = !isStudyPage(k);
     if ($("standings-board")) $("standings-board").hidden = !isStandingsPage(k);
+    if ($("takumi-board")) $("takumi-board").hidden = !isTakumiPage(k);
     if ($("transit-board")) $("transit-board").hidden = true;
   }
   function selectPage(key) {
@@ -2878,6 +3081,11 @@
       $("range-line").textContent = (KIOSK_META[parent] || {}).title || "順位";
       renderStandings();
       if (!standingsData) loadStandings();
+    } else if (isTakumiPage(parent)) {
+      $("range-line").textContent = (KIOSK_META[parent] || {}).title || "Takumi";
+      renderTakumi();
+      if (!takumiData || Date.now() - takumiLoadedAt > 10 * 60 * 1000) loadTakumi();
+      if (!currentWeekCacheOk(cacheWeek)) prefetchWeek();
     } else if (parent === "wx") {
       $("range-line").textContent = phoneRangeTitle() || "天気(3日)　1時間ごと";
       var wxFresh = cacheHasDays(cacheFocus, wxDays()) && wxDays()[0] === todayStr();
@@ -4575,6 +4783,7 @@
       }
       if (data.days && data.days.length >= 7) cacheWeek = data;
       if (isWeekHeadPage(pageKey)) renderWeekHeadline();
+      if (isTakumiPage(pageKey)) renderTakumi();
       if (isBriefPage(pageKey)) renderBriefing();
       if (isPhone()) refreshKioskQueue();
     });
@@ -4631,7 +4840,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.146" });
+    appLog({ event: "kiosk_on", v: "0.3.147" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;
@@ -5714,6 +5923,7 @@
     }
     $("btn-week").addEventListener("click", function () { goPage("week"); });
     if ($("btn-standings")) $("btn-standings").addEventListener("click", function () { goPage("standings"); });
+    if ($("btn-takumi")) $("btn-takumi").addEventListener("click", function () { goPage("takumi"); });
     $("wk-prev").addEventListener("click", function () { noteInput(true); window.DashWeekColor("prev"); });
     $("wk-today").addEventListener("click", function () { noteInput(true); window.DashWeekColor("today"); });
     $("wk-next").addEventListener("click", function () { noteInput(true); window.DashWeekColor("next"); });
@@ -5732,6 +5942,7 @@
       homeBriefing = null;
       load();
       loadStudy();
+      if (isTakumiPage(pageKey)) renderTakumi();
     }
     clockDay = day;
     if (prevDay && !currentWeekCacheOk(cacheWeek)) prefetchWeek();
@@ -5781,6 +5992,7 @@
     load();
     loadStudy();
     loadStandings();
+    loadTakumi();
     if (studyDebug()) selectPage("study");
     if (isRemote()) selectPage("brief");
     resetIdle();
@@ -5792,6 +6004,7 @@
     });
     setInterval(function () { loadStudy(); }, 5 * 60 * 1000);
     setInterval(function () { loadStandings(); }, 5 * 60 * 1000);
+    setInterval(function () { loadTakumi(); }, 15 * 60 * 1000);
     document.addEventListener("keydown", function (ev) {
       window.DashNoteInput();
       var k = ev.keyCode;
