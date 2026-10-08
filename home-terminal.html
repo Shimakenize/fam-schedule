@@ -1533,7 +1533,7 @@
     .tl-block.tl-kind-juku { background: #7c2d12; border-color: #9a3412; }
     .tl-block.tl-kind-private { background: #3f2a56; border-color: #5c3d75; }
     .tl-block.tl-kind-gasshuku { background: #422006; border-color: #713f12; }
-    .tl-block.tl-kind-marinos { background: #003f8a; border-color: #1e40af; }
+    .tl-block.tl-kind-marinos { background: linear-gradient(180deg, rgba(8,12,20,0.28), rgba(8,12,20,0.42)), linear-gradient(135deg, #1e3a8a 0 33%, #e2e8f0 33% 67%, #b91c1c 67% 100%); border-color: rgba(248,250,252,0.45); }
     .tl-block.tl-kind-japan { background: #bc002d; border-color: #7f1210; color: #fff5f5; }
     .tl-block--stacked.tl-kind-match .tl-block-seg--main { background: #1e3a5f; color: #e5e7eb; }
     .tl-block--stacked.tl-kind-adhoc .tl-block-seg--main { background: #3d2a5c; color: #ede9fe; }
@@ -1541,7 +1541,12 @@
     .tl-block--stacked.tl-kind-juku .tl-block-seg--main { background: #7c2d12; color: #ffedd5; }
     .tl-block--stacked.tl-kind-private .tl-block-seg--main { background: #3f2a56; color: #ede9fe; }
     .tl-block--stacked.tl-kind-gasshuku .tl-block-seg--main { background: #422006; color: #fef3c7; }
-    .tl-block--stacked.tl-kind-marinos .tl-block-seg--main { background: #003f8a; color: #dbeafe; }
+    /* マリノス戦はタイムラインもトリコロール（Headlineの k-marinos と同じ配色。2026-10-09、ユーザー指示）。
+       銀色の帯の上でも読めるよう、暗めのオーバーレイと文字影を付ける */
+    .tl-block--stacked.tl-kind-marinos .tl-block-seg--main {
+      background: linear-gradient(180deg, rgba(8,12,20,0.28), rgba(8,12,20,0.42)), linear-gradient(135deg, #1e3a8a 0 33%, #e2e8f0 33% 67%, #b91c1c 67% 100%); color: #f8fafc;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.65);
+    }
     .tl-block--stacked.tl-kind-japan .tl-block-seg--main { background: #bc002d; color: #fff5f5; }
     .tl-block--stacked.tl-kind-match .tl-block-seg--departure { background: #6b8fc9; color: #f8fafc; }
     .tl-block--stacked.tl-kind-adhoc .tl-block-seg--departure { background: #7c5fb8; color: #faf5ff; }
@@ -2241,6 +2246,6 @@
   <div id="toast" hidden></div>
   <aside id="ev-detail" hidden></aside>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script src="ht/bridge.js?v=0.3.147-bb2f5b22"></script>
+  <script src="ht/bridge.js?v=0.3.148-bb2f5b22"></script>
 </body>
 </html>

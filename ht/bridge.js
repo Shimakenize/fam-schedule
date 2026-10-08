@@ -16,7 +16,7 @@
   window.__CONFIG_URL__ = "https://script.google.com/macros/s/AKfycbzTWV_X4UvgUxXSzI-KUVudV2EwEQdY9yLe2oKMf9DIkpGo_BNCe3uGG0wmFQ1EcLpC/exec";
   window.__API_BASE__ = window.__CONFIG_URL__;
   var STANDINGS_URL = "https://script.google.com/macros/s/AKfycbxQSNvMNuCKlXM9V8FQLMQwAeb7U_Z2Xn-xBVRfvnv302cu_ckO-g-wyPATYuv4dPZY/exec?_path=api/standings";
-  var APP_JS = "ht/app.js?v=0.3.147";
+  var APP_JS = "ht/app.js?v=0.3.148";
   var CACHE_PREFIX = "ht_cache_v1_";
 
   var lineUserId = "";
