@@ -2037,6 +2037,97 @@
   // 常時表示の今日タイムライン帯（TV/PCのみ。週TLの今日列と同寸・表示専用。2026-10-11）。
   // 時間窓(tlHour0/1)・eventsByColはメインTLと共有のグローバルなので、描画中だけ差し替えて必ず戻す。
   var stripStamp = "";
+  // 固定枠の上10%: 出発表示（2026-10-11）。①平日6:00-8:00は「8時まであと○分」
+  // ②それ以外は次のU13の試合・TRの「集合の前の出発」時刻。音声は今日のHLの冒頭で読む。
+  function departEvents() {
+    var seen = {};
+    var out = [];
+    function add(list) {
+      (list || []).forEach(function (ev) {
+        var k = (ev.id || "") + "|" + dayKey(ev.event_date) + "|" + (ev.event_time || "");
+        if (seen[k]) return;
+        seen[k] = 1;
+        out.push(ev);
+      });
+    }
+    [cacheWeekTl, cacheWeek, cacheFocus, lastData].forEach(function (c) {
+      if (!c) return;
+      add(c.events);
+      if (c.briefing) add(c.briefing.nextWeekEvents);
+    });
+    return out;
+  }
+  function departMinOf(ev) {
+    var marks = labeledTimes(preSrc(ev)).sort(function (a, b) { return a.m - b.m; });
+    var meet = null;
+    marks.forEach(function (x) { if (meet === null && /集合/.test(x.label)) meet = x.m; });
+    var dep = null;
+    marks.forEach(function (x) {
+      if (dep !== null || !/出発/.test(x.label)) return;
+      if (meet === null || x.m <= meet) dep = x.m;
+    });
+    return dep;
+  }
+  function nextDeparture() {
+    var now = new Date();
+    var nowIso = todayStr();
+    var nowM = now.getHours() * 60 + now.getMinutes();
+    var best = null;
+    departEvents().forEach(function (ev) {
+      var k = canonicalKind(ev.event_kind);
+      if (k !== "TR" && k !== "match") return;
+      if (!includesU13(ev.category_code) || isCancelledEv(ev)) return;
+      var iso = dayKey(ev.event_date);
+      if (!iso || iso < nowIso) return;
+      var m = departMinOf(ev);
+      if (m === null) return;
+      if (iso === nowIso && m <= nowM) return;
+      if (!best || iso < best.iso || (iso === best.iso && m < best.m)) best = { iso: iso, m: m, ev: ev };
+    });
+    return best;
+  }
+  function isWeekdayNonHoliday() {
+    var t = todayStr();
+    var dow = parseLocalDate(t).getDay();
+    if (dow === 0 || dow === 6) return false;
+    var src = stripSource();
+    var hol = {};
+    ((src && src.holiday_isos) || []).forEach(function (x) { hol[x] = 1; });
+    return !hol[t];
+  }
+  // 平日6:00-8:00のカウントダウン残り分（対象外は -1）
+  function schoolCountdownMin() {
+    if (!isWeekdayNonHoliday()) return -1;
+    var n = new Date();
+    var m = n.getHours() * 60 + n.getMinutes();
+    if (m < 6 * 60 || m >= 8 * 60) return -1;
+    return 8 * 60 - m;
+  }
+  function departDayWord(iso) {
+    var t = todayStr();
+    if (iso === t) return "今日";
+    if (iso === addDaysIso(t, 1)) return "明日";
+    return takumiMdw(iso);
+  }
+  function departHtml() {
+    var cd = schoolCountdownMin();
+    if (cd >= 0) {
+      return '<div class="ts-dep-sub">8時まで</div><div class="ts-dep-big">あと' + cd + '分</div>';
+    }
+    var nd = nextDeparture();
+    if (!nd) return '<div class="ts-dep-sub">出発</div><div class="ts-dep-none">予定なし</div>';
+    var ttl = mainSub(nd.ev) || kindLabel(nd.ev.event_kind);
+    return '<div class="ts-dep-sub">' + esc(departDayWord(nd.iso)) + "の出発 · " + esc(ttl) + "</div>" +
+      '<div class="ts-dep-big">' + esc(hm(nd.m)) + "出</div>";
+  }
+  function departSpeakText() {
+    var out = "";
+    var cd = schoolCountdownMin();
+    if (cd >= 0) out += "8時まであと" + cd + "分です。";
+    var nd = nextDeparture();
+    if (nd) out += departDayWord(nd.iso).replace(/^(\d+)\/(\d+)\(.*$/, "$1月$2日") + "は" + speakClock(hm(nd.m)) + "出発です。";
+    return out;
+  }
   function stripAvailable() { return !isRemote() && !isPhone(); }
   function stripSource() {
     var t = todayStr();
@@ -2072,13 +2163,14 @@
       else if (d && d.getDay() === 6) cls += " is-sat";
       else if (d && d.getDay() === 0) cls += " is-sun";
       el.hidden = false;
-      el.innerHTML = '<div class="hours"><div class="hours-head"></div><div class="hours-plot ts-plot"></div></div>' +
+      el.innerHTML = '<div class="ts-dep">' + departHtml() + '</div><div class="ts-body">' +
+        '<div class="hours"><div class="hours-head"></div><div class="hours-plot ts-plot"></div></div>' +
         '<div class="days"><div class="' + cls + '" data-day="' + today + '">' +
         '<div class="day-head"><div class="dow">' + (d ? WD[d.getDay()] : "") + '</div><div class="dom">' + (d ? d.getDate() + "日" : "") + "</div></div>" +
         '<div class="day-body"><div class="wx-rails">' +
         '<div class="wx-rail ts-rail" data-wx-row="0" data-day="' + today + '"></div>' +
         '<div class="wx-rail ts-rail" data-wx-row="1" data-day="' + today + '"></div></div>' +
-        '<div class="canvas"></div></div></div></div>';
+        '<div class="canvas"></div></div></div></div></div>';
       var cnv = el.querySelector(".canvas");
       var ch = cnv.clientHeight || 500;
       var plot = el.querySelector(".ts-plot");
@@ -5055,7 +5147,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.153" });
+    appLog({ event: "kiosk_on", v: "0.3.154" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;
@@ -5665,6 +5757,7 @@
     var soccer = ownBeforeMarinos(rows.filter(isSoccerEv));
     var misc = rows.filter(isMiscEv);
     var parts = [];
+    if (!forTomo) parts.push(departSpeakText());
     if (juku.length) {
       parts.push(dayWord + "の塾は、" + juku.map(function (ev) {
         var sub = jukuSubjectLabel(ev);
@@ -5794,6 +5887,7 @@
   }
 
   window.DashTakumiSpeakText = function () { return takumiSpeakText(); };
+  window.DashDepartSpeakText = function () { return departSpeakText(); };
   window.DashWeekColor = function (which) {
     if (consumeKioskKey()) return;
     noteInput(true);
