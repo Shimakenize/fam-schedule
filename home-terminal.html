@@ -35,6 +35,20 @@
       filter: invert(1) hue-rotate(180deg);
     }
     html.theme-day #tl *, html.theme-day #today-strip * { filter: none; }
+    /* 昼テーマ: 天気レールは暗い紺をやめ、案Aの淡い青に（2026-10-11） */
+    html.theme-day .wx-rail { background: #e3eaf0; border-left-color: #c3cfda; }
+    html.theme-day .wx-rail-tag { color: #23405e; }
+    html.theme-day .wx-hour { border-top-color: rgba(35,64,94,0.22); }
+    html.theme-day .wx-ht { color: #1e2a35; }
+    html.theme-day .wx-hmm { color: #5b6b7a; }
+    html.theme-day .wx-hour.rain-light { background: #bfe3ea; }
+    html.theme-day .wx-hour.rain-light .wx-hmm { color: #0b5566; }
+    html.theme-day .wx-hour.rain-mid { background: #bccdf0; }
+    html.theme-day .wx-hour.rain-mid .wx-hmm { color: #1e3a8a; }
+    html.theme-day .wx-hour.rain-heavy { background: #f2b9b9; }
+    html.theme-day .wx-hour.rain-heavy .wx-hmm { color: #7f1d1d; }
+    /* 昼テーマ: Takumi時間割のセルは元のパステル色に戻す */
+    html.theme-day .tk-wk { filter: invert(1) hue-rotate(180deg); }
     html.theme-night {
       --bg: #0e1914; --panel: #152620; --line: #25392f;
       --text: #e4ebe2; --muted: #8a9a90; --gold: #d9a55b; --gold-2: #f0c987;
@@ -1050,12 +1064,7 @@
       background: rgba(255,255,255,0.03); padding: 8px 8px 6px; overflow: hidden;
     }
     .wh-sec.wh-wx { grid-column: 1 / -1; overflow: visible; flex: 0 0 auto; }
-    .wh-sec.is-u13 {
-      border-color: rgba(232,215,184,0.55);
-      background: rgba(201,176,138,0.10);
-      box-shadow: inset 0 0 0 1px rgba(201,176,138,0.28);
-    }
-    .wh-sec.is-u13 .wh-h { color: var(--gold-2); }
+    /* U13だけの強調枠は廃止（2026-10-11。U14/U15と同じ見た目） */
     .wh-sec.wh-matches, .wh-sec.wh-marinos { min-height: 0; }
     .rm-days {
       flex: 1; min-height: 0; display: grid; gap: 6px;
@@ -1089,11 +1098,7 @@
       flex: 1 1 0; min-height: 0; display: flex; flex-direction: column;
       border-top: 1px solid rgba(201,176,138,0.12); padding: 4px 6px 6px;
     }
-    .rm-cat.is-u13 {
-      background: rgba(201,176,138,0.18);
-      box-shadow: inset 0 0 0 1px rgba(232,215,184,0.5);
-    }
-    .rm-cat.is-u13 .rm-cat-h { color: var(--gold-2); }
+    /* U13だけの強調枠は廃止（2026-10-11。U14/U15と同じ見た目） */
     .rm-cat-h {
       flex: 0 0 auto; font-size: 22px; font-weight: 800; letter-spacing: 0.1em;
       color: #f6edd9; line-height: 1.1; margin-bottom: 4px;
@@ -2299,6 +2304,6 @@
   <div id="toast" hidden></div>
   <aside id="ev-detail" hidden></aside>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script src="ht/bridge.js?v=0.3.154-bb2f5b22"></script>
+  <script src="ht/bridge.js?v=0.3.155-bb2f5b22"></script>
 </body>
 </html>
