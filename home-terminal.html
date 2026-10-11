@@ -113,32 +113,32 @@
     .wk-y { background: transparent; border-color: #c4a035; color: #f3e2a1; }
     .wk.on { background: rgba(255,255,255,0.06); box-shadow: 0 0 0 2px rgba(255,255,255,0.25); }
     body.mode-week .days { grid-template-columns: repeat(7, minmax(0, 1fr)); }
-    body.mode-focus .hours { width: 100px; }
-    body.mode-focus .hour-lab { font-size: 22px; right: 8px; }
-    body.mode-focus .day-head { flex: 0 0 76px; padding-top: 8px; }
-    body.mode-focus .dow { font-size: 22px; }
-    body.mode-focus .dom { font-size: 36px; }
-    body.mode-focus .tl-block { font-size: 22px; line-height: 1.25; }
-    body.mode-focus .tl-block-seg { padding: 6px 10px; }
-    body.mode-focus .tl-block-seg-time { font-size: 22px; }
-    body.mode-focus .tl-block-seg-sub { font-size: 20px; }
-    body.mode-focus .tl-block-seg-venue { font-size: 18px; }
-    body.mode-focus .tl-block-seg-regalia { font-size: 20px; }
-    body.mode-focus .tl-block-seg--postmark { font-size: 18px; }
-    body.mode-focus .wx-lab,
-    body.mode-focus .wx-cell,
+    body.mode-focus #tl .hours { width: 100px; }
+    body.mode-focus #tl .hour-lab { font-size: 22px; right: 8px; }
+    body.mode-focus #tl .day-head { flex: 0 0 76px; padding-top: 8px; }
+    body.mode-focus #tl .dow { font-size: 22px; }
+    body.mode-focus #tl .dom { font-size: 36px; }
+    body.mode-focus #tl .tl-block { font-size: 22px; line-height: 1.25; }
+    body.mode-focus #tl .tl-block-seg { padding: 6px 10px; }
+    body.mode-focus #tl .tl-block-seg-time { font-size: 22px; }
+    body.mode-focus #tl .tl-block-seg-sub { font-size: 20px; }
+    body.mode-focus #tl .tl-block-seg-venue { font-size: 18px; }
+    body.mode-focus #tl .tl-block-seg-regalia { font-size: 20px; }
+    body.mode-focus #tl .tl-block-seg--postmark { font-size: 18px; }
+    body.mode-focus #tl .wx-lab,
+    body.mode-focus #tl .wx-cell,
     body.mode-week .wx-lab,
     body.mode-week .wx-cell { display: none !important; }
     .hours-head {
       flex: 0 0 44px; border-bottom: 1px solid var(--tl-line);
     }
-    body.mode-focus .hours-head { flex: 0 0 76px; }
+    body.mode-focus #tl .hours-head { flex: 0 0 76px; }
     .day-body {
       flex: 1; min-height: 0; display: flex; align-items: stretch;
     }
     .day-body .canvas { flex: 1; min-width: 0; }
     .wx-rails { display: none; }
-    body.mode-focus .wx-rails {
+    body.mode-focus #tl .wx-rails {
       display: flex; flex: 0 0 176px; width: 176px;
       border-right: 1px solid var(--tl-line);
     }
@@ -190,6 +190,31 @@
       box-shadow: 0 18px 40px rgba(0,0,0,0.28);
     }
     #tl[hidden] { display: none !important; }
+
+    /* 常時表示の今日タイムライン帯（TV/PCのみ。週TLの今日列と同寸・同見た目。2026-10-11） */
+    #today-strip {
+      flex: 0 0 328px; width: 328px; margin-right: 10px; min-height: 0;
+      background: var(--tl-bg); color: var(--tl-ink);
+      border: 1px solid rgba(201,176,138,0.18); border-radius: 4px;
+      display: flex; overflow: hidden; position: relative;
+      box-shadow: 0 18px 40px rgba(0,0,0,0.28);
+    }
+    #today-strip[hidden] { display: none !important; }
+    #today-strip .days { grid-template-columns: minmax(0, 1fr); }
+    #today-strip .wx-rails { display: flex; flex: 0 0 96px; width: 96px; border-right: 1px solid var(--tl-line); }
+    #today-strip .wx-rail { cursor: default; }
+    #today-strip .wx-rail-tag { font-size: 10px; top: 2px; }
+    #today-strip .wx-hour .wx-ico { width: 14px; height: 14px; flex: 0 0 14px; }
+    #today-strip .wx-ht { font-size: 10px; }
+    #today-strip .wx-hmm { font-size: 9px; }
+    #today-strip .tl-hour-mark {
+      left: 4px; font-weight: 400; letter-spacing: 0.04em;
+      font-size: 16px; color: rgba(138, 128, 116, 0.32);
+    }
+    #today-strip .tl-block-seg--main .rain-badge { font-size: 11px; padding: 2px 5px; gap: 1px; }
+    #today-strip .tl-block--narrow .tl-block-seg--wx,
+    #today-strip .tl-block--short .tl-block-seg--wx { padding-right: 58px; }
+    html.strip-off #today-strip { display: none !important; }
     .hours {
       width: var(--rail); flex-shrink: 0; border-right: 1px solid var(--tl-line);
       background: var(--tl-alt); display: flex; flex-direction: column;
@@ -1378,7 +1403,7 @@
       color: rgba(90, 84, 76, 0.38); pointer-events: none; z-index: 1;
       font-size: 13px; line-height: 1;
     }
-    body.mode-focus .tl-hour-mark { font-size: 22px; color: rgba(90, 84, 76, 0.32); left: 12px; }
+    body.mode-focus #tl .tl-hour-mark { font-size: 22px; color: rgba(90, 84, 76, 0.32); left: 12px; }
     body.mode-week .tl-hour-mark {
       left: 4px; font-weight: 400; letter-spacing: 0.04em;
       font-size: 16px; color: rgba(138, 128, 116, 0.30);
@@ -1502,7 +1527,7 @@
     .tl-block-seg--main .rain-badge {
       font-size: 18px; top: auto; right: 4px; bottom: 4px; padding: 6px 10px;
     }
-    body.mode-focus .tl-block-seg--main .rain-badge {
+    body.mode-focus #tl .tl-block-seg--main .rain-badge {
       font-size: 24px; padding: 8px 12px;
     }
     body.mode-week .tl-block-seg--main .rain-badge {
@@ -1512,8 +1537,8 @@
     body.mode-week .tl-block--short .tl-block-seg--wx {
       padding-right: 58px;
     }
-    body.mode-focus .tl-block--narrow .tl-block-seg--wx,
-    body.mode-focus .tl-block--short .tl-block-seg--wx {
+    body.mode-focus #tl .tl-block--narrow .tl-block-seg--wx,
+    body.mode-focus #tl .tl-block--short .tl-block-seg--wx {
       padding-right: 92px;
     }
     .tl-block--stacked { padding: 0 !important; background: transparent !important; display: flex; flex-direction: column; }
@@ -1602,9 +1627,9 @@
     /* フットサル併合カード（1枠に複数試合を改行併記）は行数が増えるため専用の
        小さいフォント（2026-09-21、親アプリと同様に1枚のカードへまとめる対応）。 */
     .tl-block-seg-regalia--multi { font-size: 9px; line-height: 1.1; margin-top: 1px; }
-    body.mode-focus .tl-block-seg-regalia--multi { font-size: 12px; line-height: 1.1; }
+    body.mode-focus #tl .tl-block-seg-regalia--multi { font-size: 12px; line-height: 1.1; }
     .tl-block--narrow .tl-block-seg-regalia--multi { font-size: 8px; }
-    body.mode-focus .tl-block--narrow .tl-block-seg-regalia--multi { font-size: 10px; }
+    body.mode-focus #tl .tl-block--narrow .tl-block-seg-regalia--multi { font-size: 10px; }
     .tl-block.nav {
       box-shadow: 0 0 0 2px var(--gold), 0 0 12px rgba(201,176,138,0.35);
       z-index: 8;
@@ -2088,18 +2113,18 @@
     html.phone:not(.phone-scale) .phone-head-row {
       min-height: 36px; padding: 4px 8px;
     }
-    html.phone:not(.phone-scale) body.mode-focus .hours { width: 36px; }
-    html.phone:not(.phone-scale) body.mode-focus .hour-lab { font-size: 13px; right: 2px; }
-    html.phone:not(.phone-scale) body.mode-focus .wx-rails {
+    html.phone:not(.phone-scale) body.mode-focus #tl .hours { width: 36px; }
+    html.phone:not(.phone-scale) body.mode-focus #tl .hour-lab { font-size: 13px; right: 2px; }
+    html.phone:not(.phone-scale) body.mode-focus #tl .wx-rails {
       flex: 0 0 88px; width: 88px;
     }
-    html.phone:not(.phone-scale) body.mode-focus .tl-block { font-size: 15px; }
-    html.phone:not(.phone-scale) body.mode-focus .tl-block-seg { padding: 3px 6px; }
-    html.phone:not(.phone-scale) body.mode-focus .tl-block-seg-time { font-size: 15px; }
-    html.phone:not(.phone-scale) body.mode-focus .tl-block-seg-sub { font-size: 13px; }
-    html.phone:not(.phone-scale) body.mode-focus .dow { font-size: 14px; }
-    html.phone:not(.phone-scale) body.mode-focus .dom { font-size: 22px; }
-    html.phone:not(.phone-scale) body.mode-focus .day-head { flex: 0 0 48px; }
+    html.phone:not(.phone-scale) body.mode-focus #tl .tl-block { font-size: 15px; }
+    html.phone:not(.phone-scale) body.mode-focus #tl .tl-block-seg { padding: 3px 6px; }
+    html.phone:not(.phone-scale) body.mode-focus #tl .tl-block-seg-time { font-size: 15px; }
+    html.phone:not(.phone-scale) body.mode-focus #tl .tl-block-seg-sub { font-size: 13px; }
+    html.phone:not(.phone-scale) body.mode-focus #tl .dow { font-size: 14px; }
+    html.phone:not(.phone-scale) body.mode-focus #tl .dom { font-size: 22px; }
+    html.phone:not(.phone-scale) body.mode-focus #tl .day-head { flex: 0 0 48px; }
     html.phone:not(.phone-scale) #wx-board { padding: 6px 8px 8px; }
     html.phone:not(.phone-scale) .wxg-head { font-size: 15px; flex: 0 0 24px; letter-spacing: 0.08em; }
     html.phone:not(.phone-scale) .wxg-legend { font-size: 11px; gap: 4px; }
@@ -2214,6 +2239,7 @@
     </div>
   </header>
   <div id="tl-wrap">
+    <aside id="today-strip" hidden></aside>
     <div id="mid">
       <section id="tl"></section>
       <section id="brief-board" hidden></section>
@@ -2246,6 +2272,6 @@
   <div id="toast" hidden></div>
   <aside id="ev-detail" hidden></aside>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script src="ht/bridge.js?v=0.3.148-bb2f5b22"></script>
+  <script src="ht/bridge.js?v=0.3.149-bb2f5b22"></script>
 </body>
 </html>

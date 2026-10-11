@@ -1971,6 +1971,119 @@
     clampTlFocus();
   }
 
+  // 常時表示の今日タイムライン帯（TV/PCのみ。週TLの今日列と同寸・表示専用。2026-10-11）。
+  // 時間窓(tlHour0/1)・eventsByColはメインTLと共有のグローバルなので、描画中だけ差し替えて必ず戻す。
+  var stripStamp = "";
+  function stripAvailable() { return !isRemote() && !isPhone(); }
+  function stripSource() {
+    var t = todayStr();
+    var cands = [cacheFocus, cacheWeekTl, cacheWeek, lastData];
+    var i;
+    for (i = 0; i < cands.length; i++) {
+      var c = cands[i];
+      if (c && (c.days || []).indexOf(t) >= 0) return c;
+    }
+    return null;
+  }
+  function renderTodayStrip(force) {
+    var el = $("today-strip");
+    if (!el) return;
+    if (!stripAvailable()) { el.hidden = true; return; }
+    var data = stripSource();
+    if (!data) return;
+    var n = new Date();
+    var stamp = todayStr() + " " + n.getHours() + ":" + n.getMinutes() + " " + (data.events || []).length + " " + (data.fetched_at || data.version || "") + " " + showAllWeek;
+    if (!force && stamp === stripStamp && !el.hidden) return;
+    var saved = { h0: tlHour0, h1: tlHour1, ebc: eventsByCol, vm: viewMode };
+    try {
+      var today = todayStr();
+      var d = parseLocalDate(today);
+      var events = activeEvents(data.events).filter(function (ev) {
+        return showAllWeek || includesU13(ev.category_code);
+      });
+      setHourWindow(events, [today], today);
+      var hol = {};
+      (data.holiday_isos || []).forEach(function (x) { hol[x] = 1; });
+      var cls = "day is-today";
+      if (hol[today]) cls += " is-hol";
+      else if (d && d.getDay() === 6) cls += " is-sat";
+      else if (d && d.getDay() === 0) cls += " is-sun";
+      el.hidden = false;
+      el.innerHTML = '<div class="hours"><div class="hours-head"></div><div class="hours-plot ts-plot"></div></div>' +
+        '<div class="days"><div class="' + cls + '" data-day="' + today + '">' +
+        '<div class="day-head"><div class="dow">' + (d ? WD[d.getDay()] : "") + '</div><div class="dom">' + (d ? d.getDate() + "日" : "") + "</div></div>" +
+        '<div class="day-body"><div class="wx-rails">' +
+        '<div class="wx-rail ts-rail" data-wx-row="0" data-day="' + today + '"></div>' +
+        '<div class="wx-rail ts-rail" data-wx-row="1" data-day="' + today + '"></div></div>' +
+        '<div class="canvas"></div></div></div></div>';
+      var cnv = el.querySelector(".canvas");
+      var ch = cnv.clientHeight || 500;
+      var plot = el.querySelector(".ts-plot");
+      var h;
+      var ph = "";
+      var labStep = (tlHour1 - tlHour0) > 10 ? 2 : 1;
+      for (h = tlHour0; h <= tlHour1; h += labStep) {
+        ph += '<div class="hour-lab" style="top:' + hourTop(h * 60, ch) + 'px">' + h + "</div>";
+      }
+      plot.innerHTML = ph;
+      var grids = "";
+      var hh;
+      for (hh = tlHour0; hh <= tlHour1; hh++) {
+        grids += '<div class="hgrid" style="top:' + hourTop(hh * 60, ch) + 'px"></div>';
+        grids += '<div class="tl-hour-mark" style="top:' + hourTop(hh * 60, ch) + 'px">' + hh + "</div>";
+      }
+      var mins = n.getHours() * 60 + n.getMinutes();
+      if (mins >= tlHour0 * 60 && mins <= tlHour1 * 60) {
+        grids += '<div class="now" style="top:' + hourTop(mins, ch) + 'px"></div>';
+      }
+      var dayEvents = collapseFutsalTimelineCards(
+        events.filter(function (ev) { return dayKey(ev.event_date) === today; })
+      ).map(function (ev) {
+        var rng = displayRange(ev);
+        if (!rng) return null;
+        var ds = Math.max(tlHour0 * 60, rng.start);
+        var de = Math.min(tlHour1 * 60, rng.end);
+        if (de <= ds) return null;
+        ev._range = rng;
+        ev._ds = ds;
+        ev._de = de;
+        return ev;
+      }).filter(Boolean);
+      packLanes(dayEvents);
+      dayEvents.sort(function (a, b) {
+        if (a._ds !== b._ds) return a._ds - b._ds;
+        return (a._lane || 0) - (b._lane || 0);
+      });
+      var blocks = "";
+      dayEvents.forEach(function (ev) {
+        var top = hourTop(ev._ds, ch);
+        var ht = Math.max(28, hourTop(ev._de, ch) - top);
+        ht = Math.min(ht, Math.max(12, ch - top - 8));
+        var w = 100 / ev._lanes;
+        var c = "tl-block tl-block--stacked " + kindClass(ev.event_kind) + " tl-cat-" + categoryTier(ev.category_code);
+        if (isCancelledEv(ev)) c += " is-cancelled";
+        if (ev._lanes > 1) c += " tl-block--narrow";
+        if (ht < 48) c += " tl-block--short";
+        blocks += '<div class="' + c + '" style="top:' + top + "px;height:" + ht +
+          "px;left:calc(" + (ev._lane * w) + "% + 2px);width:calc(" + w + '% - 4px)">' +
+          stackedInner(ev, { ds: ev._ds, de: ev._de }, rainBadgeHtml(ev)) + "</div>";
+      });
+      cnv.innerHTML = grids + blocks;
+      fillRailsIn(el.querySelectorAll(".wx-rail"), { weather: data.weather, today: today }, false);
+      stripStamp = stamp;
+    } catch (e) {
+      appLog({ event: "strip_error", msg: String(e && e.message || e) });
+    } finally {
+      tlHour0 = saved.h0;
+      tlHour1 = saved.h1;
+      eventsByCol = saved.ebc;
+    }
+  }
+  function stripReserve() {
+    var el = $("today-strip");
+    return el && !el.hidden ? el.offsetWidth + 10 : 0;
+  }
+
   function locShort(name) {
     var s = String(name || "");
     if (/新磯/.test(s)) return "新磯野";
@@ -2189,10 +2302,12 @@
 
   function fillWxRails(data) {
     if (viewMode !== "focus" && viewMode !== "week") return;
+    fillRailsIn(document.querySelectorAll("#tl .wx-rail"), data, true);
+  }
+  function fillRailsIn(rails, data, clickable) {
     var locs = (data.weather && data.weather.locations) || [];
     var today = data.today || todayStr();
     var nowH = new Date().getHours();
-    var rails = document.querySelectorAll(".wx-rail");
     var i;
     for (i = 0; i < rails.length; i++) {
       (function (rail) {
@@ -2226,6 +2341,7 @@
           html += '<div class="' + cls + '" style="top:' + top + "px;height:" + ht + 'px">' + inner + "</div>";
         }
         rail.innerHTML = html;
+        if (!clickable) return;
         rail.onclick = function () {
           noteInput(true);
           wxCol = parseInt(this.getAttribute("data-col"), 10) || 0;
@@ -2651,6 +2767,8 @@
     syncCursor();
     $("status").textContent = vis.length + " / " + (data.count || 0) + " 件 · " + (data.version || "");
     if (phoneWantSpeak && !kioskOn) enterKiosk();
+    renderTodayStrip(true);
+    requestAnimationFrame(function () { renderTodayStrip(true); });
   }
 
   window.DashDone = function (id, err, payload) {
@@ -4840,7 +4958,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.148" });
+    appLog({ event: "kiosk_on", v: "0.3.149" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;
@@ -5949,6 +6067,7 @@
     var h = n.getHours();
     $("night").hidden = !(h >= 23 || h < 6);
     rebuildPageLists();
+    renderTodayStrip(false);
     if (pageKey === "nextWeekHead" && !nextWeekHeadAvailable()) selectPage("weekHead");
     else if (pageKey === "tomo" && !afterSixPm()) selectPage("brief");
     else syncFilterUi();
