@@ -904,7 +904,7 @@
     return matrix.map(function (r, i) {
       var name = (teams && teams[i] && teams[i].club) || r.club;
       var abbr = esc(standingsAbbrevTeamName(name));
-      return '<th class="stg-mx-h">' + (r.icon ? '<img src="' + esc(r.icon) + '" alt="">' : "") +
+      return '<th class="stg-mx-h">' + (r.icon ? stgIconImg(r.icon, "") : "") +
         '<div class="stg-mx-h-txt">' + abbr + "</div></th>";
     }).join("");
   }
@@ -931,7 +931,7 @@
       // 星取り表の行は勝点表と同じ順位順（配列インデックス=順位-1）で並ぶことを
       // スクレイパー側で保証済み（IMPLEMENTATION.md参照）、そのままインデックスで対応付ける。
       var mxRow = matrix && matrix[i];
-      var iconHtml = mxRow && mxRow.icon ? '<img class="stg-club-icon" src="' + esc(mxRow.icon) + '" alt="">' : "";
+      var iconHtml = mxRow && mxRow.icon ? stgIconImg(mxRow.icon, "stg-club-icon") : "";
       var mxCellsHtml = mxRow ? (mxRow.cells || []).map(function (v, j) {
         return standingsMatrixCellHtml(v, !!changedSet[i + ":" + j]);
       }).join("") : "";
@@ -1391,6 +1391,21 @@
       '<div class="wh-sec tk-table"><div class="wh-h">時間割 ' + esc(takumiMd(mon) + "〜" + takumiMd(fri)) + stale + "</div>" + takumiTableHtml(mon) + "</div>" +
       '<div class="wh-sec wh-wx"><div class="wh-h">今週の週間天気予報</div>' + whWxDaysHtml(wx) + "</div>" +
       "</div>";
+  }
+  // 順位表のチームアイコンは web/icons/ に同梱（scripts/fetch_standings_icons.py）。
+  // 2026-10-09 に配信元の証明書が新ルート(Sectigo R46)へ変わり、TV(Android 9)のWebViewが
+  // ERR_CERT_AUTHORITY_INVALID で外部画像を読めなくなったため。同梱が無い/LIFFは元URLへ。
+  function stgIconKey(url) {
+    var h = 5381;
+    var i;
+    for (i = 0; i < url.length; i++) h = ((h * 33) + url.charCodeAt(i)) >>> 0;
+    return h.toString(16);
+  }
+  function stgIconImg(url, cls) {
+    var c = cls ? ' class="' + cls + '"' : "";
+    if (isRemote()) return "<img" + c + ' src="' + esc(url) + '" alt="">';
+    return "<img" + c + ' src="icons/' + stgIconKey(url) + '.png" data-o="' + esc(url) +
+      '" onerror="this.onerror=null;this.src=this.dataset.o" alt="">';
   }
   // 読み上げはREGALIAの順位のみ（他チームの成績は読まない、ユーザー確認済み）。
   // U15L/U13Lの「L」はリーグと読む（ユーザー確認済み）。残り試合数も読む。
@@ -5040,7 +5055,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.151" });
+    appLog({ event: "kiosk_on", v: "0.3.152" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;
