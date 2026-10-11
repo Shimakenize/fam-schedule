@@ -2404,7 +2404,7 @@
     }
   }
 
-  function wxgHiLoHtml(loc, iso, hourlySlots) {
+  function wxgHiLoHtml(loc, iso, hourlySlots, asText) {
     var byDate = {};
     ((loc && loc.days) || []).forEach(function (d) {
       if (d && d.date) byDate[dayKey(d.date)] = d;
@@ -2424,6 +2424,10 @@
       }
     }
     if (isNaN(hi) && isNaN(lo)) return "";
+    if (asText) {
+      return '<span class="wxg-day-t">' + (!isNaN(hi) ? "最高" + hi + "°" : "") +
+        (!isNaN(lo) ? " 最低" + lo + "°" : "") + "</span>";
+    }
     return '<div class="wxg-tt">' +
       (!isNaN(hi) ? '<span class="wxg-hi">' + hi + "°</span>" : "") +
       (!isNaN(lo) ? '<span class="wxg-lo">' + lo + "°</span>" : "") +
@@ -2457,7 +2461,7 @@
         var byH = {};
         var hourlyList = binHourly(locHourly(loc, iso), 1);
         hourlyList.forEach(function (s) { byH[s.h] = s; });
-        var hiLo = wxgHiLoHtml(loc, iso, hourlyList);
+        var dayT = wxgHiLoHtml(loc, iso, hourlyList, true);
         var hours = "";
         var h;
         for (h = WX_H0; h <= WX_H1; h++) {
@@ -2476,10 +2480,10 @@
           var showRain = rv.kind !== "none";
           hours += '<div class="' + cls + '"><div class="wxg-hh">' + h + "</div>" +
             '<div class="wxg-meta">' + wxIcoHtml(rv.ico, 0) +
-            hiLo + "</div>" +
+            '<div class="wxg-tt"><span class="wxg-hi">' + s.temp + "°</span></div></div>" +
             '<div class="wxg-mm">' + (showRain ? mm.toFixed(1) : "") + "</div></div>";
         }
-        return '<div class="wxg-loc"><div class="wxg-loc-name">' + esc(locShort(loc.name)) +
+        return '<div class="wxg-loc"><div class="wxg-loc-name">' + esc(locShort(loc.name)) + dayT +
           '</div><div class="wxg-hours">' + hours + "</div></div>";
       }).join("");
       return '<div class="wxg-day' + (iso === today ? " is-today" : "") + '"><div class="wxg-day-head">' +
@@ -5036,7 +5040,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.150" });
+    appLog({ event: "kiosk_on", v: "0.3.151" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;
