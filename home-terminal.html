@@ -25,6 +25,20 @@
       --tl-ink: #1b1916;
       --rail: 72px;
     }
+    /* 配色テーマ（2026-10-11）: 昼(6:00-21:59)=案A「和紙と藍」、夜(22:00-5:59)=案B「深緑と琥珀」。
+       昼は暗色UIを輝度反転(invert+hue-rotate 180)して生成り地・藍アクセントにする。
+       もともと明るい領域（タイムライン帯）と画像・天気アイコンは二重反転で元の色に戻す。 */
+    html.theme-day body { filter: invert(1) hue-rotate(180deg); }
+    html.theme-day.pc { background: #f5f2ed; }
+    html.theme-day #tl, html.theme-day #today-strip,
+    html.theme-day img, html.theme-day .wx-ico, html.theme-day .stg-dot {
+      filter: invert(1) hue-rotate(180deg);
+    }
+    html.theme-day #tl *, html.theme-day #today-strip * { filter: none; }
+    html.theme-night {
+      --bg: #0e1914; --panel: #152620; --line: #25392f;
+      --text: #e4ebe2; --muted: #8a9a90; --gold: #d9a55b; --gold-2: #f0c987;
+    }
     * { box-sizing: border-box; }
     html, body {
       margin: 0; width: 1920px; height: 1080px; overflow: hidden;
@@ -2273,6 +2287,6 @@
   <div id="toast" hidden></div>
   <aside id="ev-detail" hidden></aside>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script src="ht/bridge.js?v=0.3.152-bb2f5b22"></script>
+  <script src="ht/bridge.js?v=0.3.153-bb2f5b22"></script>
 </body>
 </html>

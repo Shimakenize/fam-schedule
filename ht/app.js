@@ -5055,7 +5055,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.152" });
+    appLog({ event: "kiosk_on", v: "0.3.153" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;
@@ -6146,6 +6146,15 @@
     $("wk-next").addEventListener("click", function () { noteInput(true); window.DashWeekColor("next"); });
   }
 
+  // 昼(6:00-21:59)=案A、夜(22:00-5:59)=案B。TV/PC/iPhone/LIFF共通。
+  function applyTheme(h) {
+    var night = h >= 22 || h < 6;
+    var root = document.documentElement;
+    var want = night ? "theme-night" : "theme-day";
+    if (root.classList.contains(want)) return;
+    root.classList.remove("theme-day", "theme-night");
+    root.classList.add(want);
+  }
   function tickClock() {
     var n = new Date();
     $("clock").textContent = pad(n.getHours()) + ":" + pad(n.getMinutes());
@@ -6165,6 +6174,7 @@
     if (prevDay && !currentWeekCacheOk(cacheWeek)) prefetchWeek();
     var h = n.getHours();
     $("night").hidden = !(h >= 23 || h < 6);
+    applyTheme(h);
     rebuildPageLists();
     renderTodayStrip(false);
     if (pageKey === "nextWeekHead" && !nextWeekHeadAvailable()) selectPage("weekHead");
