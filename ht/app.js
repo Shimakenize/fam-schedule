@@ -286,7 +286,7 @@
   function headlineParent(k) {
     var p = parentPage(k);
     return p === "brief" || p === "tomo" || p === "weekHead" || p === "nextWeekHead" || p === "study" || p === "studyTodo" ||
-      p === "standings";
+      p === "standings" || p === "takumi";
   }
   function phoneSlicesFor(parent) {
     if (!isPhone()) return [parent];
@@ -1326,6 +1326,54 @@
       h += cell(CLEAN_ROW, c, "tk-m" + (d.cleaning !== "○" ? " warn" : "") + st, "", ct);
     });
     return h + "</div>";
+  }
+  // Takumiページの読み上げ（2026-10-11）: ①今日の時間割 ②今週（今日以降〜日曜）の行事のサマリ。
+  var TAKUMI_WD_WORD = ["日曜日", "月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日"];
+  function takumiSpeakDay(iso) {
+    return Number(iso.slice(8)) + "日" + TAKUMI_WD_WORD[parseLocalDate(iso).getDay()];
+  }
+  function takumiSpeakClean(t) {
+    return String(t || "").replace(/[①-⑥]/g, function (c) { return (c.charCodeAt(0) - 0x245f) + "校時"; })
+      .replace(/[：:]/g, "、");
+  }
+  function takumiSpeakText() {
+    if (!takumiData) return "";
+    var today = todayStr();
+    var d = takumiDay(today);
+    var out = "";
+    if (!d || d.holiday || takumiIsOff(today)) {
+      out += "今日は学校はお休みです。";
+    } else {
+      var ps = takumiPeriods(today);
+      var names = [];
+      var i;
+      for (i = 0; i < 6; i++) {
+        var pp = ps[i];
+        if (pp) names.push((i + 1) + "時間目は" + (pp.name === "授業なし" ? "授業なし" : pp.name));
+      }
+      out += "今日の時間割です。" + (names.length ? names.join("、") + "です。" : "登録がありません。");
+      var lunch = { "○": "給食です。", "△": "お弁当です。" }[d.lunch];
+      if (lunch) out += "お昼は" + lunch;
+      var clean = { "○": "掃除はあります。", "×": "掃除はありません。", "△": "掃除は簡単にです。" }[d.cleaning];
+      if (clean) out += clean;
+    }
+    var dow = parseLocalDate(today).getDay();
+    // 土日は表示が来週に切り替わるので、行事も来週分（月〜日）を読む
+    var weekend = dow === 0 || dow === 6;
+    var word = weekend ? "来週" : "今週";
+    var iso = weekend ? takumiWeekMonday() : today;
+    var end = weekend ? addDaysIso(iso, 6) : addDaysIso(today, 7 - dow);
+    var evs = [];
+    var guard = 0;
+    while (iso <= end && guard++ < 8) {
+      var dd = takumiDay(iso);
+      var list = ((dd && dd.events) || []).filter(function (t) { return !takumiOtherGrade(t); });
+      if (list.length) evs.push(takumiSpeakDay(iso) + "、" + list.map(takumiSpeakClean).join("、"));
+      iso = addDaysIso(iso, 1);
+    }
+    if (evs.length) out += word + "の行事です。" + evs.join("。") + "。";
+    else out += word + "の行事はありません。";
+    return out;
   }
   function renderTakumi() {
     var el = $("takumi-board");
@@ -2427,7 +2475,7 @@
           var mm = Number(s.rainMm) || 0;
           var showRain = rv.kind !== "none";
           hours += '<div class="' + cls + '"><div class="wxg-hh">' + h + "</div>" +
-            '<div class="wxg-meta">' + wxIcoHtml(rv.ico, 24) +
+            '<div class="wxg-meta">' + wxIcoHtml(rv.ico, 0) +
             hiLo + "</div>" +
             '<div class="wxg-mm">' + (showRain ? mm.toFixed(1) : "") + "</div></div>";
         }
@@ -3646,7 +3694,37 @@
     }
     return null;
   }
+  // GASが今日の前日比(dtmax/dtmin)を返さないことがあるため、端末に日ごとの最高/最低を覚えて
+  // 前日の記録があれば差を補う（2026-10-11。記録が無い初日は空欄）。
+  function wxHistKey(which, iso) { return "ht_wxh_" + which + "_" + iso; }
+  function wxHistSave(which, iso, p) {
+    try {
+      if (p && p.tmax != null && p.tmin != null) {
+        localStorage.setItem(wxHistKey(which, iso), JSON.stringify({ tmax: p.tmax, tmin: p.tmin }));
+      }
+    } catch (e) { /* storage unavailable */ }
+  }
+  function wxHistGet(which, iso) {
+    try {
+      var v = localStorage.getItem(wxHistKey(which, iso));
+      return v ? JSON.parse(v) : null;
+    } catch (e) { return null; }
+  }
+  function withHistDelta(which, iso, p) {
+    if (!p) return p;
+    wxHistSave(which, iso, p);
+    if (p.dtmax != null && p.dtmin != null) return p;
+    var y = wxHistGet(which, addDaysIso(iso, -1));
+    if (!y) return p;
+    var q = { tmax: p.tmax, tmin: p.tmin, dtmax: p.dtmax, dtmin: p.dtmin };
+    if (q.dtmax == null && p.tmax != null) q.dtmax = p.tmax - y.tmax;
+    if (q.dtmin == null && p.tmin != null) q.dtmin = p.tmin - y.tmin;
+    return q;
+  }
   function locTempPack(which, iso) {
+    return withHistDelta(which, iso || todayStr(), locTempPack0(which, iso));
+  }
+  function locTempPack0(which, iso) {
     iso = iso || todayStr();
     var b = homeBriefing || (lastData && lastData.briefing) || {};
     if (iso === todayStr() && b.temp && b.temp[which]) return b.temp[which];
@@ -4112,7 +4190,7 @@
     return '<div class="brief-wx-loc">' +
       '<div class="brief-wx-loc-head">' +
         '<div class="brief-wx-loc-name">' + esc(name) + "</div>" +
-        wxIcoHtml(rv.ico, 44) +
+        wxIcoHtml(rv.ico, 0) +
         '<div class="brief-wx-loc-t">' + temps + "</div>" +
       "</div>" +
       hourGraphRowHtml(loc, iso) +
@@ -4958,7 +5036,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.149" });
+    appLog({ event: "kiosk_on", v: "0.3.150" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;
@@ -5248,6 +5326,7 @@
     else if (isWeekHeadPage(parent)) text = weekHeadSpeakText(parent);
     else if (parent === "study" || parent === "studyTodo") text = studySpeakText();
     else if (parent === "standings") text = standingsSpeakText();
+    else if (parent === "takumi") text = takumiSpeakText();
     if (forKiosk && headlineParent(parent)) {
       if (phoneSpeakRun !== parent && !shouldSpeakHeadlineKiosk(parent)) {
         appLog({ event: "speak_skip", page: key, reason: "hourly" });
@@ -5292,7 +5371,7 @@
   function shouldSpeakHeadlineKiosk(page) {
     page = parentPage(page);
     if (page === "tomo" && !afterSixPm()) return false;
-    if (inMorningKioskSpeak() && (page === "brief" || isWeekHeadPage(page) || page === "study" || page === "studyTodo")) return true;
+    if (inMorningKioskSpeak() && (page === "brief" || isWeekHeadPage(page) || page === "study" || page === "studyTodo" || page === "takumi")) return true;
     var last = readHeadlineSpokenAt(page);
     if (!last) return true;
     return (Date.now() - last) >= BRIEF_SPEAK_MS;
@@ -5695,6 +5774,7 @@
     selectPage(mode);
   }
 
+  window.DashTakumiSpeakText = function () { return takumiSpeakText(); };
   window.DashWeekColor = function (which) {
     if (consumeKioskKey()) return;
     noteInput(true);
