@@ -220,10 +220,12 @@
     #tl[hidden] { display: none !important; }
 
     /* 常時表示の今日タイムライン帯（TV/PCのみ。週TLの今日列と同寸・同見た目。2026-10-11） */
+    /* 固定枠は他のTLと見分けがつくよう、藍の太枠＋冷たい色味の地＋藍の見出し帯で「固定」を演出（2026-10-13） */
     #today-strip {
-      flex: 0 0 328px; width: 328px; margin-right: 10px; min-height: 0;
-      background: var(--tl-bg); color: var(--tl-ink);
-      border: 1px solid rgba(201,176,138,0.18); border-radius: 4px;
+      flex: 0 0 328px; width: 328px; margin-right: 14px; min-height: 0;
+      background: #e9eff6; color: var(--tl-ink);
+      border: 3px solid #23405e; border-radius: 8px;
+      outline: 2px solid rgba(35,64,94,0.22); outline-offset: 3px;
       display: flex; flex-direction: column; overflow: hidden; position: relative;
       box-shadow: 0 18px 40px rgba(0,0,0,0.28);
     }
@@ -231,14 +233,20 @@
     #today-strip .ts-dep {
       flex: 0 0 10%; min-height: 0; display: flex; flex-direction: column; align-items: center;
       justify-content: center; gap: 2px; padding: 2px 8px; text-align: center;
-      background: var(--tl-alt); border-bottom: 1px solid var(--tl-line);
+      background: #23405e; border-bottom: 3px solid #d9a55b;
     }
     #today-strip .ts-dep-sub {
-      font-size: 12px; color: #6b655a; max-width: 100%; white-space: nowrap;
+      font-size: 12px; color: #cdd9e6; max-width: 100%; white-space: nowrap;
       overflow: hidden; text-overflow: ellipsis;
     }
-    #today-strip .ts-dep-big { font-size: 40px; font-weight: 700; line-height: 1; color: #23405e; font-variant-numeric: tabular-nums; }
-    #today-strip .ts-dep-none { font-size: 20px; color: #9a978b; }
+    #today-strip .ts-dep-big { font-size: 40px; font-weight: 700; line-height: 1; color: #ffffff; font-variant-numeric: tabular-nums; }
+    #today-strip .ts-dep-none { font-size: 20px; color: #cdd9e6; }
+    #today-strip .hours { background: #dbe5f0; border-right-color: #b7c6d8; }
+    #today-strip .day, #today-strip .day .canvas { background: #eef3f9 !important; }
+    html.theme-night #today-strip { border-color: #d9a55b; outline-color: rgba(217,165,91,0.3); }
+    html.theme-night #today-strip .ts-dep { background: #d9a55b; border-bottom-color: #23405e; }
+    html.theme-night #today-strip .ts-dep-sub, html.theme-night #today-strip .ts-dep-none { color: #3a2c12; }
+    html.theme-night #today-strip .ts-dep-big { color: #14201a; }
     #today-strip[hidden] { display: none !important; }
     #today-strip .days { grid-template-columns: minmax(0, 1fr); }
     #today-strip .wx-rails { display: flex; flex: 0 0 96px; width: 96px; border-right: 1px solid var(--tl-line); }
@@ -661,6 +669,15 @@
     .stg-table .stg-mx-cell.stg-mx-w { background: rgba(67,184,115,0.24); color: #a8f0c0; }
     .stg-table .stg-mx-cell.stg-mx-l { background: rgba(224,85,95,0.24); color: #f5b8bd; }
     .stg-table .stg-mx-cell.stg-mx-d { background: rgba(210,166,73,0.24); color: #f3dba0; }
+    /* 週末（土日・祝）に更新があった試合: 枠を囲んで点滅（2026-10-13） */
+    .stg-table .stg-mx-cell.stg-mx-wk {
+      box-shadow: inset 0 0 0 3px #ff3b5c; position: relative;
+      animation: stgWkBlink 1.1s ease-in-out infinite;
+    }
+    @keyframes stgWkBlink {
+      0%, 100% { box-shadow: inset 0 0 0 3px #ff3b5c; }
+      50% { box-shadow: inset 0 0 0 3px rgba(255,59,92,0.1); }
+    }
     .stg-table .stg-mx-cell.stg-mx-changed {
       box-shadow: inset 0 0 0 2px #f59e0b; position: relative;
     }
@@ -2304,6 +2321,6 @@
   <div id="toast" hidden></div>
   <aside id="ev-detail" hidden></aside>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script src="ht/bridge.js?v=0.3.155-bb2f5b22"></script>
+  <script src="ht/bridge.js?v=0.3.156-bb2f5b22"></script>
 </body>
 </html>

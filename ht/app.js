@@ -833,8 +833,8 @@
   // null/undefined=自分自身、""=未対戦、"W1-0"/"L0-1"/"D0-0"=対戦済み（先頭が結果、
   // 続けてrow側チームの得点-column側チームの得点）。REGALIA_ChkMatchScheduleの
   // api/standingsから取得（IMPLEMENTATION.md参照）。
-  function standingsMatrixCellHtml(v, changed) {
-    var chCls = changed ? " stg-mx-changed" : "";
+  function standingsMatrixCellHtml(v, changed, weekend) {
+    var chCls = (changed ? " stg-mx-changed" : "") + (weekend ? " stg-mx-wk" : "");
     if (v === null || v === undefined) return '<td class="stg-mx-cell stg-mx-self' + chCls + '"></td>';
     if (v === "") return '<td class="stg-mx-cell' + chCls + '"></td>';
     var m = /^([WLD])(.*)$/.exec(v);
@@ -908,10 +908,56 @@
         '<div class="stg-mx-h-txt">' + abbr + "</div></th>";
     }).join("");
   }
+  // 週末（土日・祝）に更新があった試合の星取り表セル（2026-10-13）。公式HP結果エリアの
+  // 試合一覧（cat.matches: dt/home/away）のうち、直近の連続した休日ブロックに当たる試合を、
+  // 行=ホーム・列=アウェイのセルとして点滅させる。ブロック終了から5日（金曜まで）表示。
+  function weekendBlockRange() {
+    var hol = holidaySet();
+    function isOff(iso) {
+      var d = parseLocalDate(iso);
+      if (!d) return false;
+      return d.getDay() === 0 || d.getDay() === 6 || !!hol[iso];
+    }
+    var today = todayStr();
+    var end = today;
+    var n = 0;
+    while (!isOff(end) && n < 8) { end = addDaysIso(end, -1); n += 1; }
+    if (!isOff(end)) return null;
+    var start = end;
+    n = 0;
+    while (isOff(addDaysIso(start, -1)) && n < 8) { start = addDaysIso(start, -1); n += 1; }
+    var age = (parseLocalDate(today) - parseLocalDate(end)) / 86400000;
+    if (age > 5) return null;
+    return { start: start, end: end };
+  }
+  function standingsWeekendCells(cat) {
+    var out = {};
+    var ms = cat.matches || [];
+    var matrix = cat.matrix || null;
+    var teams = cat.teams || [];
+    if (!ms.length || !matrix || !teams.length) return out;
+    var win = weekendBlockRange();
+    if (!win) return out;
+    function norm(s) { return String(s || "").replace(/\s+/g, ""); }
+    var idxOf = {};
+    teams.forEach(function (t, i) { idxOf[norm(t.club)] = i; });
+    ms.forEach(function (m) {
+      var iso = String(m.dt || "").slice(0, 10);
+      if (iso < win.start || iso > win.end) return;
+      var i = idxOf[norm(m.home)];
+      var j = idxOf[norm(m.away)];
+      if (i === undefined || j === undefined) return;
+      var row = matrix[i];
+      if (!row || !row.cells || !row.cells[j]) return;
+      out[i + ":" + j] = true;
+    });
+    return out;
+  }
   function standingsRowsHtml(cat, changedCells) {
     var matrix = cat.matrix || null;
     var changedSet = {};
     (changedCells || []).forEach(function (k) { changedSet[k] = true; });
+    var wkSet = standingsWeekendCells(cat);
     var footnoteOrder = [];
     var footnoteIdx = {};
     (cat.teams || []).forEach(function (t) {
@@ -933,7 +979,7 @@
       var mxRow = matrix && matrix[i];
       var iconHtml = mxRow && mxRow.icon ? stgIconImg(mxRow.icon, "stg-club-icon") : "";
       var mxCellsHtml = mxRow ? (mxRow.cells || []).map(function (v, j) {
-        return standingsMatrixCellHtml(v, !!changedSet[i + ":" + j]);
+        return standingsMatrixCellHtml(v, !!changedSet[i + ":" + j], !!wkSet[i + ":" + j]);
       }).join("") : "";
       return '<tr class="' + (isRegalia ? "is-regalia" : "") + '">' +
         '<td class="stg-c-rank">' + t.rank + "</td>" +
@@ -1096,7 +1142,8 @@
       note: "",
       simulation: null,
       regaliaUpcoming: [],
-      matrix: extra.matrix || null
+      matrix: extra.matrix || null,
+      matches: (parentCat && parentCat.extraMatches) || []
     }, storeKey);
   }
   // 左列: U15L2部REGALIA所属グループ（上）／その参考グループ（下）。
@@ -3882,6 +3929,15 @@
   function briefDayIso() {
     return pageKey === "tomo" ? addDaysIso(todayStr(), 1) : todayStr();
   }
+  // GKトレーニングはHL（今日/明日/今週/来週）に出さない（本人がGKではないため。2026-10-13）。
+  // カテゴリは ALL のことがあるのでタイトルでも判定する。
+  function isGkTrainingEv(ev) {
+    if (!ev) return false;
+    var t = String(ev.title || "");
+    if (/GK|ゴールキーパー|キーパー/i.test(t)) return true;
+    var f = categoryFlags(ev.category || ev.category_code || "");
+    return f.hasGk && !f.hasU13;
+  }
   function briefDayEvents(iso) {
     var b = homeBriefing || (lastData && lastData.briefing) || {};
     iso = iso || briefDayIso();
@@ -3894,7 +3950,7 @@
         return eventIso(e) === iso;
       }).map(asHeadLine);
     }
-    return sortHeadRows(rows.filter(function (ev) { return !isU14U15Only(ev); }));
+    return sortHeadRows(rows.filter(function (ev) { return !isU14U15Only(ev) && !isGkTrainingEv(ev); }));
   }
   function deltaHtml(n) {
     if (n == null || n === "" || isNaN(Number(n))) return "";
@@ -4404,7 +4460,7 @@
     var end = {};
     weekendMatchDays(parent).forEach(function (iso) { end[iso] = 1; });
     h.u13Activity = (h.u13Activity || []).filter(function (e) {
-      return !end[eventIso(e)];
+      return !end[eventIso(e)] && !isGkTrainingEv(e);
     });
     var extra = (h.u13Match || []).filter(function (e) {
       return !end[eventIso(e)] && !isMarinosEv(e);
@@ -5147,7 +5203,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.155" });
+    appLog({ event: "kiosk_on", v: "0.3.156" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;
