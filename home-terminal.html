@@ -678,6 +678,24 @@
       0%, 100% { box-shadow: inset 0 0 0 3px #ff3b5c; }
       50% { box-shadow: inset 0 0 0 3px rgba(255,59,92,0.1); }
     }
+    /* 2回戦総当たり（U15L）: 上段=ホーム戦・下段=アウェイ戦の2枠固定（2026-10-19）。
+       週末点滅・更新枠はその枠だけに付ける。 */
+    .stg-table .stg-mx-cell.stg-mx-multi { padding: 0 1px; line-height: 1.12; }
+    .stg-table .stg-mx-leg { display: block; border-radius: 2px; }
+    .stg-table .stg-mx-leg + .stg-mx-leg { margin-top: 0; }
+    .stg-table .stg-mx-leg.stg-mx-leg-empty { background: rgba(255,255,255,0.04); }
+    .stg-table .stg-mx-leg.stg-mx-w { background: rgba(67,184,115,0.24); color: #a8f0c0; }
+    .stg-table .stg-mx-leg.stg-mx-l { background: rgba(224,85,95,0.24); color: #f5b8bd; }
+    .stg-table .stg-mx-leg.stg-mx-d { background: rgba(210,166,73,0.24); color: #f3dba0; }
+    .stg-table .stg-mx-leg.stg-mx-wk {
+      box-shadow: inset 0 0 0 2px #ff3b5c; position: relative;
+      animation: stgWkLegBlink 1.1s ease-in-out infinite;
+    }
+    @keyframes stgWkLegBlink {
+      0%, 100% { box-shadow: inset 0 0 0 2px #ff3b5c; }
+      50% { box-shadow: inset 0 0 0 2px rgba(255,59,92,0.1); }
+    }
+    .stg-table .stg-mx-leg.stg-mx-changed { box-shadow: inset 0 0 0 2px #f59e0b; }
     .stg-table .stg-mx-cell.stg-mx-changed {
       box-shadow: inset 0 0 0 2px #f59e0b; position: relative;
     }
@@ -2328,6 +2346,6 @@
   <div id="toast" hidden></div>
   <aside id="ev-detail" hidden></aside>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script src="ht/bridge.js?v=0.3.158-bb2f5b22"></script>
+  <script src="ht/bridge.js?v=0.3.159-bb2f5b22"></script>
 </body>
 </html>

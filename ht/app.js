@@ -833,14 +833,46 @@
   // null/undefined=自分自身、""=未対戦、"W1-0"/"L0-1"/"D0-0"=対戦済み（先頭が結果、
   // 続けてrow側チームの得点-column側チームの得点）。REGALIA_ChkMatchScheduleの
   // api/standingsから取得（IMPLEMENTATION.md参照）。
-  function standingsMatrixCellHtml(v, changed, weekend) {
+  // 2回戦総当たり（U15L）の1マスは公式HPと同じく上段=行チームのホーム戦・下段=アウェイ戦の
+  // 2枠固定で表示し、未消化の枠は空けたまま残す（2026-10-19。APIのcellsが配列[上,下]になった
+  // ため。配列を文字列として扱い崩れていた）。changed/weekend は true（マス全体）か
+  // 枠番号の配列（2回戦総当たりの該当枠だけ）。
+  function standingsLegCls(s) {
+    var m = /^([WLD])/.exec(s || "");
+    return !m ? "" : m[1] === "W" ? "stg-mx-w" : m[1] === "L" ? "stg-mx-l" : "stg-mx-d";
+  }
+  function standingsMatrixCellHtml(v, changed, weekend, double) {
+    if (v === null || v === undefined) return '<td class="stg-mx-cell stg-mx-self"></td>';
+    if (double) {
+      var legs = Array.isArray(v) ? v.slice(0, 2) : [v];
+      while (legs.length < 2) legs.push("");
+      var inner = legs.map(function (s, k) {
+        var m = /^([WLD])(.*)$/.exec(s || "");
+        var cls = "stg-mx-leg" + (m ? " " + standingsLegCls(s) : " stg-mx-leg-empty") +
+          (changed && changed.indexOf(k) >= 0 ? " stg-mx-changed" : "") +
+          (weekend && weekend.indexOf(k) >= 0 ? " stg-mx-wk" : "");
+        return '<span class="' + cls + '">' + (m ? esc(m[2]) : "&nbsp;") + "</span>";
+      }).join("");
+      return '<td class="stg-mx-cell stg-mx-multi">' + inner + "</td>";
+    }
     var chCls = (changed ? " stg-mx-changed" : "") + (weekend ? " stg-mx-wk" : "");
-    if (v === null || v === undefined) return '<td class="stg-mx-cell stg-mx-self' + chCls + '"></td>';
-    if (v === "") return '<td class="stg-mx-cell' + chCls + '"></td>';
-    var m = /^([WLD])(.*)$/.exec(v);
+    var val = Array.isArray(v) ? (v.filter(function (x) { return x; })[0] || "") : v;
+    var m = /^([WLD])(.*)$/.exec(val || "");
     if (!m) return '<td class="stg-mx-cell' + chCls + '"></td>';
-    var cls = m[1] === "W" ? "stg-mx-w" : m[1] === "L" ? "stg-mx-l" : "stg-mx-d";
-    return '<td class="stg-mx-cell ' + cls + chCls + '">' + esc(m[2]) + "</td>";
+    return '<td class="stg-mx-cell ' + standingsLegCls(val) + chCls + '">' + esc(m[2]) + "</td>";
+  }
+  // 2回戦総当たりか（APIのdoubleRoundRobin。無ければ2件入ったマスの有無で判定）
+  function standingsIsDouble(cat) {
+    if (typeof cat.doubleRoundRobin === "boolean") return cat.doubleRoundRobin;
+    return (cat.matrix || []).some(function (r) {
+      return (r.cells || []).some(function (c) { return Array.isArray(c) && c.length >= 2; });
+    });
+  }
+  // セル値を枠の配列にそろえる（旧形式の文字列は上段のみとみなす）
+  function standingsLegsOf(v) {
+    var legs = Array.isArray(v) ? v.slice(0, 2) : (v ? [v] : []);
+    while (legs.length < 2) legs.push("");
+    return legs;
   }
   // 星取り表の列ヘッダー用チーム名省略（2026-09-20、ユーザーレビュー・修正済み）。
   // 機械的な「組織種別語を除去して先頭2文字」だけだと同一枠内で衝突するケース
@@ -941,6 +973,7 @@
     var matrix = cat.matrix || null;
     var teams = cat.teams || [];
     if (!ms.length || !matrix || !teams.length) return out;
+    var double = standingsIsDouble(cat);
     var win = weekendBlockRange();
     if (!win) return out;
     function norm(s) { return String(s || "").replace(/\s+/g, ""); }
@@ -953,15 +986,31 @@
       var j = idxOf[norm(m.away)];
       if (i === undefined || j === undefined) return;
       var row = matrix[i];
-      if (!row || !row.cells || !row.cells[j]) return;
+      var c = row && row.cells && row.cells[j];
+      if (double) {
+        // ホーム側の行の上段がこの試合（相手側の行では下段に同じ試合が出る）
+        if (Array.isArray(c) && c[0]) out[i + ":" + j] = [0];
+        return;
+      }
+      if (Array.isArray(c) ? !c.some(function (x) { return x; }) : !c) return;
       out[i + ":" + j] = true;
     });
     return out;
   }
   function standingsRowsHtml(cat, changedCells) {
     var matrix = cat.matrix || null;
+    var double = standingsIsDouble(cat);
+    // changedCells は "i:j"（マス全体）か "i:j:k"（2回戦総当たりの枠k）
     var changedSet = {};
-    (changedCells || []).forEach(function (k) { changedSet[k] = true; });
+    (changedCells || []).forEach(function (k) {
+      var p = String(k).split(":");
+      var key = p[0] + ":" + p[1];
+      if (p.length > 2) {
+        if (changedSet[key] !== true) (changedSet[key] = changedSet[key] || []).push(Number(p[2]));
+      } else {
+        changedSet[key] = true;
+      }
+    });
     var wkSet = standingsWeekendCells(cat);
     var footnoteOrder = [];
     var footnoteIdx = {};
@@ -984,7 +1033,9 @@
       var mxRow = matrix && matrix[i];
       var iconHtml = mxRow && mxRow.icon ? stgIconImg(mxRow.icon, "stg-club-icon") : "";
       var mxCellsHtml = mxRow ? (mxRow.cells || []).map(function (v, j) {
-        return standingsMatrixCellHtml(v, !!changedSet[i + ":" + j], !!wkSet[i + ":" + j]);
+        var ch = changedSet[i + ":" + j], wk = wkSet[i + ":" + j];
+        if (double) return standingsMatrixCellHtml(v, ch === true ? [0, 1] : ch, wk === true ? [0, 1] : wk, true);
+        return standingsMatrixCellHtml(v, !!ch, !!wk, false);
       }).join("") : "";
       return '<tr class="' + (isRegalia ? "is-regalia" : "") + '">' +
         '<td class="stg-c-rank">' + t.rank + "</td>" +
@@ -1053,7 +1104,7 @@
   // 結果が入っているマスの大半を更新扱いにしていた）。同一性は
   // 「行の matrix.club × 列の matrix.club」（公式短縮名。列 j の相手は matrix[j]）。
   // 順位だけ入れ替わったセルは差分にしない。新規結果は勝側・敗側が別値なので両方残る。
-  var STANDINGS_DIFF_VER = 2;
+  var STANDINGS_DIFF_VER = 3;
   function standingsMatrixDiffCells(prevMatrix, curMatrix) {
     var out = [];
     if (!prevMatrix || !curMatrix) return out;
@@ -1076,11 +1127,24 @@
         if (!curCol || curCol.club == null) continue;
         var key = curRow.club + "\t" + curCol.club;
         var curVal = curRow.cells[j];
-        if (!Object.prototype.hasOwnProperty.call(prevMap, key)) {
+        if (curVal === null || curVal === undefined) continue;
+        var had = Object.prototype.hasOwnProperty.call(prevMap, key);
+        if (Array.isArray(curVal)) {
+          // 2回戦総当たり: 枠ごとに比べ、変わった枠だけを "i:j:k" で返す（配列は参照比較できない）
+          var curLegs = standingsLegsOf(curVal);
+          var prevLegs = standingsLegsOf(had ? prevMap[key] : "");
+          for (var k = 0; k < 2; k++) {
+            if (curLegs[k] !== prevLegs[k] && (had || curLegs[k])) out.push(i + ":" + j + ":" + k);
+          }
+          continue;
+        }
+        if (!had) {
           if (curVal) out.push(i + ":" + j);
           continue;
         }
-        if (curVal !== prevMap[key]) out.push(i + ":" + j);
+        var prevVal = prevMap[key];
+        if (Array.isArray(prevVal)) prevVal = prevVal.filter(function (x) { return x; })[0] || "";
+        if (curVal !== prevVal) out.push(i + ":" + j);
       }
     }
     return out;
@@ -1148,6 +1212,7 @@
       simulation: null,
       regaliaUpcoming: [],
       matrix: extra.matrix || null,
+      doubleRoundRobin: parentCat ? parentCat.doubleRoundRobin : undefined,
       matches: (parentCat && parentCat.extraMatches) || []
     }, storeKey);
   }
@@ -5208,7 +5273,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.158" });
+    appLog({ event: "kiosk_on", v: "0.3.159" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;
