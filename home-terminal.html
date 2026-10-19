@@ -35,6 +35,12 @@
       filter: invert(1) hue-rotate(180deg);
     }
     html.theme-day #tl *, html.theme-day #today-strip * { filter: none; }
+    /* マリノス戦(紺/白/赤)・日本代表戦(日の丸)はテーマに関係ない「旗の実色」なので、
+       昼テーマの輝度反転の対象外にする（上と同じ二重反転トリック。2026-10-19、
+       ユーザー指摘: 今日/週HLの .brief-chip.k-marinos 等は #tl の外にあり、この除外が
+       漏れていたため白帯が黒っぽく・紺が薄水色に化けて見えていた）。 */
+    html.theme-day .k-marinos, html.theme-day .k-japan { filter: invert(1) hue-rotate(180deg); }
+    html.theme-day .k-marinos *, html.theme-day .k-japan * { filter: none; }
     /* 昼テーマ: 天気レールは暗い紺をやめ、案Aの淡い青に（2026-10-11） */
     html.theme-day .wx-rail { background: #e3eaf0; border-left-color: #c3cfda; }
     html.theme-day .wx-rail-tag { color: #23405e; }
@@ -2346,6 +2352,6 @@
   <div id="toast" hidden></div>
   <aside id="ev-detail" hidden></aside>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script src="ht/bridge.js?v=0.3.159-bb2f5b22"></script>
+  <script src="ht/bridge.js?v=0.3.160-bb2f5b22"></script>
 </body>
 </html>
