@@ -881,7 +881,7 @@
     .brief-chip.k-marinos .ttl,
     .brief-chip.k-marinos .t,
     .brief-chip.k-marinos .venue,
-    .brief-chip.k-marinos .league { text-shadow: -1px -1px 0 rgba(15,23,42,0.6), 1px -1px 0 rgba(15,23,42,0.6), -1px 1px 0 rgba(15,23,42,0.6), 1px 1px 0 rgba(15,23,42,0.6), 0 1px 3px rgba(15,23,42,0.4); }
+    .brief-chip.k-marinos .league { -webkit-text-stroke: 0.5px rgba(15,23,42,0.75); text-shadow: 0 1px 2px rgba(15,23,42,0.35); }
     .brief-chip.k-marinos .vs,
     .brief-chip.k-marinos .ttl,
     .brief-chip.k-marinos .t { color: #f8fafc; }
@@ -1648,7 +1648,7 @@
        銀色の帯の上でも読めるよう、暗めのオーバーレイと文字影を付ける */
     .tl-block--stacked.tl-kind-marinos .tl-block-seg--main {
       background: linear-gradient(90deg, #1e3a8a 0 33%, #ffffff 33% 67%, #b91c1c 67% 100%); color: #f8fafc;
-      text-shadow: -1px -1px 0 rgba(15,23,42,0.6), 1px -1px 0 rgba(15,23,42,0.6), -1px 1px 0 rgba(15,23,42,0.6), 1px 1px 0 rgba(15,23,42,0.6), 0 1px 3px rgba(15,23,42,0.4);
+      -webkit-text-stroke: 0.5px rgba(15,23,42,0.75); text-shadow: 0 1px 2px rgba(15,23,42,0.35);
     }
     .tl-block--stacked.tl-kind-japan .tl-block-seg--main { background: #bc002d; color: #fff5f5; }
     .tl-block--stacked.tl-kind-match .tl-block-seg--departure { background: #6b8fc9; color: #f8fafc; }
@@ -2036,7 +2036,7 @@
       background: rgba(14,165,233,0.30); border: 1px solid rgba(56,189,248,0.5);
     }
     html.phone:not(.phone-scale) .phone-wk-mini.k-marinos {
-      border: 1px solid rgba(248,250,252,0.35); color: #f8fafc; text-shadow: -1px -1px 0 rgba(15,23,42,0.6), 1px -1px 0 rgba(15,23,42,0.6), -1px 1px 0 rgba(15,23,42,0.6), 1px 1px 0 rgba(15,23,42,0.6), 0 1px 3px rgba(15,23,42,0.4);
+      border: 1px solid rgba(248,250,252,0.35); color: #f8fafc; -webkit-text-stroke: 0.5px rgba(15,23,42,0.75); text-shadow: 0 1px 2px rgba(15,23,42,0.35);
       background: linear-gradient(90deg, #1e3a8a 0 33%, #ffffff 33% 67%, #b91c1c 67% 100%);
     }
     html.phone:not(.phone-scale) .phone-wk-mini.k-japan {
@@ -2155,7 +2155,7 @@
       background: rgba(14,165,233,0.38); color: #e0f2fe;
     }
     html.phone:not(.phone-scale) .phone-match-card.k-marinos {
-      border-color: rgba(248,250,252,0.4); color: #f8fafc; text-shadow: -1px -1px 0 rgba(15,23,42,0.6), 1px -1px 0 rgba(15,23,42,0.6), -1px 1px 0 rgba(15,23,42,0.6), 1px 1px 0 rgba(15,23,42,0.6), 0 1px 3px rgba(15,23,42,0.4);
+      border-color: rgba(248,250,252,0.4); color: #f8fafc; -webkit-text-stroke: 0.5px rgba(15,23,42,0.75); text-shadow: 0 1px 2px rgba(15,23,42,0.35);
       background: linear-gradient(90deg, #1e3a8a 0 33%, #ffffff 33% 67%, #b91c1c 67% 100%);
     }
     html.phone:not(.phone-scale) .phone-match-card.k-japan {
@@ -2346,6 +2346,6 @@
   <div id="toast" hidden></div>
   <aside id="ev-detail" hidden></aside>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script src="ht/bridge.js?v=0.3.162-bb2f5b22"></script>
+  <script src="ht/bridge.js?v=0.3.163-bb2f5b22"></script>
 </body>
 </html>
