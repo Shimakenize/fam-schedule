@@ -1262,6 +1262,15 @@
     }
     .wh-sec.wh-marinos .brief-chip { flex: 1 1 0; width: 100%; justify-content: flex-start; padding-top: 34px; }
     .wh-sec.wh-marinos .brief-chip .who { display: none; }
+    /* マリノス枠は列いっぱいに伸びる大きいカードなので、他のwh-sec枠と違い
+       rm-cat（週末予定グリッド）と同じ fitBriefChipFonts() でカード実寸に
+       合わせてフォントを拡大する（固定px のままだと大きいカードの中で
+       文字だけ小さく浮いて見えるため、2026-10-22）。 */
+    .wh-sec.wh-marinos .brief-chip .ttl,
+    .wh-sec.wh-marinos .brief-chip .league,
+    .wh-sec.wh-marinos .brief-chip .vs,
+    .wh-sec.wh-marinos .brief-chip .venue,
+    .wh-sec.wh-marinos .brief-chip .t { font-size: var(--chip-fs, 15px); -webkit-line-clamp: 1; }
     .wh-sec .brief-empty-ico .ui-ico { width: 36px; height: 36px; }
     .wh-sec .brief-empty-ico .st-cap { font-size: 14px; }
     .wh-marinos-list {
@@ -2346,6 +2355,6 @@
   <div id="toast" hidden></div>
   <aside id="ev-detail" hidden></aside>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script src="ht/bridge.js?v=0.3.163-bb2f5b22"></script>
+  <script src="ht/bridge.js?v=0.3.164-bb2f5b22"></script>
 </body>
 </html>

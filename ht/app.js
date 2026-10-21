@@ -4971,7 +4971,7 @@
   function fitBriefChipFonts() {
     var board = $("week-head-board");
     if (!board || isPhone()) return;
-    var chips = board.querySelectorAll(".rm-cat .brief-chip");
+    var chips = board.querySelectorAll(".rm-cat .brief-chip, .wh-sec.wh-marinos .brief-chip");
     if (!chips.length) return;
     var MIN = 9, MAX = 40, LINE_H = 1.25;
     for (var i = 0; i < chips.length; i++) {
@@ -5273,7 +5273,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.163" });
+    appLog({ event: "kiosk_on", v: "0.3.164" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;
