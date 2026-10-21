@@ -5273,7 +5273,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.161" });
+    appLog({ event: "kiosk_on", v: "0.3.162" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;
