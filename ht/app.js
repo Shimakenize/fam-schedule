@@ -1876,7 +1876,9 @@
   function postSrc(ev) {
     return [ev.post_event_coach, ev.post_event_user].filter(Boolean).join(" · ");
   }
-  // 保護者レーン判定用。観戦出発は親LIFFと同じく右列へ寄せる。
+  // 保護者レーン判定用。親LIFFと同じ分割:
+  // 左=コーチ+ユーザー前段（観戦出発以外）／右=parent_time + 観戦出発。
+  // pre_event_user の「自宅出発」は選手側（送迎）なので左列。右列に出さない（2026-11-03修正）。
   function isSpectateLabel(label) {
     return /観戦/.test(String(label || ""));
   }
@@ -1884,12 +1886,15 @@
     return labeledTimes(src).filter(function (x) { return x.m < mainStart; })
       .sort(function (a, b) { return a.m - b.m; });
   }
-  // 左列=選手（コーチ前段。観戦出発は除外）
+  function joinPlayerPreSrc(ev) {
+    return [ev && ev.pre_event_coach, ev && ev.pre_event_user].filter(Boolean).join(" · ");
+  }
+  // 左列=選手（コーチ＋ユーザー前段。観戦出発は除外）
   function playerPreMarks(ev, mainStart) {
-    return marksBefore(String((ev && ev.pre_event_coach) || ""), mainStart)
+    return marksBefore(joinPlayerPreSrc(ev), mainStart)
       .filter(function (x) { return !isSpectateLabel(x.label); });
   }
-  // 右列=保護者（ユーザー前段 + parent_time + 観戦出発）
+  // 右列=保護者（parent_time + 観戦出発のみ）
   function parentPreMarks(ev, mainStart) {
     var out = [];
     var seen = {};
@@ -1901,15 +1906,14 @@
         out.push(x);
       });
     }
-    add(marksBefore(String((ev && ev.pre_event_user) || ""), mainStart));
     add(marksBefore(String((ev && ev.parent_time) || ""), mainStart));
-    add(marksBefore(String((ev && ev.pre_event_coach) || ""), mainStart)
+    add(marksBefore(joinPlayerPreSrc(ev), mainStart)
       .filter(function (x) { return isSpectateLabel(x.label); }));
     out.sort(function (a, b) { return a.m - b.m; });
     return out;
   }
   function hasDualPre(ev, mainStart) {
-    return playerPreMarks(ev, mainStart).length > 0 && parentPreMarks(ev, mainStart).length > 0;
+    return parentPreMarks(ev, mainStart).length > 0;
   }
   function departMinFromMarks(marks) {
     var meet = null;
@@ -1926,11 +1930,7 @@
   function playerDepartMin(ev) {
     var core = parseCore(ev);
     var mainStart = core ? core.start : 24 * 60;
-    var fromCoach = departMinFromMarks(playerPreMarks(ev, mainStart));
-    if (fromCoach !== null) return fromCoach;
-    // コーチ前段に出発が無い旧データは、結合ソースから保護者以外の出発を拾わない
-    // （保護者レーンの出発だけがある場合は parentDepartMin 側へ）。
-    return null;
+    return departMinFromMarks(playerPreMarks(ev, mainStart));
   }
   function parentDepartMin(ev) {
     var core = parseCore(ev);
@@ -5408,7 +5408,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.165" });
+    appLog({ event: "kiosk_on", v: "0.3.166" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;
