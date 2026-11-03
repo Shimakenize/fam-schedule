@@ -1871,10 +1871,71 @@
     return out;
   }
   function preSrc(ev) {
-    return [ev.pre_event_coach, ev.pre_event_user].filter(Boolean).join(" · ") || String(ev.event_time || "");
+    return [ev.pre_event_coach, ev.pre_event_user, ev.parent_time].filter(Boolean).join(" · ") || String(ev.event_time || "");
   }
   function postSrc(ev) {
     return [ev.post_event_coach, ev.post_event_user].filter(Boolean).join(" · ");
+  }
+  // 保護者レーン判定用。観戦出発は親LIFFと同じく右列へ寄せる。
+  function isSpectateLabel(label) {
+    return /観戦/.test(String(label || ""));
+  }
+  function marksBefore(src, mainStart) {
+    return labeledTimes(src).filter(function (x) { return x.m < mainStart; })
+      .sort(function (a, b) { return a.m - b.m; });
+  }
+  // 左列=選手（コーチ前段。観戦出発は除外）
+  function playerPreMarks(ev, mainStart) {
+    return marksBefore(String((ev && ev.pre_event_coach) || ""), mainStart)
+      .filter(function (x) { return !isSpectateLabel(x.label); });
+  }
+  // 右列=保護者（ユーザー前段 + parent_time + 観戦出発）
+  function parentPreMarks(ev, mainStart) {
+    var out = [];
+    var seen = {};
+    function add(list) {
+      (list || []).forEach(function (x) {
+        var k = x.m + "\t" + x.label;
+        if (seen[k]) return;
+        seen[k] = 1;
+        out.push(x);
+      });
+    }
+    add(marksBefore(String((ev && ev.pre_event_user) || ""), mainStart));
+    add(marksBefore(String((ev && ev.parent_time) || ""), mainStart));
+    add(marksBefore(String((ev && ev.pre_event_coach) || ""), mainStart)
+      .filter(function (x) { return isSpectateLabel(x.label); }));
+    out.sort(function (a, b) { return a.m - b.m; });
+    return out;
+  }
+  function hasDualPre(ev, mainStart) {
+    return playerPreMarks(ev, mainStart).length > 0 && parentPreMarks(ev, mainStart).length > 0;
+  }
+  function departMinFromMarks(marks) {
+    var meet = null;
+    (marks || []).forEach(function (x) {
+      if (meet === null && /集合/.test(x.label)) meet = x.m;
+    });
+    var dep = null;
+    (marks || []).forEach(function (x) {
+      if (dep !== null || !/出発/.test(x.label)) return;
+      if (meet === null || x.m <= meet) dep = x.m;
+    });
+    return dep;
+  }
+  function playerDepartMin(ev) {
+    var core = parseCore(ev);
+    var mainStart = core ? core.start : 24 * 60;
+    var fromCoach = departMinFromMarks(playerPreMarks(ev, mainStart));
+    if (fromCoach !== null) return fromCoach;
+    // コーチ前段に出発が無い旧データは、結合ソースから保護者以外の出発を拾わない
+    // （保護者レーンの出発だけがある場合は parentDepartMin 側へ）。
+    return null;
+  }
+  function parentDepartMin(ev) {
+    var core = parseCore(ev);
+    var mainStart = core ? core.start : 24 * 60;
+    return departMinFromMarks(parentPreMarks(ev, mainStart));
   }
   function displayRange(ev) {
     var core = parseCore(ev);
@@ -1978,31 +2039,94 @@
     return '<span class="wx-ico wx-ico-' + n + '"' + wh + '>' + svg + "</span>";
   }
 
+  // 前段1列（選手 or 単一レーン）。時刻位置に合わせて flex 帯を積む。
+  function buildPreColFlexHtml(marks, preTop, preBot) {
+    var filt = (marks || []).filter(function (x) { return x.m < preBot; })
+      .sort(function (a, b) { return a.m - b.m; });
+    var h = "";
+    var lead = filt.length ? Math.max(0, Math.min(filt[0].m, preBot) - preTop) : 0;
+    if (lead > 0 && filt.length) {
+      h += '<div class="tl-block-seg" style="flex:' + lead + ' 1 0;min-height:0;padding:0" aria-hidden="true"></div>';
+    }
+    var i;
+    for (i = 0; i < filt.length; i++) {
+      var t0 = Math.max(preTop, filt[i].m);
+      var t1 = i + 1 < filt.length ? filt[i + 1].m : preBot;
+      t1 = Math.min(preBot, t1);
+      if (t1 <= t0) continue;
+      h += '<div class="tl-block-seg ' + segClassForLabel(filt[i].label, false) +
+        '" style="flex:' + Math.max(1, t1 - t0) + ' 1 0">' +
+        esc(hm(filt[i].m) + filt[i].label) + "</div>";
+    }
+    if (!filt.length && preBot > preTop) {
+      h += '<div class="tl-block-seg" style="flex:' + Math.max(1, preBot - preTop) +
+        ' 1 0;min-height:0;padding:0" aria-hidden="true"></div>';
+    }
+    return h;
+  }
+  // 保護者列は絶対配置（親LIFFと同じ。flex丸めで選手列と時刻がずれるのを避ける）
+  function buildParentPreColHtml(marks, preTop, preBot) {
+    var filt = (marks || []).filter(function (x) { return x.m < preBot; })
+      .sort(function (a, b) { return a.m - b.m; });
+    if (!filt.length) return "";
+    var total = Math.max(1, preBot - preTop);
+    var h = "";
+    var i;
+    for (i = 0; i < filt.length; i++) {
+      var t0 = Math.max(preTop, filt[i].m);
+      var t1 = i + 1 < filt.length ? filt[i + 1].m : preBot;
+      t1 = Math.min(preBot, t1);
+      if (t1 <= t0) continue;
+      var topPct = ((t0 - preTop) / total * 100).toFixed(2);
+      var heightPct = ((t1 - t0) / total * 100).toFixed(2);
+      h += '<div class="tl-block-seg ' + segClassForLabel(filt[i].label, false) +
+        '" style="position:absolute;top:' + topPct + "%;height:" + heightPct +
+        '%;left:0;right:0;min-height:0">' + esc(hm(filt[i].m) + filt[i].label) + "</div>";
+    }
+    return h;
+  }
   function stackedInner(ev, clip, badgeHtml) {
     var core = ev._range.core;
-    var preMarks = labeledTimes(preSrc(ev)).filter(function (x) { return x.m < core.start; })
-      .sort(function (a, b) { return a.m - b.m; });
-    if (!preMarks.length && ev._range.start < core.start) {
+    var dual = hasDualPre(ev, core.start);
+    var preMarks = dual
+      ? playerPreMarks(ev, core.start)
+      : labeledTimes(preSrc(ev)).filter(function (x) { return x.m < core.start; })
+        .sort(function (a, b) { return a.m - b.m; });
+    if (!dual && !preMarks.length && ev._range.start < core.start) {
       preMarks = [{ m: ev._range.start, label: "集合" }];
     }
+    var parentMarks = dual ? parentPreMarks(ev, core.start) : [];
     var postMarks = labeledTimes(postSrc(ev)).filter(function (x) { return x.m > core.end; })
       .sort(function (a, b) { return a.m - b.m; });
     if (!postMarks.length && ev._range.end > core.end) {
       postMarks = [{ m: ev._range.end, label: "解散" }];
     }
     var h = '<div class="tl-block-inner tl-block-inner--stack">';
-    var cursor = clip.ds;
-    var i;
-    for (i = 0; i < preMarks.length; i++) {
-      var next = i + 1 < preMarks.length ? preMarks[i + 1].m : core.start;
-      var a = Math.max(cursor, clip.ds);
-      var b = Math.min(next, clip.de, core.start);
-      if (b > a) {
-        h += '<div class="tl-block-seg ' + segClassForLabel(preMarks[i].label, false) +
-          '" style="flex:' + Math.max(1, b - a) + ' 1 0">' +
-          esc(hm(preMarks[i].m) + preMarks[i].label) + "</div>";
+    var preTop = Math.max(clip.ds, 0);
+    var preBot = Math.min(core.start, clip.de);
+    if (preBot > preTop) {
+      var totalPre = Math.max(1, preBot - preTop);
+      if (dual) {
+        h += '<div class="tl-match-pre-dual" style="flex:' + totalPre + ' 1 0;min-height:0">';
+        h += '<div class="tl-match-pre-col">' + buildPreColFlexHtml(preMarks, preTop, preBot) + "</div>";
+        h += '<div class="tl-match-pre-col" style="position:relative">' +
+          buildParentPreColHtml(parentMarks, preTop, preBot) + "</div>";
+        h += "</div>";
+      } else {
+        var cursor = clip.ds;
+        var i;
+        for (i = 0; i < preMarks.length; i++) {
+          var next = i + 1 < preMarks.length ? preMarks[i + 1].m : core.start;
+          var a = Math.max(cursor, clip.ds);
+          var b = Math.min(next, clip.de, core.start);
+          if (b > a) {
+            h += '<div class="tl-block-seg ' + segClassForLabel(preMarks[i].label, false) +
+              '" style="flex:' + Math.max(1, b - a) + ' 1 0">' +
+              esc(hm(preMarks[i].m) + preMarks[i].label) + "</div>";
+          }
+          cursor = Math.max(cursor, next);
+        }
       }
-      cursor = Math.max(cursor, next);
     }
     var mainS = Math.max(clip.ds, core.start);
     var mainE = Math.min(clip.de, core.end);
@@ -2024,15 +2148,16 @@
         (cardText ? '<span class="tl-block-seg-regalia' + (isGroup ? " tl-block-seg-regalia--multi" : "") + '">' + esc(cardText) + "</span>" : "") +
         "</div>";
     }
-    for (i = 0; i < postMarks.length; i++) {
-      var pa = i === 0 ? core.end : postMarks[i - 1].m;
-      var pb = postMarks[i].m;
+    var pi;
+    for (pi = 0; pi < postMarks.length; pi++) {
+      var pa = pi === 0 ? core.end : postMarks[pi - 1].m;
+      var pb = postMarks[pi].m;
       var qa = Math.max(pa, clip.ds);
       var qb = Math.min(pb, clip.de);
       if (qb > qa) {
-        h += '<div class="tl-block-seg ' + segClassForLabel(postMarks[i].label, true) +
+        h += '<div class="tl-block-seg ' + segClassForLabel(postMarks[pi].label, true) +
           '" style="flex:' + Math.max(1, qb - qa) + ' 1 0">' +
-          esc(hm(postMarks[i].m) + postMarks[i].label) + "</div>";
+          esc(hm(postMarks[pi].m) + postMarks[pi].label) + "</div>";
       }
     }
     h += "</div>";
@@ -2174,16 +2299,11 @@
     });
     return out;
   }
+  // 固定枠の「次の出発」用。選手側があればそれ、無ければ保護者側（自宅出発だけユーザー欄のケース）。
   function departMinOf(ev) {
-    var marks = labeledTimes(preSrc(ev)).sort(function (a, b) { return a.m - b.m; });
-    var meet = null;
-    marks.forEach(function (x) { if (meet === null && /集合/.test(x.label)) meet = x.m; });
-    var dep = null;
-    marks.forEach(function (x) {
-      if (dep !== null || !/出発/.test(x.label)) return;
-      if (meet === null || x.m <= meet) dep = x.m;
-    });
-    return dep;
+    var p = playerDepartMin(ev);
+    if (p !== null) return p;
+    return parentDepartMin(ev);
   }
   function nextDeparture() {
     var now = new Date();
@@ -2199,7 +2319,11 @@
       var m = departMinOf(ev);
       if (m === null) return;
       if (iso === nowIso && m <= nowM) return;
-      if (!best || iso < best.iso || (iso === best.iso && m < best.m)) best = { iso: iso, m: m, ev: ev };
+      var parentM = parentDepartMin(ev);
+      var playerM = playerDepartMin(ev);
+      if (!best || iso < best.iso || (iso === best.iso && m < best.m)) {
+        best = { iso: iso, m: m, ev: ev, playerM: playerM, parentM: parentM };
+      }
     });
     return best;
   }
@@ -2234,15 +2358,26 @@
     var nd = nextDeparture();
     if (!nd) return '<div class="ts-dep-sub">出発</div><div class="ts-dep-none">予定なし</div>';
     var ttl = mainSub(nd.ev) || kindLabel(nd.ev.event_kind);
+    // 2レーン時は選手側のあとに保護者側を括弧で併記（例: 12:15出(13:20出)）
+    var big = esc(hm(nd.m)) + "出";
+    if (nd.playerM !== null && nd.parentM !== null && nd.playerM !== nd.parentM) {
+      big = esc(hm(nd.playerM)) + "出(" + esc(hm(nd.parentM)) + "出)";
+    }
     return '<div class="ts-dep-sub">' + esc(departDayWord(nd.iso)) + "の出発 · " + esc(ttl) + "</div>" +
-      '<div class="ts-dep-big">' + esc(hm(nd.m)) + "出</div>";
+      '<div class="ts-dep-big">' + big + "</div>";
   }
   function departSpeakText() {
     var out = "";
     var cd = schoolCountdownMin();
     if (cd >= 0) out += "8時まであと" + cd + "分です。";
     var nd = nextDeparture();
-    if (nd) out += departDayWord(nd.iso).replace(/^(\d+)\/(\d+)\(.*$/, "$1月$2日") + "は" + speakClock(hm(nd.m)) + "出発です。";
+    if (!nd) return out;
+    var day = departDayWord(nd.iso).replace(/^(\d+)\/(\d+)\(.*$/, "$1月$2日");
+    if (nd.playerM !== null && nd.parentM !== null && nd.playerM !== nd.parentM) {
+      out += day + "は" + speakClock(hm(nd.playerM)) + "出発です。保護者は" + speakClock(hm(nd.parentM)) + "出発です。";
+    } else {
+      out += day + "は" + speakClock(hm(nd.m)) + "出発です。";
+    }
     return out;
   }
   function stripAvailable() { return !isRemote() && !isPhone(); }
@@ -5273,7 +5408,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.164" });
+    appLog({ event: "kiosk_on", v: "0.3.165" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;

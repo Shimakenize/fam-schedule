@@ -1630,6 +1630,19 @@
     }
     .tl-block--stacked { padding: 0 !important; background: transparent !important; display: flex; flex-direction: column; }
     .tl-block-inner--stack { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; }
+    /* 保護者レーン（右列）との2レーン。親LIFFの tl-match-pre-dual と同じ考え方（2026-11-03） */
+    .tl-match-pre-dual {
+      display: flex; flex-direction: row; gap: 2px; min-height: 0;
+    }
+    .tl-match-pre-col {
+      flex: 1 1 0; min-width: 0; min-height: 0;
+      display: flex; flex-direction: column;
+    }
+    .tl-match-pre-col > .tl-block-seg {
+      font-size: 12px; line-height: 1.15; word-break: break-word;
+    }
+    body.mode-focus #tl .tl-match-pre-col > .tl-block-seg { font-size: 15px; }
+    #today-strip .tl-match-pre-col > .tl-block-seg { font-size: 11px; padding: 2px 4px; }
     .tl-block-seg {
       min-height: 0; padding: 3px 6px; box-sizing: border-box;
       display: flex; flex-direction: column; justify-content: flex-start;
@@ -2355,6 +2368,6 @@
   <div id="toast" hidden></div>
   <aside id="ev-detail" hidden></aside>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script src="ht/bridge.js?v=0.3.164-bb2f5b22"></script>
+  <script src="ht/bridge.js?v=0.3.165-bb2f5b22"></script>
 </body>
 </html>
