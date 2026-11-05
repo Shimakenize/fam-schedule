@@ -317,6 +317,13 @@
       min-width: 0; min-height: 0;
       display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
     }
+    .study-deck.many { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .study-deck.one { grid-template-columns: 1fr; }
+    .study-deck.many .study-panel { padding: 6px 10px 6px; gap: 4px; }
+    .study-deck.many .study-panel h2 { font-size: 17px; }
+    .study-deck.many .study-meter { padding: 4px 6px 6px; gap: 2px; }
+    .study-deck.many .study-meter .hero { font-size: 34px; min-height: 34px; }
+    .study-deck.many .study-meter .pct { font-size: 16px; }
     .study-panel {
       min-width: 0; min-height: 0; overflow: hidden;
       border: 1px solid rgba(201,176,138,0.16); border-radius: 8px;
@@ -333,6 +340,7 @@
       display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px;
       align-items: stretch;
     }
+    .study-meters.m3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .study-panel.sub-rik {
       border-color: rgba(56, 189, 248, 0.55);
       background: rgba(8, 47, 73, 0.42);
@@ -341,8 +349,16 @@
       border-color: rgba(251, 146, 60, 0.55);
       background: rgba(67, 20, 7, 0.42);
     }
+    .study-panel.sub-gik { border-color: rgba(74, 222, 128, 0.55); background: rgba(5, 46, 22, 0.42); }
+    .study-panel.sub-ong { border-color: rgba(244, 114, 182, 0.55); background: rgba(80, 7, 36, 0.42); }
+    .study-panel.sub-hok { border-color: rgba(250, 204, 21, 0.55); background: rgba(66, 32, 6, 0.42); }
+    .study-panel.sub-kok { border-color: rgba(248, 113, 113, 0.55); background: rgba(69, 10, 10, 0.42); }
     .study-panel.sub-rik h2 { color: #7dd3fc; }
     .study-panel.sub-sha h2 { color: #fdba74; }
+    .study-panel.sub-gik h2 { color: #86efac; }
+    .study-panel.sub-ong h2 { color: #f9a8d4; }
+    .study-panel.sub-hok h2 { color: #fde047; }
+    .study-panel.sub-kok h2 { color: #fca5a5; }
     .study-meter {
       min-width: 0; min-height: 0;
       display: flex; flex-direction: column; justify-content: flex-start; gap: 4px;
@@ -377,7 +393,7 @@
     .study-callout { font-size: 12px; color: #fbbf24; }
     .study-tasks {
       flex: 1; min-height: 0; overflow: hidden;
-      display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px;
+      display: grid; grid-template-columns: repeat(var(--tcols, 4), minmax(0, 1fr)); gap: 8px;
       align-content: start;
     }
     .study-task {
@@ -417,6 +433,14 @@
       background: rgba(46, 16, 101, 0.72);
     }
     .study-task.sub-sha .unit { color: #fdba74; }
+    .study-task.sub-gik { border-color: rgba(74, 222, 128, 0.55); background: rgba(5, 46, 22, 0.72); }
+    .study-task.sub-ong { border-color: rgba(244, 114, 182, 0.55); background: rgba(80, 7, 36, 0.72); }
+    .study-task.sub-hok { border-color: rgba(250, 204, 21, 0.55); background: rgba(66, 32, 6, 0.72); }
+    .study-task.sub-kok { border-color: rgba(248, 113, 113, 0.55); background: rgba(69, 10, 10, 0.72); }
+    .study-task.sub-gik .unit { color: #86efac; }
+    .study-task.sub-ong .unit { color: #f9a8d4; }
+    .study-task.sub-hok .unit { color: #fde047; }
+    .study-task.sub-kok .unit { color: #fca5a5; }
     .study-cal-day.exam .items.exam-col {
       grid-template-columns: 1fr;
       grid-auto-rows: minmax(0, 1fr);
@@ -447,9 +471,6 @@
     .study-cal-day .half.cards .study-task {
       aspect-ratio: auto; min-height: 0; padding: 2px 4px; gap: 1px;
     }
-    .study-cal-day .half.cards .study-task .kind { font-size: 9px; }
-    .study-cal-day .half.cards .study-task .unit { font-size: 11px; }
-    .study-cal-day .half.cards .study-task .ttl { font-size: 10px; }
     .study-cal-day .half .banner { font-size: 20px; }
     .study-cal-day.juku-buffer { border-color: rgba(147,197,253,0.45); }
     .study-task.k-exam .kind { color: #fca5a5; }
@@ -534,9 +555,26 @@
       box-shadow: 0 0 14px rgba(250, 204, 21, 0.32);
     }
     .study-cal-day .h {
-      flex-shrink: 0; font-size: 13px; font-weight: 700; color: var(--gold);
-      letter-spacing: 0.06em;
+      flex-shrink: 0; font-size: 20px; font-weight: 800; color: var(--gold);
+      letter-spacing: 0.04em; line-height: 1.2;
     }
+    .study-cal-day .h .exam-subs {
+      display: block; width: fit-content; max-width: 100%; box-sizing: border-box;
+      margin-top: 3px; padding: 1px 10px; border-radius: 6px; overflow: hidden;
+      background: rgba(127, 29, 29, 0.55); color: #fecaca; font-size: 20px; font-weight: 800;
+    }
+    .study-panel h2 .exam-subs {
+      margin-left: 12px; padding: 1px 10px; border-radius: 6px;
+      background: rgba(127, 29, 29, 0.55); color: #fecaca; font-weight: 800;
+    }
+    .study-cal-day .banner.exam-day { font-size: 34px; color: #fca5a5; line-height: 1.3; }
+    /* カードの文字はカードの大きさに合わせる（--fs は app.js の fitStudyCards が入れる） */
+    .study-cal-day .items { align-content: stretch; }
+    .study-cal-day .items .study-task { aspect-ratio: auto; justify-content: center; gap: 0.25em; padding: 4px 8px; }
+    .study-cal-day .h { white-space: nowrap; overflow: hidden; }
+    .study-cal-day .items .study-task .kind { font-size: calc(var(--fs, 12px) * 0.62); line-height: 1.2; }
+    .study-cal-day .items .study-task .unit { font-size: var(--fs, 12px); line-height: 1.15; }
+    .study-cal-day .items .study-task .ttl { font-size: calc(var(--fs, 12px) * 0.66); line-height: 1.2; }
     .study-cal-day.exam .h { color: #fca5a5; }
     .study-cal-day .banner {
       flex: 1; min-height: 0;
@@ -552,9 +590,22 @@
     }
     .study-task.missing .ttl { color: #fbbf24; }
     .study-cal-day .study-task { padding: 6px; }
-    .study-cal-day .study-task .kind { font-size: 10px; }
-    .study-cal-day .study-task .unit { font-size: 12px; }
-    .study-cal-day .study-task .ttl { font-size: 11px; }
+    /* 7件以上の日は正方形をやめ、行を均等に縮めて全件を枠内に収める */
+    .study-cal-day .items.dense { grid-auto-rows: minmax(0, 1fr); align-content: stretch; }
+    .study-task.bundle { border-style: double; border-width: 4px; }
+    .study-task.bundle .unit { white-space: normal; }
+    .study-cal-day .juku-strip {
+      flex-shrink: 0; margin-bottom: 4px; padding: 3px 8px; border-radius: 6px;
+      background: rgba(67, 20, 7, 0.55); border: 1px solid rgba(251,146,60,0.45);
+      color: #fdba74; font-size: 15px; font-weight: 800; text-align: center; letter-spacing: 0.06em;
+    }
+    .study-cal-day .items.dense .study-task { aspect-ratio: auto; padding: 2px 6px; gap: 0; }
+    .study-deck.one .study-tasks { grid-auto-rows: minmax(0, 1fr); align-content: stretch; }
+    .study-deck.one .study-task { aspect-ratio: auto; padding: 6px 10px; }
+    .study-deck.one .study-task { justify-content: center; gap: 0.25em; }
+    .study-deck.one .study-task .kind { font-size: calc(var(--fs, 12px) * 0.62); line-height: 1.2; }
+    .study-deck.one .study-task .unit { font-size: var(--fs, 18px); line-height: 1.15; }
+    .study-deck.one .study-task .ttl { font-size: calc(var(--fs, 18px) * 0.66); line-height: 1.2; }
     #standings-board {
       flex: 1; min-height: 0;
       background: linear-gradient(180deg, #12151c 0%, #0c0e13 100%);
@@ -2368,6 +2419,6 @@
   <div id="toast" hidden></div>
   <aside id="ev-detail" hidden></aside>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script src="ht/bridge.js?v=0.3.166-bb2f5b22"></script>
+  <script src="ht/bridge.js?v=0.3.167-bb2f5b22"></script>
 </body>
 </html>

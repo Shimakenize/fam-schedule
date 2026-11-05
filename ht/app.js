@@ -155,7 +155,8 @@
     if (studyDebug()) return true;
     if (studyData && studyData.active) return true;
     if (studyData && studyData.active === false) return false;
-    return todayStr() <= ((studyData && (studyData.examEnd || studyData.examDate)) || "2026-09-18");
+    var end = studyData && (studyData.examEnd || studyData.examDate);
+    return !!end && todayStr() <= end;
   }
   function studyActive() {
     return !!(studyData && studyData.active);
@@ -436,7 +437,7 @@
   function studyRangeLine() {
     if (!studyData) return studyDebug() ? "試験デバッグ　読み込み中" : "試験";
     var left = studyData.daysLeft;
-    var exam = fmtMd(studyData.examDate);
+    var exam = studyExamSpan();
     if (pageKey === "studyTodo") {
       return phoneRangeTitle() || ((studyDebug() ? "試験デバッグ　" : "") + "試験Todo　" + left + "日（当日含む）　" + exam);
     }
@@ -472,7 +473,8 @@
     var overdue = !!(overdueDay && !done);
     var badge = done ? '<div class="badge done">完了</div>' : (overdue ? '<div class="badge due">未了</div>' : "");
     return '<article class="study-task k-' + esc(k) + ' sub-' + esc(subKey) +
-      (miss ? " missing" : "") + (done ? " done" : "") + (overdue ? " active" : "") + '">' + badge +
+      (miss ? " missing" : "") + (done ? " done" : "") + (overdue ? " active" : "") +
+      (it && it._bundle ? " bundle" : "") + '">' + badge +
       '<div class="kind">' + esc(kindLine) +
       '</div><div class="unit">' + esc(unit) + '</div><div class="ttl">' + esc(title) + "</div></article>";
   }
@@ -486,19 +488,34 @@
   }
   function studyBannerHtml() {
     var left = studyData.daysLeft;
-    var examDay = studyData.today === studyData.examDate;
+    var examDay = !!studyData.examDate && studyData.today >= studyData.examDate &&
+      studyData.today <= (studyData.examEnd || studyData.examDate);
     var n = examDay ? "当日" : String(left);
     var lab = examDay ? "" : "日";
     return '<div class="study-banner"><div class="n">' + esc(n) + '</div><div class="lab">' + lab +
-      '</div><div class="sub">試験 ' + esc(fmtMd(studyData.examDate)) + " まで（当日含む）　理科・社会</div></div>";
+      '</div><div class="sub">試験 ' + esc(studyExamSpan()) + " まで（当日含む）　" +
+      esc(studyData.subjectsLine || "理科・社会") + "</div></div>";
+  }
+  function studyExamSpan() {
+    var a = studyData.examDate;
+    var b = studyData.examEnd;
+    return fmtMd(a) + (b && b !== a ? "〜" + fmtMd(b) : "");
+  }
+  function studyRetryShown(s) {
+    var wv = s.wrongVideos || {};
+    var qr = s.quizRetry || {};
+    return !!(wv.total || qr.total || wv.missing || qr.blocked);
   }
   function studySubjectMeters(s) {
     var hint = s.basicOnly ? '<span class="hint">基本・追補のみ</span>' : "";
-    return '<section class="study-panel sub-' + esc(s.key) + '"><h2>' + esc(s.label) + hint + "</h2><div class=\"study-meters\">" +
+    // 誤答動画・誤答クイズは計画に追加されたときだけメーターを出す
+    var retry = studyRetryShown(s);
+    return '<section class="study-panel sub-' + esc(s.key) + '"><h2>' + esc(s.label) + hint + "</h2>" +
+      '<div class="study-meters' + (retry ? "" : " m3") + '">' +
       studyMeterHtml("動画", s.videos) +
       studyMeterHtml("初回クイズ", s.quizFirst) +
-      studyMeterHtml("誤答動画", s.wrongVideos, !!(s.wrongVideos && s.wrongVideos.missing)) +
-      studyMeterHtml("誤答クイズ", s.quizRetry, !!(s.quizRetry && s.quizRetry.blocked)) +
+      (retry ? studyMeterHtml("誤答動画", s.wrongVideos, !!(s.wrongVideos && s.wrongVideos.missing)) +
+        studyMeterHtml("誤答クイズ", s.quizRetry, !!(s.quizRetry && s.quizRetry.blocked)) : "") +
       studyMeterHtml("紙テスト", s.paper) +
       "</div></section>";
   }
@@ -508,13 +525,24 @@
     return '<section class="study-panel"><h2>' + esc(heading || ("今日の" + s.label)) + hint + "</h2>" +
       studyTasksHtml(items) + "</section>";
   }
+  // 並びは ESA の「やること」で本人・管理者が保存したもの（row.order）。TV は表示だけで入れ替えはしない
   function studyDayItems(row) {
     var items = [];
     ((studyData && studyData.subjects) || []).forEach(function (s) {
       var pack = ((row && row.subjects) || {})[s.key] || {};
       items = items.concat(pack.items || []);
     });
-    return items;
+    var order = (row && row.order) || [];
+    if (!order.length) return items;
+    var rank = {};
+    order.forEach(function (k, i) { rank[k] = i; });
+    var keyOf = function (it) {
+      return (it && it.key) || ((it && it.kind) || "") + ":" + ((it && (it.testFile || it.videoId || it.unitId || it.title)) || "");
+    };
+    return items.map(function (it, i) {
+      var r = rank[keyOf(it)];
+      return { it: it, r: r === undefined ? order.length + i : r };
+    }).sort(function (a, b) { return a.r - b.r; }).map(function (x) { return x.it; });
   }
   function studyJukuNames(iso) {
     var src = cacheWeek || lastData || {};
@@ -543,12 +571,68 @@
   function studyCalDayOverdue(row) {
     return !!(studyData && row.date < studyData.today && studyOpenItems(row).length);
   }
+  function studySubjectDeadline(key) {
+    var s = ((studyData && studyData.subjects) || []).filter(function (x) { return x.key === key; })[0];
+    return s && s.examDate ? addDaysIso(s.examDate, -1) : "";
+  }
+  function studyUnitsLine(labels) {
+    var order = [];
+    var by = {};
+    labels.forEach(function (lab) {
+      var m = /^(.*\S)\s+(\S+)$/.exec(lab || "");
+      var pre = m ? m[1] : (lab || "");
+      var rest = m ? m[2] : "";
+      if (!by[pre]) { by[pre] = []; order.push(pre); }
+      if (rest && by[pre].indexOf(rest) < 0) by[pre].push(rest);
+    });
+    var num = function (x) { var m = /(\d+)/.exec(x); return m ? Number(m[1]) : 0; };
+    return order.map(function (pre) {
+      var rest = by[pre].slice().sort(function (a, b) { return num(a) - num(b); });
+      return pre + (rest.length ? " " + rest.join("・") : "");
+    }).join(" / ");
+  }
+  // 紙テストは、その日・その科目の分を1枚へ束ねる（案B: 試験の前々日と前日に分かれて置かれる。前日の束だけ「前日まとめ」）
+  function studyPaperBundle(list, date) {
+    var titles = {};
+    var order = [];
+    list.forEach(function (it) {
+      var t = String(it.title || "").replace(/\s+/g, "") || "紙";
+      if (!titles[t]) { titles[t] = 0; order.push(t); }
+      titles[t] += 1;
+    });
+    return {
+      subjectKey: list[0].subjectKey,
+      subjectLabel: list[0].subjectLabel,
+      kind: "paper",
+      kindLabel: "紙テスト " + list.length + "枚" + (studySubjectDeadline(list[0].subjectKey) === date ? "（前日まとめ）" : ""),
+      unitLabel: studyUnitsLine(list.map(function (it) { return it.unitLabel || it.unitId || ""; })),
+      title: order.map(function (t) { return t + (titles[t] > 1 ? "×" + titles[t] : ""); }).join("・"),
+      done: list.every(function (it) { return !!it.done; }),
+      _bundle: list.length
+    };
+  }
+  function studyCalItems(row) {
+    var items = studyDayItems(row).filter(function (it) { return it && !it.placeholder; });
+    var bundles = {};
+    var out = [];
+    items.forEach(function (it) {
+      if (it.kind === "paper") {
+        if (!bundles[it.subjectKey]) { bundles[it.subjectKey] = []; out.push({ _slot: it.subjectKey }); }
+        bundles[it.subjectKey].push(it);
+        return;
+      }
+      out.push(it);
+    });
+    return out.map(function (it) {
+      return it._slot ? studyPaperBundle(bundles[it._slot], row.date) : it;
+    });
+  }
   function studyCalDayHtml(row) {
     var isToday = row.date === studyData.today;
     var isExam = (row.tag === "exam") || row.date === studyData.examDate || row.date === studyData.examEnd;
     var tag = row.tag || (isExam ? "exam" : "");
     var note = row.note || "";
-    if (tag === "juku") {
+    if (tag === "juku" && !row.juku) {
       var live = studyJukuNames(row.date);
       if (live.length) note = "塾の" + live.join("・") + "に集中";
     }
@@ -556,7 +640,8 @@
     var lab = fmtMd(row.date) + (d ? "（" + WD[d.getDay()] + "）" : "");
     if (isToday) lab = "今日 " + lab;
     else if (row.date < studyData.today) lab = (row.date === addDaysIso(studyData.today, -1) ? "昨日 " : "過ぎた日 ") + lab;
-    if (isExam) lab += " 試験";
+    var examSubs = (row.examCards || []).map(function (c) { return c.subjectLabel || ""; }).filter(Boolean);
+    var examLab = isExam ? "試験" + (examSubs.length ? "　" + examSubs.join("・") : "") : "";
     var overdue = studyCalDayOverdue(row);
     var cls = "study-cal-day" + (isToday ? " today" : "") + (tag ? " " + tag : "") + (isExam ? " exam" : "") +
       (!isToday && row.date < studyData.today ? " past" : "") +
@@ -571,31 +656,36 @@
         '<div class="half buffer"><div class="banner">予備日</div></div>' +
         "</div>";
     } else if (tag === "exam") {
-      var cards = row.examCards || [];
-      inner = '<div class="items exam-col">' + cards.map(function (it) {
-        return studyTaskCard(it, false, overdue);
-      }).join("") + "</div>";
+      // 試験の教科は見出しに出す（勉強カードと同じ形の「試験予定」カードは出さない）。3日日程では翌日以降の予定も入る
+      var rest = studyCalItems(row);
+      var ecols = rest.length > 4 ? 3 : (rest.length > 1 ? 2 : 1);
+      inner = (row.juku ? '<div class="juku-strip">塾の' + esc(row.juku) + "</div>" : "") +
+        (rest.length
+          ? '<div class="items' + (rest.length > 6 ? " dense" : "") + '" style="--icols:' + ecols + '">' +
+            rest.map(function (it) { return studyTaskCard(it, true, overdue); }).join("") + "</div>"
+          : '<div class="banner exam-day">' + esc(examSubs.join("・")) + "<br>の試験</div>");
     } else if (tag === "juku") {
-      var jukuItems = studyDayItems(row).filter(function (it) { return it && !it.placeholder; });
+      var jukuItems = studyCalItems(row);
       if (jukuItems.length) {
         var jcols = jukuItems.length > 3 ? 3 : (jukuItems.length > 1 ? 2 : 1);
         inner = '<div class="split">' +
           '<div class="half juku"><div class="banner juku">' + esc(note || "塾に集中") + "</div></div>" +
-          '<div class="half cards"><div class="items" style="--icols:' + jcols + '">' +
+          '<div class="half cards">' + '<div class="items' + (jukuItems.length > 6 ? " dense" : "") + '" style="--icols:' + jcols + '">' +
           jukuItems.map(function (it) { return studyTaskCard(it, true, overdue); }).join("") +
           "</div></div></div>";
       } else {
         inner = '<div class="banner juku">' + esc(note || "塾に集中") + "</div>";
       }
     } else {
-      var items = studyDayItems(row);
+      var items = studyCalItems(row);
       var cols = items.length > 4 ? 3 : (items.length > 1 ? 2 : 1);
       var body = items.length
         ? items.map(function (it) { return studyTaskCard(it, true, overdue); }).join("")
         : '<div class="study-empty">なし</div>';
-      inner = '<div class="items" style="--icols:' + cols + '">' + body + "</div>";
+      inner = '<div class="items' + (items.length > 6 ? " dense" : "") + '" style="--icols:' + cols + '">' + body + "</div>";
     }
-    return '<section class="' + cls + '"><div class="h">' + esc(lab) + "</div>" + inner + "</section>";
+    return '<section class="' + cls + '"><div class="h">' + esc(lab) +
+      (examLab ? '<span class="exam-subs">' + esc(examLab) + "</span>" : "") + "</div>" + inner + "</section>";
   }
   function studyCalRowHtml(days) {
     if (!days.length) return "";
@@ -648,15 +738,32 @@
       return;
     }
     var subjects = studyData.subjects || [];
-    var meters = '<div class="study-deck">';
+    var meters = '<div class="study-deck' + (subjects.length > 2 ? " many" : "") + '">';
     var today = '<div class="study-deck">';
     subjects.forEach(function (s) {
       meters += studySubjectMeters(s);
-      today += studySubjectToday(s, "今日の" + s.label);
+      if (subjects.length <= 2) today += studySubjectToday(s, "今日の" + s.label);
     });
+    if (subjects.length > 2) today = '<div class="study-deck one">' + studyTodayAllPanel();
     meters += "</div>";
     today += "</div>";
     el.innerHTML = studyBannerHtml() + meters + today;
+    fitStudyCards(el);
+  }
+  function studyTodayAllPanel() {
+    var row = (studyData.plan || []).filter(function (p) { return p.date === studyData.today; })[0];
+    var items = row ? studyCalItems(row) : [];
+    var examSubs = row ? (row.examCards || []).map(function (c) { return c.subjectLabel || ""; }).filter(Boolean) : [];
+    var open = items.filter(function (it) { return !it.done; }).length;
+    var hint = '<span class="hint">' + (items.length ? "残り " + open + " / " + items.length + "件" : "なし") + "</span>";
+    var tcols = items.length > 12 ? 8 : (items.length > 4 ? 6 : 4);
+    return '<section class="study-panel"><h2>今日のやること' +
+      (examSubs.length ? '<span class="exam-subs">試験　' + esc(examSubs.join("・")) + "</span>" : "") + hint + "</h2>" +
+      (items.length
+        ? '<div class="study-tasks" style="--tcols:' + tcols + '">' +
+          items.map(function (it) { return studyTaskCard(it, true); }).join("") + "</div>"
+        : '<div class="study-empty">今日の残りはありません</div>') +
+      "</section>";
   }
   function renderStudyTodo() {
     var el = $("study-board");
@@ -673,12 +780,73 @@
     var html = studyBannerHtml();
     setStudyBoardMode(true);
     var plan = studyData.plan || [];
+    // 上下段は週で分ける（下段は最初の月曜から）。月曜が無ければ半分で分ける
     var topN = Math.ceil(plan.length / 2) || 1;
+    for (var wi = 1; wi < plan.length; wi++) {
+      var wd = parseLocalDate(plan[wi].date);
+      if (wd && wd.getDay() === 1) { topN = wi; break; }
+    }
     var row1 = plan.slice(0, topN);
     var row2 = plan.slice(topN);
     html += '<div class="study-cal' + (row2.length ? "" : " one") + '">' +
       studyCalRowHtml(row1) + studyCalRowHtml(row2) + "</div>";
     el.innerHTML = html;
+    fitStudyCards(el);
+  }
+
+  // カレンダーの各日と Status の「今日のやること」は、カードの大きさに合わせて文字を大きくし、はみ出すカードだけ縮める
+  function fitStudyCards(root) {
+    var heads = root.querySelectorAll(".study-cal-day .h");
+    for (var x = 0; x < heads.length; x++) {
+      var hfs = 20;
+      heads[x].style.fontSize = "";
+      if (heads[x].querySelector(".exam-subs")) heads[x].querySelector(".exam-subs").style.fontSize = "";
+      var sub = heads[x].querySelector(".exam-subs");
+      while (hfs > 11 && (heads[x].scrollWidth > heads[x].clientWidth + 1 || (sub && sub.scrollWidth > sub.clientWidth + 1))) {
+        hfs -= 1;
+        heads[x].style.fontSize = hfs + "px";
+        if (sub) sub.style.fontSize = hfs + "px";
+      }
+    }
+    var boxes = root.querySelectorAll(".study-cal-day .items, .study-deck.one .study-tasks");
+    for (var b = 0; b < boxes.length; b++) {
+      var box = boxes[b];
+      var cards = box.querySelectorAll(".study-task");
+      if (!cards.length) continue;
+      // 枠をいちばん大きく使える列数（カードは横長気味が読みやすい）
+      var W = box.clientWidth, H = box.clientHeight, best = 1, bestScore = -1;
+      for (var c = 1; c <= cards.length; c++) {
+        var r = Math.ceil(cards.length / c);
+        var score = Math.min(W / c, (H / r) * 1.6);
+        if (score > bestScore) { bestScore = score; best = c; }
+      }
+      box.style.gridTemplateColumns = "repeat(" + best + ", minmax(0, 1fr))";
+      box.style.gridTemplateRows = "repeat(" + Math.ceil(cards.length / best) + ", minmax(0, 1fr))";
+      var w = cards[0].clientWidth, h = cards[0].clientHeight;
+      if (!w || !h) continue;
+      var fs = Math.max(11, Math.min(44, Math.floor(Math.min(h * 0.3, w * 0.16))));
+      box.style.setProperty("--fs", fs + "px");
+      for (var i = 0; i < cards.length; i++) {
+        var cfs = fs;
+        cards[i].style.removeProperty("--fs");
+        while (cfs > 10 && studyCardsOverflow([cards[i]])) {
+          cfs -= 1;
+          cards[i].style.setProperty("--fs", cfs + "px");
+        }
+      }
+    }
+  }
+
+  function studyCardsOverflow(cards) {
+    for (var i = 0; i < cards.length; i++) {
+      var c = cards[i];
+      if (c.scrollHeight > c.clientHeight + 1 || c.scrollWidth > c.clientWidth + 1) return true;
+      var kids = c.children;
+      for (var k = 0; k < kids.length; k++) {
+        if (kids[k].scrollWidth > kids[k].clientWidth + 1) return true;
+      }
+    }
+    return false;
   }
   function renderStudy() {
     $("range-line").textContent = studyRangeLine();
@@ -712,8 +880,8 @@
       today: d && d.today,
       daysLeft: d && d.daysLeft,
       meters: meterSnap,
-      rikToday: ((((d && d.todayPlan) || {}).rik || {}).items || []).map(function (it) {
-        return (it.kind || "") + ":" + (it.title || "");
+      todayCounts: (d && d.subjects || []).map(function (s) {
+        return s.key + ":" + ((((d.todayPlan || {})[s.key] || {}).items || []).length);
       })
     });
     var was = PAGE_KEYS.indexOf("study") >= 0;
@@ -776,10 +944,9 @@
     var today = studyData.today;
     var row = (studyData.plan || []).filter(function (p) { return p.date === today; })[0];
     if (!row) return [];
-    if (row.examCards && row.examCards.length) return row.examCards.slice();
-    return studyDayItems(row).filter(function (it) {
+    return (row.examCards || []).concat(studyDayItems(row).filter(function (it) {
       return it && !it.done && !it.placeholder && !it.missing;
-    });
+    }));
   }
   function studySpeakUnit(it) {
     var u = String((it && it.unitLabel) || "").replace(/\s+/g, "");
@@ -5408,7 +5575,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.166" });
+    appLog({ event: "kiosk_on", v: "0.3.167" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;
