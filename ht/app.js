@@ -503,7 +503,7 @@
     return '<article class="study-task k-' + esc(k) + ' sub-' + esc(subKey) +
       (miss ? " missing" : "") + (done ? " done" : "") + (overdue ? " active" : "") +
       (it && it._bundle ? " bundle" : "") + '">' + badge +
-      '<div class="kind">' + (studyIconKey(k) ? STUDY_ICON[studyIconKey(k)] : "") + esc(kindLine) +
+      '<div class="kind">' + (k === "videoQuiz" ? STUDY_ICON.video + STUDY_ICON.quiz : (studyIconKey(k) ? STUDY_ICON[studyIconKey(k)] : "")) + esc(kindLine) +
       '</div><div class="unit">' + esc(unit) + '</div><div class="ttl">' + esc(title) + "</div></article>";
   }
   function studyTasksHtml(items) {
@@ -647,8 +647,40 @@
       _bundle: list.length
     };
   }
+  // 役割（基本・応用・追補）。動画のタイトル・ID と Quiz のファイル名から判定する
+  function studyRoleOf(it) {
+    var s = String((it && it.title) || "") + " " + String((it && (it.testFile || it.videoId)) || "");
+    if (/応用|advanced/i.test(s)) return "応用";
+    if (/追補|gapfill/i.test(s)) return "追補";
+    return "基本";
+  }
+  // 同じ日の同じ教科・Unit・役割の「動画」と「初回Quiz」は、1枚のカードにまとめる（動画の位置に置く）
+  function studyMergeVideoQuiz(items) {
+    var used = [];
+    var out = [];
+    items.forEach(function (it, i) {
+      if (used[i]) return;
+      if (it.kind === "video") {
+        for (var j = 0; j < items.length; j++) {
+          var q = items[j];
+          if (used[j] || j === i || q.kind !== "quizFirst") continue;
+          if (q.subjectKey !== it.subjectKey || (q.unitId || "") !== (it.unitId || "") || studyRoleOf(q) !== studyRoleOf(it)) continue;
+          used[j] = true;
+          out.push({
+            subjectKey: it.subjectKey, subjectLabel: it.subjectLabel, projectId: it.projectId,
+            unitId: it.unitId, unitLabel: it.unitLabel,
+            kind: "videoQuiz", kindLabel: "動画 + 初回Quiz",
+            title: it.title, done: !!(it.done && q.done), _pair: 2
+          });
+          return;
+        }
+      }
+      out.push(it);
+    });
+    return out;
+  }
   function studyCalItems(row) {
-    var items = studyDayItems(row).filter(function (it) { return it && !it.placeholder; });
+    var items = studyMergeVideoQuiz(studyDayItems(row).filter(function (it) { return it && !it.placeholder; }));
     var bundles = {};
     var out = [];
     items.forEach(function (it) {
@@ -799,7 +831,7 @@
     meters += "</div>";
     today += "</div>";
     el.innerHTML = studyBannerHtml() + meters + today;
-    fitStudyCards(el);
+    studyFitSoon(el);
   }
   function studyTodayAllPanel() {
     var row = (studyData.plan || []).filter(function (p) { return p.date === studyData.today; })[0];
@@ -842,9 +874,57 @@
     html += '<div class="study-cal' + (row2.length ? "" : " one") + '">' +
       studyCalRowHtml(row1) + studyCalRowHtml(row2) + "</div>";
     el.innerHTML = html;
-    fitStudyCards(el);
+    studyFitSoon(el);
   }
 
+  // 1回目の計測は、1行ごとのカード高さが落ち着く前に走って1〜2px足りないことがある。落ち着いてからもう一度計測する
+  // 左の「今日のタイムライン」帯がデータ取得後に現れると試験ボードの幅が縮むので、幅が変わったときも計測し直す（ResizeObserver）
+  var studyFitObserver = null;
+  var studyFitTimer = null;
+  var studyFitFontsHooked = false;
+  var studyFitWatch = null;
+  // 描画のあとに幅や高さが変わっても（帯の出現・フォント・画面サイズ）、はみ出しが出たら計測し直す安全網
+  function studyFitWatchStart() {
+    if (studyFitWatch) return;
+    studyFitWatch = setInterval(function () {
+      var root = $("study-board");
+      if (!root || root.hidden || !root.isConnected) return;
+      var cards = root.querySelectorAll(".study-task");
+      for (var i = 0; i < cards.length; i++) {
+        if (cards[i].scrollHeight > cards[i].clientHeight + 1 || cards[i].scrollWidth > cards[i].clientWidth + 1) {
+          fitStudyCards(root);
+          return;
+        }
+      }
+    }, 600);
+  }
+  function studyFitSoon(root) {
+    fitStudyCards(root);
+    studyFitWatchStart();
+    setTimeout(function () { if (root && root.isConnected) fitStudyCards(root); }, 80);
+    setTimeout(function () { if (root && root.isConnected) fitStudyCards(root); }, 600);
+    // Web フォントが後から読み込まれると文字幅が変わってはみ出すので、読み込み完了後にも計測する
+    if (typeof document !== "undefined" && document.fonts) {
+      if (document.fonts.ready && document.fonts.ready.then) {
+        document.fonts.ready.then(function () { if (root && root.isConnected) fitStudyCards(root); });
+      }
+      if (!studyFitFontsHooked && document.fonts.addEventListener) {
+        studyFitFontsHooked = true;
+        document.fonts.addEventListener("loadingdone", function () {
+          var r = $("study-board");
+          if (r && r.isConnected) fitStudyCards(r);
+        });
+      }
+    }
+    if (typeof ResizeObserver === "function") {
+      if (studyFitObserver) studyFitObserver.disconnect();
+      studyFitObserver = new ResizeObserver(function () {
+        clearTimeout(studyFitTimer);
+        studyFitTimer = setTimeout(function () { if (root && root.isConnected) fitStudyCards(root); }, 60);
+      });
+      studyFitObserver.observe(root);
+    }
+  }
   // カレンダーの各日と Status の「今日のやること」は、カードの大きさに合わせて文字を大きくし、はみ出すカードだけ縮める
   function fitStudyCards(root) {
     var heads = root.querySelectorAll(".study-cal-day .h");
