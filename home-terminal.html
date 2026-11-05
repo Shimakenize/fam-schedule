@@ -324,6 +324,39 @@
     .study-deck.many .study-meter { padding: 4px 6px 6px; gap: 2px; }
     .study-deck.many .study-meter .hero { font-size: 34px; min-height: 34px; }
     .study-deck.many .study-meter .pct { font-size: 16px; }
+    /* 試験科目9教科（3列×3段）。上の枠を高めにして、下の「今日のやること」は少し低くする */
+    #study-board.study-nine { grid-template-rows: auto minmax(0, 1.75fr) minmax(0, 1fr); }
+    .study-deck.nine { grid-template-rows: repeat(3, minmax(0, 1fr)); gap: 6px; }
+    .study-deck.nine .study-panel { padding: 4px 8px 4px; gap: 2px; }
+    .study-deck.nine .study-panel h2 { font-size: 16px; }
+    .study-deck.nine .study-panel h2 .hint { font-size: 12px; }
+    .study-deck.nine .study-meter { padding: 2px 6px 4px; gap: 1px; }
+    .study-deck.nine .study-meter .k { font-size: 12px; }
+    .study-deck.nine .study-meter .hero { font-size: 26px; min-height: 26px; }
+    .study-deck.nine .study-meter .pct { font-size: 13px; }
+    .study-deck.nine .study-meter .done { font-size: 12px; }
+    .study-panel.idle { opacity: 0.82; border-style: dashed; }
+    .study-idle {
+      flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center;
+      font-size: 28px; font-weight: 700; letter-spacing: 0.12em; color: var(--muted);
+    }
+    .study-panel.sub-eng { border-color: rgba(167, 139, 250, 0.55); background: rgba(46, 16, 101, 0.38); }
+    .study-panel.sub-sug { border-color: rgba(45, 212, 191, 0.5); background: rgba(4, 47, 46, 0.38); }
+    .study-panel.sub-bij { border-color: rgba(251, 191, 36, 0.45); background: rgba(66, 32, 6, 0.3); }
+    .study-panel.sub-eng h2 { color: #c4b5fd; }
+    .study-panel.sub-sug h2 { color: #5eead4; }
+    .study-panel.sub-bij h2 { color: #fcd34d; }
+    /* 動画・Quiz・紙テストのアイコン（カードの種別行と、日ごとの合計） */
+    .ic { display: inline-block; width: 1.25em; height: 1.25em; vertical-align: -0.22em; margin-right: 0.22em; flex-shrink: 0; }
+    .study-cal-day .tot {
+      display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 12px; flex-shrink: 0;
+      font-size: 15px; font-weight: 800; letter-spacing: 0.04em; color: #c5c0b6; line-height: 1.25;
+      padding-bottom: 4px; border-bottom: 1px solid rgba(201,176,138,0.16);
+    }
+    .study-cal-day .tot span { white-space: nowrap; }
+    .study-cal-day .tot .tv { color: #93c5fd; }
+    .study-cal-day .tot .tq { color: #fcd34d; }
+    .study-cal-day .tot .tp { color: #86efac; }
     .study-panel {
       min-width: 0; min-height: 0; overflow: hidden;
       border: 1px solid rgba(201,176,138,0.16); border-radius: 8px;

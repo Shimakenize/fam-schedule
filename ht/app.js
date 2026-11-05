@@ -404,6 +404,34 @@
     quizRetry: "誤答Quiz",
     paper: "紙テスト"
   };
+  // 動画・Quiz・紙テストのアイコン（絵文字は TV の WebView で出ないことがあるため、インラインSVG。色は文字色に従う）
+  var STUDY_ICON = {
+    video: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="3" fill="currentColor" opacity="0.28"/><path d="M10 9l6 3-6 3z" fill="currentColor"/></svg>',
+    quiz: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9.3 9.4a2.7 2.7 0 1 1 3.9 2.4c-.8.5-1.2 1-1.2 1.9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17" r="1.3" fill="currentColor"/></svg>',
+    paper: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2.5h8l5 5v14H6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 12h7M9 16h7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>'
+  };
+  function studyIconKey(kind) {
+    if (kind === "video" || kind === "wrongVideo") return "video";
+    if (kind === "quizFirst" || kind === "quizRetry") return "quiz";
+    if (kind === "paper") return "paper";
+    return "";
+  }
+  // その日のカードの合計（動画・Quiz・紙テストの枚数。紙は束ねる前の1枚ずつ数える。完了済みも含めた Total）
+  function studyDayTotals(row) {
+    var t = { video: 0, quiz: 0, paper: 0 };
+    studyDayItems(row).forEach(function (it) {
+      if (!it || it.placeholder) return;
+      var k = studyIconKey(it.kind);
+      if (k) t[k] += 1;
+    });
+    return t;
+  }
+  function studyTotalsHtml(t) {
+    return '<div class="tot" title="この日の合計">' +
+      '<span class="tv">' + STUDY_ICON.video + "動画 " + t.video + "</span>" +
+      '<span class="tq">' + STUDY_ICON.quiz + "Quiz " + t.quiz + "</span>" +
+      '<span class="tp">' + STUDY_ICON.paper + "紙テスト " + t.paper + "</span></div>";
+  }
   function studySubject(key) {
     var list = (studyData && studyData.subjects) || [];
     var i;
@@ -475,7 +503,7 @@
     return '<article class="study-task k-' + esc(k) + ' sub-' + esc(subKey) +
       (miss ? " missing" : "") + (done ? " done" : "") + (overdue ? " active" : "") +
       (it && it._bundle ? " bundle" : "") + '">' + badge +
-      '<div class="kind">' + esc(kindLine) +
+      '<div class="kind">' + (studyIconKey(k) ? STUDY_ICON[studyIconKey(k)] : "") + esc(kindLine) +
       '</div><div class="unit">' + esc(unit) + '</div><div class="ttl">' + esc(title) + "</div></article>";
   }
   function studyTasksHtml(items) {
@@ -518,6 +546,14 @@
         studyMeterHtml("誤答クイズ", s.quizRetry, !!(s.quizRetry && s.quizRetry.blocked)) : "") +
       studyMeterHtml("紙テスト", s.paper) +
       "</div></section>";
+  }
+  // 計画に入れない教科の枠（英語=別枠／数学・美術=準備中）。試験日が分かるものは日付を添える
+  function studySubjectIdle(a) {
+    var msg = a.state === "separate" ? "別枠で学習" : "準備中";
+    var d = a.examDate ? "試験 " + fmtMd(a.examDate) : "試験日 未定";
+    return '<section class="study-panel idle sub-' + esc(a.key) + '"><h2>' + esc(a.label) +
+      '<span class="hint">' + esc(d) + "</span></h2>" +
+      '<div class="study-idle">' + esc(msg) + "</div></section>";
   }
   function studySubjectToday(s, heading) {
     var items = studyTodayItems(s.key);
@@ -684,7 +720,8 @@
         : '<div class="study-empty">なし</div>';
       inner = '<div class="items' + (items.length > 6 ? " dense" : "") + '" style="--icols:' + cols + '">' + body + "</div>";
     }
-    return '<section class="' + cls + '"><div class="h">' + esc(lab) +
+    return '<section class="' + cls + '">' + (tag === "buffer" || tag === "juku-buffer" ? "" : studyTotalsHtml(studyDayTotals(row))) +
+      '<div class="h">' + esc(lab) +
       (examLab ? '<span class="exam-subs">' + esc(examLab) + "</span>" : "") + "</div>" + inner + "</section>";
   }
   function studyCalRowHtml(days) {
@@ -694,7 +731,10 @@
   }
   function setStudyBoardMode(oneRow) {
     var board = $("study-board");
-    if (board) board.classList.toggle("study-one", !!oneRow);
+    if (board) {
+      board.classList.toggle("study-one", !!oneRow);
+      board.classList.remove("study-nine");
+    }
   }
   function studyTodayDens(n) {
     if (n <= 2) return "d2";
@@ -738,10 +778,21 @@
       return;
     }
     var subjects = studyData.subjects || [];
-    var meters = '<div class="study-deck' + (subjects.length > 2 ? " many" : "") + '">';
+    // 試験科目は9教科を常に並べる（計画のない教科は「準備中」「別枠」の枠にする）
+    var all = studyData.allSubjects || [];
+    var nine = all.length >= 9;
+    var boardEl = $("study-board");
+    if (boardEl) boardEl.classList.toggle("study-nine", nine);
+    var meters = '<div class="study-deck' + (subjects.length > 2 ? " many" : "") + (nine ? " nine" : "") + '">';
     var today = '<div class="study-deck">';
+    if (nine) {
+      all.forEach(function (a) {
+        var sj = studySubject(a.key);
+        meters += sj ? studySubjectMeters(sj) : studySubjectIdle(a);
+      });
+    }
     subjects.forEach(function (s) {
-      meters += studySubjectMeters(s);
+      if (!nine) meters += studySubjectMeters(s);
       if (subjects.length <= 2) today += studySubjectToday(s, "今日の" + s.label);
     });
     if (subjects.length > 2) today = '<div class="study-deck one">' + studyTodayAllPanel();
