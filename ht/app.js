@@ -479,14 +479,19 @@
     var tot = pack && pack.total != null ? Number(pack.total) : 0;
     if (isNaN(tot)) tot = 0;
     var cls = uncreated ? "miss" : (!tot ? "mute" : (left ? "warn" : "ok"));
-    var pct = tot ? Math.round((100 * done) / tot) : 0;
-    var hero = uncreated ? "-" : String(left);
-    var body = uncreated
-      ? '<div class="hero">-</div>'
+    var pct = tot ? Math.min(100, Math.round((100 * done) / tot)) : 0;
+    // 縦型の棒グラフ（下から完了の割合だけ伸びる）＋「完了 n」「全体 n」の数字。進んでいる感じが一目で分かるようにする
+    var fillH = pct > 0 ? Math.max(pct, 4) : 0;
+    var bar = '<div class="bar"><i style="height:' + fillH + '%"></i></div>';
+    var nums = uncreated
+      ? '<div class="mnone">-</div>'
       : (!tot
-        ? '<div class="hero">' + hero + '</div><div class="left">なし</div>'
-        : '<div class="done">完了 ' + done + '</div><div class="hero">' + hero + '</div><div class="pct">' + pct + "%</div>");
-    return '<div class="study-meter ' + cls + '"><div class="k">' + esc(label) + "</div>" + body + "</div>";
+        ? '<div class="mnone">なし</div>'
+        : '<div class="nd"><span class="l">完了</span><b>' + done + '</b></div>' +
+          '<div class="na"><span class="l">全体</span><b>' + tot + '</b></div>' +
+          '<div class="pct">' + pct + "%</div>");
+    return '<div class="study-meter ' + cls + '"><div class="k">' + esc(label) + "</div>" +
+      '<div class="mbody">' + bar + '<div class="nums">' + nums + "</div></div></div>";
   }
   function studyTaskCard(it, withSubject, overdueDay) {
     var kind = (it && it.kindLabel) || STUDY_KIND[(it && it.kind) || ""] || "";

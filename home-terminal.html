@@ -322,8 +322,9 @@
     .study-deck.many .study-panel { padding: 6px 10px 6px; gap: 4px; }
     .study-deck.many .study-panel h2 { font-size: 17px; }
     .study-deck.many .study-meter { padding: 4px 6px 6px; gap: 2px; }
-    .study-deck.many .study-meter .hero { font-size: 34px; min-height: 34px; }
-    .study-deck.many .study-meter .pct { font-size: 16px; }
+    .study-deck.many .study-meter .bar { width: 30px; }
+    .study-deck.many .study-meter .nums b { font-size: 30px; }
+    .study-deck.many .study-meter .pct { font-size: 18px; }
     /* 試験科目9教科（3列×3段）。上の枠を高めにして、下の「今日のやること」は少し低くする */
     #study-board.study-nine { grid-template-rows: auto minmax(0, 1.75fr) minmax(0, 1fr); }
     .study-deck.nine { grid-template-rows: repeat(3, minmax(0, 1fr)); gap: 6px; }
@@ -332,9 +333,13 @@
     .study-deck.nine .study-panel h2 .hint { font-size: 12px; }
     .study-deck.nine .study-meter { padding: 2px 6px 4px; gap: 1px; }
     .study-deck.nine .study-meter .k { font-size: 12px; }
-    .study-deck.nine .study-meter .hero { font-size: 26px; min-height: 26px; }
-    .study-deck.nine .study-meter .pct { font-size: 13px; }
-    .study-deck.nine .study-meter .done { font-size: 12px; }
+    .study-deck.nine .study-meter .mbody { gap: 6px; }
+    .study-deck.nine .study-meter .bar { width: 26px; border-radius: 5px; }
+    .study-deck.nine .study-meter .nums { gap: 0; }
+    .study-deck.nine .study-meter .nums .l { font-size: 11px; }
+    .study-deck.nine .study-meter .nums b { font-size: 26px; }
+    .study-deck.nine .study-meter .pct { font-size: 15px; }
+    .study-deck.nine .study-meter .mnone { font-size: 18px; }
     .study-panel.idle { opacity: 0.82; border-style: dashed; }
     .study-idle {
       flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center;
@@ -400,29 +405,34 @@
       background: rgba(12,14,19,0.45); overflow: hidden;
     }
     .study-meter .k { font-size: 14px; color: #c5c0b6; flex-shrink: 0; }
-    .study-meter .done, .study-meter .left {
-      font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.15;
-      flex-shrink: 0;
+    /* 縦型の棒グラフ（左）＋ 完了・全体・％（右）。棒は下から完了の割合だけ伸びる */
+    .study-meter .mbody { flex: 1; min-height: 0; display: flex; align-items: stretch; gap: 8px; }
+    .study-meter .bar {
+      position: relative; width: 36px; flex-shrink: 0; border-radius: 6px; overflow: hidden;
+      background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.28);
     }
-    .study-meter .done { color: #86efac; }
-    .study-meter .left { color: #fbbf24; }
-    .study-meter.ok .left { color: #86efac; }
-    .study-meter .hero {
-      flex: 1 0 auto;
-      min-height: 52px;
-      font-size: 52px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1;
-      color: #fbbf24; letter-spacing: -0.04em; text-align: center;
-      display: flex; align-items: center; justify-content: center;
+    .study-meter .bar i {
+      position: absolute; left: 0; right: 0; bottom: 0; display: block;
+      background: linear-gradient(180deg, #86efac, #22c55e);
     }
-    .study-meter.ok .hero { color: #86efac; }
-    .study-meter.miss .hero, .study-meter.mute .hero { color: #8a8070; }
+    .study-meter.ok .bar { border-color: #86efac; box-shadow: 0 0 8px rgba(134,239,172,0.6); }
+    .study-meter .nums {
+      flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 2px;
+      font-variant-numeric: tabular-nums; line-height: 1.05;
+    }
+    .study-meter .nums .nd, .study-meter .nums .na { display: flex; align-items: baseline; gap: 4px; white-space: nowrap; }
+    .study-meter .nums .l { font-size: 12px; font-weight: 700; color: #c5c0b6; letter-spacing: 0.04em; }
+    .study-meter .nums b { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; }
+    .study-meter .nums .nd b { color: #86efac; }
+    .study-meter .nums .na b { color: #f4eee2; }
     .study-meter .pct {
-      flex-shrink: 0;
-      font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1;
-      color: #fbbf24; letter-spacing: -0.02em; text-align: center;
+      font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1;
+      color: #fbbf24; letter-spacing: -0.02em;
     }
     .study-meter.ok .pct { color: #86efac; }
-    .study-meter.mute .done, .study-meter.mute .left, .study-meter.mute .pct { color: var(--muted); font-weight: 600; }
+    .study-meter .mnone {
+      margin: auto; font-size: 22px; font-weight: 700; color: var(--muted); letter-spacing: 0.08em;
+    }
     .study-callout { font-size: 12px; color: #fbbf24; }
     .study-tasks {
       flex: 1; min-height: 0; overflow: hidden;
