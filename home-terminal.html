@@ -571,6 +571,12 @@
     html .study-panel.sub-sha { border-color: rgba(217,119,6,0.9); background: rgba(217,119,6,0.26); }
     html .study-panel.sub-kok { border-color: rgba(220,38,38,0.9); background: rgba(220,38,38,0.26); }
     html .study-panel[class*="sub-"] { position: relative; padding-left: 16px !important; }
+    /* 終わったカードはグレーアウト（2026-11-06）。教科の色・紙テストの黒を灰色にし、「完了」バッジだけ色を残す。
+       昼テーマは全体が輝度反転されるが、灰色は反転しても灰色のまま */
+    /* 教科色の指定（:not(.k-paper) 付き）より強くするため .done を重ねる */
+    html body .study-task.done.done.done { opacity: 1; filter: none; background: rgba(128,128,128,0.18); border-color: rgba(160,160,160,0.45); }
+    html body .study-task.done.done.done > :not(.badge) { filter: grayscale(1); opacity: 0.5; }
+    html body .study-task.done.done.done::before { background: #8a8a8a; }
     .sj {
       display: inline-block; padding: 0 0.5em; margin-right: 0.4em; border-radius: 0.4em;
       background: var(--sc, #64748b); color: #ffffff; font-weight: 800; letter-spacing: 0.05em;
@@ -637,10 +643,7 @@
       opacity: 0.38;
       filter: grayscale(0.88);
     }
-    .study-cal-day.overdue .study-task.done {
-      opacity: 0.38;
-      filter: grayscale(0.8);
-    }
+    .study-cal-day.overdue .study-task.done { opacity: 1; filter: none; }
     .study-cal-day.overdue .study-task.active {
       opacity: 1;
       filter: none;
