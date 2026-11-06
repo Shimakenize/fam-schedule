@@ -495,7 +495,8 @@
     var k = (it && it.kind) || "";
     var subj = (it && it.subjectLabel) || "";
     var subKey = (it && it.subjectKey) || "";
-    var kindLine = withSubject && subj ? subj + " · " + kind : kind;
+    // 教科名は色つきのバッジ（.sj）にして、近い色でも見分けやすくする
+    var kindHtml = withSubject && subj ? '<span class="sj">' + esc(subj) + "</span>" + esc(kind) : esc(kind);
     var miss = it && (it.missing || title === "未作成");
     var done = !!(it && it.done);
     var overdue = !!(overdueDay && !done);
@@ -503,7 +504,7 @@
     return '<article class="study-task k-' + esc(k) + ' sub-' + esc(subKey) +
       (miss ? " missing" : "") + (done ? " done" : "") + (overdue ? " active" : "") +
       (it && it._bundle ? " bundle" : "") + '">' + badge +
-      '<div class="kind">' + (k === "videoQuiz" ? STUDY_ICON.video + STUDY_ICON.quiz : (studyIconKey(k) ? STUDY_ICON[studyIconKey(k)] : "")) + esc(kindLine) +
+      '<div class="kind">' + (k === "videoQuiz" ? STUDY_ICON.video + STUDY_ICON.quiz : (studyIconKey(k) ? STUDY_ICON[studyIconKey(k)] : "")) + kindHtml +
       '</div><div class="unit">' + esc(unit) + '</div><div class="ttl">' + esc(title) + "</div></article>";
   }
   function studyTasksHtml(items) {
@@ -538,7 +539,7 @@
     var hint = s.basicOnly ? '<span class="hint">基本・追補のみ</span>' : "";
     // 誤答動画・誤答クイズは計画に追加されたときだけメーターを出す
     var retry = studyRetryShown(s);
-    return '<section class="study-panel sub-' + esc(s.key) + '"><h2>' + esc(s.label) + hint + "</h2>" +
+    return '<section class="study-panel sub-' + esc(s.key) + '"><h2><span class="sj">' + esc(s.label) + "</span>" + hint + "</h2>" +
       '<div class="study-meters' + (retry ? "" : " m3") + '">' +
       studyMeterHtml("動画", s.videos) +
       studyMeterHtml("初回クイズ", s.quizFirst) +
@@ -551,7 +552,7 @@
   function studySubjectIdle(a) {
     var msg = a.state === "separate" ? "別枠で学習" : "準備中";
     var d = a.examDate ? "試験 " + fmtMd(a.examDate) : "試験日 未定";
-    return '<section class="study-panel idle sub-' + esc(a.key) + '"><h2>' + esc(a.label) +
+    return '<section class="study-panel idle sub-' + esc(a.key) + '"><h2><span class="sj">' + esc(a.label) + "</span>" +
       '<span class="hint">' + esc(d) + "</span></h2>" +
       '<div class="study-idle">' + esc(msg) + "</div></section>";
   }

@@ -526,6 +526,44 @@
     html.theme-day .study-task.k-paper .kind { color: #1f2937; }
     html.theme-day .study-task.k-paper .unit { color: #000000; }
     html.theme-day .study-task.k-paper .ttl { color: #374151; }
+    /* 教科の色（2026-11-06）: 近い色が見分けにくいので、色相を大きく離した濃い色にして、左端に太い帯と、教科名の塗りつぶしバッジ（.sj）を付ける。
+       昼テーマは全体が輝度反転されるが、色相は変わらない（バッジは中間の明るさなので明るさも保たれる） */
+    html .study-task.sub-gik, html .study-panel.sub-gik { --sc: #059669; }  /* 技家 = エメラルド */
+    html .study-task.sub-ong, html .study-panel.sub-ong { --sc: #c026d3; }  /* 音楽 = マゼンタ */
+    html .study-task.sub-rik, html .study-panel.sub-rik { --sc: #2563eb; }  /* 理科 = 青 */
+    html .study-task.sub-hok, html .study-panel.sub-hok { --sc: #65a30d; }  /* 保体 = ライム */
+    html .study-task.sub-sha, html .study-panel.sub-sha { --sc: #d97706; }  /* 社会 = 橙 */
+    html .study-task.sub-kok, html .study-panel.sub-kok { --sc: #dc2626; }  /* 国語 = 赤 */
+    html .study-panel.sub-eng { --sc: #7c3aed; }
+    html .study-panel.sub-sug { --sc: #0d9488; }
+    html .study-panel.sub-bij { --sc: #ca8a04; }
+    html .study-task.sub-gik:not(.k-paper) { border-color: rgba(5,150,105,0.9); background: rgba(5,150,105,0.34); }
+    html .study-task.sub-ong:not(.k-paper) { border-color: rgba(192,38,211,0.9); background: rgba(192,38,211,0.34); }
+    html .study-task.sub-rik:not(.k-paper) { border-color: rgba(37,99,235,0.9); background: rgba(37,99,235,0.36); }
+    html .study-task.sub-hok:not(.k-paper) { border-color: rgba(101,163,13,0.9); background: rgba(101,163,13,0.34); }
+    html .study-task.sub-sha:not(.k-paper) { border-color: rgba(217,119,6,0.9); background: rgba(217,119,6,0.34); }
+    html .study-task.sub-kok:not(.k-paper) { border-color: rgba(220,38,38,0.9); background: rgba(220,38,38,0.34); }
+    /* 左端の帯は疑似要素にして、昼テーマの全体反転を打ち消し（二重反転）、設定どおりの色で出す */
+    html .study-task[class*="sub-"] { position: relative; }
+    html .study-cal-day .study-task[class*="sub-"], html .study-deck .study-task[class*="sub-"] { padding-left: 14px !important; }
+    html .study-task[class*="sub-"]::before, html .study-panel[class*="sub-"]::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 8px; background: var(--sc, #64748b);
+    }
+    html.theme-day .study-task[class*="sub-"]::before, html.theme-day .study-panel[class*="sub-"]::before,
+    html.theme-day .sj { filter: invert(1) hue-rotate(180deg); }
+    html .study-task[class*="sub-"]:not(.k-paper) .unit { color: #f8fafc; }
+    html .study-panel.sub-gik { border-color: rgba(5,150,105,0.9); background: rgba(5,150,105,0.26); }
+    html .study-panel.sub-ong { border-color: rgba(192,38,211,0.9); background: rgba(192,38,211,0.26); }
+    html .study-panel.sub-rik { border-color: rgba(37,99,235,0.9); background: rgba(37,99,235,0.28); }
+    html .study-panel.sub-hok { border-color: rgba(101,163,13,0.9); background: rgba(101,163,13,0.26); }
+    html .study-panel.sub-sha { border-color: rgba(217,119,6,0.9); background: rgba(217,119,6,0.26); }
+    html .study-panel.sub-kok { border-color: rgba(220,38,38,0.9); background: rgba(220,38,38,0.26); }
+    html .study-panel[class*="sub-"] { position: relative; padding-left: 16px !important; }
+    .sj {
+      display: inline-block; padding: 0 0.5em; margin-right: 0.4em; border-radius: 0.4em;
+      background: var(--sc, #64748b); color: #ffffff; font-weight: 800; letter-spacing: 0.05em;
+    }
+    .study-panel h2 .sj { font-size: 1em; padding: 0 0.7em; }
     .study-task .unit { font-size: 18px; font-weight: 700; color: var(--gold-2); line-height: 1.2; }
     .study-task .ttl { font-size: 14px; color: #c5c0b6; }
     .study-empty { font-size: 16px; color: var(--muted); padding: 8px 2px; }
