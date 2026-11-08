@@ -1386,6 +1386,11 @@
       font-size: 12px; max-width: 100%; line-height: 1.2; font-weight: 700; color: #f6edd9;
       display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
     }
+    /* 日本代表戦(k-japan)は生成り×赤の明るい背景なので、上の淡い金色だと
+       大会名が読めない（2026-11-09、ユーザー指摘）。.brief-chip.k-japan .league
+       側で暗赤 #7f1d1d を指定済みだったが、こちらと詳細度が同じ(クラス3つ)で
+       後勝ちになり淡い金色に上書きされていた。詳細度を上げて確実に勝たせる。 */
+    .wh-sec .brief-chip.k-japan .league { color: #7f1d1d; }
     .wh-sec .brief-chip .vs {
       font-size: 13px; max-width: 100%; line-height: 1.2;
       display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
@@ -2539,6 +2544,6 @@
   <div id="toast" hidden></div>
   <aside id="ev-detail" hidden></aside>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script src="ht/bridge.js?v=0.3.174-bb2f5b22"></script>
+  <script src="ht/bridge.js?v=0.3.175-bb2f5b22"></script>
 </body>
 </html>
