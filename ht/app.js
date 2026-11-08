@@ -5410,7 +5410,7 @@
   function fitBriefChipFonts() {
     var board = $("week-head-board");
     if (!board || isPhone()) return;
-    var chips = board.querySelectorAll(".rm-cat .brief-chip, .wh-sec.wh-marinos .brief-chip");
+    var chips = board.querySelectorAll(".rm-cat .brief-chip");
     if (!chips.length) return;
     var MIN = 9, MAX = 40, LINE_H = 1.25;
     for (var i = 0; i < chips.length; i++) {
@@ -5455,6 +5455,43 @@
       chip.style.setProperty("--chip-fs", best + "px");
     }
   }
+  // マリノス・代表戦カード専用のフォント自動調整（2026-11-09）。
+  // fitBriefChipFonts()は「1行に収まる文字幅」を実要素を使わず計測用の隠しspanで
+  // 予測する方式で、dow（曜日）やアイコンの高さをavailHの計算に入れていなかった。
+  // マリノス枠は常にそれらを表示するため、予測が外れて文字が重なる／枠からはみ出す
+  // 不具合が起きた。国際親善試合の大会名のように長さが読めないテキストもあるため、
+  // ここでは予測をやめ、--chip-fsを実際に当てて chip.scrollHeight/scrollWidth が
+  // clientHeight/clientWidth（=カードの実寸、dow・アイコン・paddingぶん込み）に
+  // 収まるかを見ながら二分探索する。TV/PC・iPhone（このカードはどちらも同じ
+  // .wh-sec.wh-marinos .brief-chip マークアップ）共通で使う。
+  function fitMarinosChipFonts(container) {
+    if (!container) return;
+    var chips = container.querySelectorAll(".wh-sec.wh-marinos .brief-chip");
+    if (!chips.length) return;
+    var MIN = 11, MAX = 34;
+    for (var i = 0; i < chips.length; i++) {
+      var chip = chips[i];
+      if (chip.clientHeight <= 0 || chip.clientWidth <= 0) continue;
+      var fits = function (size) {
+        chip.style.setProperty("--chip-fs", size + "px");
+        return chip.scrollHeight <= chip.clientHeight + 1 && chip.scrollWidth <= chip.clientWidth + 1;
+      };
+      var best = MIN;
+      if (fits(MAX)) {
+        best = MAX;
+      } else if (!fits(MIN)) {
+        best = MIN;
+      } else {
+        var lo = MIN, hi = MAX;
+        while (lo <= hi) {
+          var mid = (lo + hi) >> 1;
+          if (fits(mid)) { best = mid; lo = mid + 1; }
+          else { hi = mid - 1; }
+        }
+      }
+      chip.style.setProperty("--chip-fs", best + "px");
+    }
+  }
   function renderWeekHeadline() {
     var el = $("week-head-board");
     if (!el) return;
@@ -5479,6 +5516,7 @@
         body = '<div class="wh-sec wh-wx"><div class="wh-h">' + w + 'の週間天気予報</div>' + whWxDaysHtml(wx) + "</div>";
       }
       el.innerHTML = '<div class="wh-grid' + (isRenkyuWeekend(pageKey) ? " wh-grid-renkyu" : "") + '">' + body + "</div>";
+      fitMarinosChipFonts(el);
     } else {
       var renkyu = isRenkyuWeekend(pageKey);
       el.innerHTML = '<div class="wh-grid' + (renkyu ? " wh-grid-renkyu" : "") + '">' +
@@ -5492,6 +5530,7 @@
           whWxDaysHtml(wx) +
         "</div></div>";
       fitBriefChipFonts();
+      fitMarinosChipFonts(el);
     }
     $("range-line").textContent = phoneRangeTitle() || (w + "のHL");
     weekPastStamp = weekEventsPastStamp();
@@ -5712,7 +5751,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.167" });
+    appLog({ event: "kiosk_on", v: "0.3.174" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;

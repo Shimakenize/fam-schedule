@@ -1411,14 +1411,37 @@
     .wh-sec.wh-marinos .brief-chip { flex: 1 1 0; width: 100%; justify-content: flex-start; padding-top: 34px; }
     .wh-sec.wh-marinos .brief-chip .who { display: none; }
     /* マリノス枠は列いっぱいに伸びる大きいカードなので、他のwh-sec枠と違い
-       rm-cat（週末予定グリッド）と同じ fitBriefChipFonts() でカード実寸に
-       合わせてフォントを拡大する（固定px のままだと大きいカードの中で
-       文字だけ小さく浮いて見えるため、2026-10-22）。 */
+       カード実寸に合わせてフォントを拡大する。rm-cat用のfitBriefChipFonts()は
+       1行想定の予測計測（実際の.dow/.ui-icoの高さを計算に入れない）だったため、
+       長い大会名（例: 国際親善試合名）で折り返しが起きるカードやdow/アイコン分の
+       高さがあふれ、文字が重なる/枠からはみ出す不具合が起きた（2026-10-22 v0.3.164
+       では気づけず、2026-11-09に再指摘）。実要素のscrollHeight/scrollWidthを見ながら
+       収まる最大フォントを二分探索する fitMarinosChipFonts()（app.js）に置き換え、
+       折り返しも許可する（固定1行・予測計測はやめる）。
+       .brief-chip は flex-direction:column のflexコンテナで、子要素は既定で
+       flex-shrink:1 を持つ。カード内コンテンツの合計が高さを超えると、flexboxが
+       各フィールドの「箱」を文字の自然な高さより先に押し縮めてしまい（scrollHeightは
+       縮んだ箱の高さしか見ないため二分探索では検出できない）、文字の描画自体は
+       縮まないので隣のフィールドと重なって見える不具合があった。flex-shrink:0で
+       各フィールドをflexboxの圧縮対象から外し、箱の高さが常に文字の自然な高さどおり
+       になるようにして、はみ出しがscrollHeightに正しく反映されるようにする。 */
+    .wh-sec.wh-marinos .brief-chip .dow,
+    .wh-sec.wh-marinos .brief-chip .ui-ico,
     .wh-sec.wh-marinos .brief-chip .ttl,
     .wh-sec.wh-marinos .brief-chip .league,
     .wh-sec.wh-marinos .brief-chip .vs,
     .wh-sec.wh-marinos .brief-chip .venue,
-    .wh-sec.wh-marinos .brief-chip .t { font-size: var(--chip-fs, 15px); -webkit-line-clamp: 1; }
+    .wh-sec.wh-marinos .brief-chip .t { flex: 0 0 auto; }
+    .wh-sec.wh-marinos .brief-chip .ttl,
+    .wh-sec.wh-marinos .brief-chip .league,
+    .wh-sec.wh-marinos .brief-chip .vs,
+    .wh-sec.wh-marinos .brief-chip .venue,
+    .wh-sec.wh-marinos .brief-chip .t {
+      font-size: var(--chip-fs, 15px);
+      display: block; -webkit-box-orient: unset; -webkit-line-clamp: unset;
+      white-space: normal; overflow-wrap: anywhere; word-break: break-word;
+      max-width: 100%;
+    }
     .wh-sec .brief-empty-ico .ui-ico { width: 36px; height: 36px; }
     .wh-sec .brief-empty-ico .st-cap { font-size: 14px; }
     .wh-marinos-list {
@@ -2516,6 +2539,6 @@
   <div id="toast" hidden></div>
   <aside id="ev-detail" hidden></aside>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script src="ht/bridge.js?v=0.3.167-bb2f5b22"></script>
+  <script src="ht/bridge.js?v=0.3.174-bb2f5b22"></script>
 </body>
 </html>
