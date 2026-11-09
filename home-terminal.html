@@ -458,6 +458,26 @@
     .study-task .badge.due {
       background: #854d0e; color: #fef08a;
     }
+    /* 再オープン（当てずっぽうの疑いで戻された Quiz）。右下に赤のバッジ。完了バッジ（右上）とは別に、消えずに残す */
+    .study-task .badge.reopen {
+      top: auto; bottom: 6px; right: 6px; font-size: 12px; padding: 3px 8px;
+    }
+    .study-task .badge.reopen.open { background: #b91c1c; color: #ffffff; border: 1.5px solid #fecaca; }
+    .study-task .badge.reopen.cleared { background: transparent; color: #f87171; border: 1.5px solid #f87171; }
+    .study-task.reopen-open { border: 2px solid #ef4444; }
+    .study-meter .reo {
+      flex-shrink: 0; margin-top: 2px; padding: 2px 6px; border-radius: 6px; text-align: center;
+      font-size: 13px; font-weight: 800; letter-spacing: 0.04em;
+    }
+    .study-meter .reo.open { background: #b91c1c; color: #ffffff; border: 1.5px solid #fecaca; }
+    .study-meter .reo.cleared { background: transparent; color: #f87171; border: 1.5px solid #f87171; }
+    .study-banner .reo-total {
+      margin-left: auto; padding: 3px 12px; border-radius: 8px; font-size: 18px; font-weight: 800; letter-spacing: 0.04em;
+    }
+    .study-banner .reo-total.open { background: #b91c1c; color: #ffffff; border: 2px solid #fecaca; }
+    .study-banner .reo-total.cleared { background: transparent; color: #f87171; border: 2px solid #f87171; }
+    /* 昼テーマは全体が輝度反転されるので、再オープンの赤は二重に反転して赤のまま出す */
+    html.theme-day .study-task .badge.reopen, html.theme-day .study-meter .reo, html.theme-day .study-banner .reo-total { filter: invert(1) hue-rotate(180deg); }
     .study-task.done {
       opacity: 0.72;
     }

@@ -471,7 +471,7 @@
     }
     return phoneRangeTitle() || ((studyDebug() ? "試験デバッグ　" : "") + "試験Status　" + left + "日（当日含む）　" + exam);
   }
-  function studyMeterHtml(label, pack, uncreated) {
+  function studyMeterHtml(label, pack, uncreated, reopen) {
     var done = pack && pack.done != null ? Number(pack.done) : 0;
     var left = pack && pack.left != null ? Number(pack.left) : 0;
     if (isNaN(done)) done = 0;
@@ -490,8 +490,15 @@
         : '<div class="nd"><span class="l">完了</span><b>' + done + '</b></div>' +
           '<div class="na"><span class="l">全体</span><b>' + tot + '</b></div>' +
           '<div class="pct">' + pct + "%</div>");
+    // 再オープン（当てずっぽうの疑いで戻された Quiz）。未了があれば赤い塗り、受け直し済みなら赤の縁取りで残す
+    var reo = "";
+    if (reopen && Number(reopen.count) > 0) {
+      var ropen = Number(reopen.open) > 0;
+      reo = '<div class="reo ' + (ropen ? "open" : "cleared") + '">再オープン ' + Number(reopen.count) + "件" +
+        (ropen ? "（未了 " + Number(reopen.open) + "）" : "（受け直し済）") + "</div>";
+    }
     return '<div class="study-meter ' + cls + '"><div class="k">' + esc(label) + "</div>" +
-      '<div class="mbody">' + bar + '<div class="nums">' + nums + "</div></div></div>";
+      '<div class="mbody">' + bar + '<div class="nums">' + nums + "</div></div>" + reo + "</div>";
   }
   function studyTaskCard(it, withSubject, overdueDay) {
     var kind = (it && it.kindLabel) || STUDY_KIND[(it && it.kind) || ""] || "";
@@ -506,9 +513,18 @@
     var done = !!(it && it.done);
     var overdue = !!(overdueDay && !done);
     var badge = done ? '<div class="badge done">完了</div>' : (overdue ? '<div class="badge due">未了</div>' : "");
+    var ro = it && it.reopen;
+    var rbadge = ro
+      ? '<div class="badge reopen ' + (ro.open ? "open" : "cleared") + '">' +
+        (ro.open ? "再オープン" : "再オープン済" + (Number(ro.count) > 1 ? "×" + Number(ro.count) : "")) + "</div>"
+      : "";
+    // 聞き切っていない動画は、どこまで聞いたかを添える
+    if (!done && it && typeof it.listenPct === "number") kind += "（途中" + it.listenPct + "%）";
+    kindHtml = withSubject && subj ? '<span class="sj">' + esc(subj) + "</span>" + esc(kind) : esc(kind);
     return '<article class="study-task k-' + esc(k) + ' sub-' + esc(subKey) +
       (miss ? " missing" : "") + (done ? " done" : "") + (overdue ? " active" : "") +
-      (it && it._bundle ? " bundle" : "") + '">' + badge +
+      (ro && ro.open ? " reopen-open" : "") +
+      (it && it._bundle ? " bundle" : "") + '">' + badge + rbadge +
       '<div class="kind">' + (k === "videoQuiz" ? STUDY_ICON.video + STUDY_ICON.quiz : (studyIconKey(k) ? STUDY_ICON[studyIconKey(k)] : "")) + kindHtml +
       '</div><div class="unit">' + esc(unit) + '</div><div class="ttl">' + esc(title) + "</div></article>";
   }
@@ -526,9 +542,14 @@
       studyData.today <= (studyData.examEnd || studyData.examDate);
     var n = examDay ? "当日" : String(left);
     var lab = examDay ? "" : "日";
+    var ro = studyData.reopen || {};
+    var reoHtml = Number(ro.count) > 0
+      ? '<div class="reo-total ' + (Number(ro.open) > 0 ? "open" : "cleared") + '">再オープン ' + Number(ro.count) + "件" +
+        (Number(ro.open) > 0 ? "（未了 " + Number(ro.open) + "件）" : "（すべて受け直し済）") + "</div>"
+      : "";
     return '<div class="study-banner"><div class="n">' + esc(n) + '</div><div class="lab">' + lab +
       '</div><div class="sub">試験 ' + esc(studyExamSpan()) + " まで（当日含む）　" +
-      esc(studyData.subjectsLine || "理科・社会") + "</div></div>";
+      esc(studyData.subjectsLine || "理科・社会") + "</div>" + reoHtml + "</div>";
   }
   function studyExamSpan() {
     var a = studyData.examDate;
@@ -547,7 +568,7 @@
     return '<section class="study-panel sub-' + esc(s.key) + '"><h2><span class="sj">' + esc(s.label) + "</span>" + hint + "</h2>" +
       '<div class="study-meters' + (retry ? "" : " m3") + '">' +
       studyMeterHtml("動画", s.videos) +
-      studyMeterHtml("初回クイズ", s.quizFirst) +
+      studyMeterHtml("初回クイズ", s.quizFirst, false, s.reopen) +
       (retry ? studyMeterHtml("誤答動画", s.wrongVideos, !!(s.wrongVideos && s.wrongVideos.missing)) +
         studyMeterHtml("誤答クイズ", s.quizRetry, !!(s.quizRetry && s.quizRetry.blocked)) : "") +
       studyMeterHtml("紙テスト", s.paper) +
@@ -676,7 +697,8 @@
             subjectKey: it.subjectKey, subjectLabel: it.subjectLabel, projectId: it.projectId,
             unitId: it.unitId, unitLabel: it.unitLabel,
             kind: "videoQuiz", kindLabel: "動画 + 初回Quiz",
-            title: it.title, done: !!(it.done && q.done), _pair: 2
+            title: it.title, done: !!(it.done && q.done), _pair: 2,
+            reopen: q.reopen, listenPct: it.listenPct
           });
           return;
         }
