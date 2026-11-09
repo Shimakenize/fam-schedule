@@ -465,6 +465,10 @@
     .study-task .badge.reopen.open { background: #b91c1c; color: #ffffff; border: 1.5px solid #fecaca; }
     .study-task .badge.reopen.cleared { background: transparent; color: #f87171; border: 1.5px solid #f87171; }
     html body .study-task.reopen-open.reopen-open { border: 2px solid #ef4444; }
+    /* 再オープンの目印（元の日に残す赤い点線カード。数には数えない） */
+    html body .study-task.k-reopenGhost.k-reopenGhost {
+      border: 2px dashed #ef4444; background: transparent;
+    }
     .study-meter .reo {
       flex-shrink: 0; margin-top: 2px; padding: 2px 6px; border-radius: 6px; text-align: center;
       font-size: 13px; font-weight: 800; letter-spacing: 0.04em;

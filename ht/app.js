@@ -511,7 +511,7 @@
     var kindHtml = withSubject && subj ? '<span class="sj">' + esc(subj) + "</span>" + esc(kind) : esc(kind);
     var miss = it && (it.missing || title === "未作成");
     var done = !!(it && it.done);
-    var overdue = !!(overdueDay && !done);
+    var overdue = !!(overdueDay && !done && k !== "reopenGhost");
     var badge = done ? '<div class="badge done">完了</div>' : (overdue ? '<div class="badge due">未了</div>' : "");
     var ro = it && it.reopen;
     var rbadge = ro
