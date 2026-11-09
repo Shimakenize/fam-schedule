@@ -2342,17 +2342,19 @@
     var ds = String((ev && ev.display_status) || "").toLowerCase();
     return ds === "removed" || ds === "off";
   }
-  // 拓実は試験期間中のため2026-11-10・11-11のU-13サッカー活動(定期練習・マリノス戦観戦等)を
+  // 拓実は試験期間中のため2026-11-10・11-11のU-13サッカー活動(定期練習等、本人が参加するもの)を
   // 不参加（ユーザー指示 2026-11-09）。このアプリ上でのみ非表示にし、親アプリ
   // (REGALIA_CHECK_MATCH / REGALIA_schedule_management)のデータは変更しない。
   // 11/13(金)は参加するため対象外。塾は活動ではないため対象外。
+  // マリノス戦観戦は本人が参加する活動ではない（観戦イベント）ため対象外（2026-11-09、ユーザー指摘）。
   var TAKUMI_SKIP_U13_SOCCER_DATES = ["2026-11-10", "2026-11-11"];
   function isTakumiSkipU13SoccerEv(ev) {
     if (!ev) return false;
     if (TAKUMI_SKIP_U13_SOCCER_DATES.indexOf(eventIso(ev)) === -1) return false;
     var f = categoryFlags(ev.category || ev.category_code || "");
     if (!f.hasU13 || f.hasU14 || f.hasU15 || f.hasGk) return false;
-    return canonicalKind(ev.kind || ev.event_kind) !== "塾";
+    var k = canonicalKind(ev.kind || ev.event_kind);
+    return k !== "塾" && k !== "マリノス戦";
   }
   function activeEvents(events) {
     return (events || []).filter(function (ev) { return !isTakumiSkipU13SoccerEv(ev); });
@@ -5071,7 +5073,6 @@
         return !!(end[eventIso(e)] || isMarinosEv(e));
       });
     }
-    h.marinos = (h.marinos || []).filter(function (e) { return !isTakumiSkipU13SoccerEv(e); });
     return h;
   }
   function eventStartKey(ev) {
@@ -5843,7 +5844,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.179" });
+    appLog({ event: "kiosk_on", v: "0.3.181" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;
