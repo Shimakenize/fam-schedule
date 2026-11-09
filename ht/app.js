@@ -471,7 +471,7 @@
     }
     return phoneRangeTitle() || ((studyDebug() ? "試験デバッグ　" : "") + "試験Status　" + left + "日（当日含む）　" + exam);
   }
-  function studyMeterHtml(label, pack, uncreated, reopen) {
+  function studyMeterHtml(label, pack, uncreated, reopen, wrong) {
     var done = pack && pack.done != null ? Number(pack.done) : 0;
     var left = pack && pack.left != null ? Number(pack.left) : 0;
     if (isNaN(done)) done = 0;
@@ -497,10 +497,46 @@
       reo = '<div class="reo ' + (ropen ? "open" : "cleared") + '">再オープン ' + Number(reopen.count) + "件" +
         (ropen ? "（未了 " + Number(reopen.open) + "）" : "（受け直し済）") + "</div>";
     }
+    // 誤答の部分（点線の細いバー＋「誤答 d/t」）。誤答の教材がまだ無い教科でも、誤答があるときは「誤答 -」を出す
+    var wr = "";
+    var wbar = "";
+    if (wrong) {
+      var wt = Number(wrong.total) || 0;
+      var wd = Number(wrong.done) || 0;
+      var wp = wt ? Math.min(100, Math.round((100 * wd) / wt)) : 0;
+      var wh = wp > 0 ? Math.max(wp, 6) : 0;
+      wbar = '<div class="wbar' + (wt ? "" : " none") + '"><i style="height:' + wh + '%"></i></div>';
+      wr = '<div class="wr' + (wt ? (wd >= wt ? " ok" : "") : " none") + '"><span class="l">誤答</span>' +
+        (wt ? "<b>" + wd + "</b>/" + wt : "<b>-</b>") + "</div>";
+    }
     return '<div class="study-meter ' + cls + '"><div class="k">' + esc(label) + "</div>" +
-      '<div class="mbody">' + bar + '<div class="nums">' + nums + "</div></div>" + reo + "</div>";
+      '<div class="mbody">' + bar + wbar + '<div class="nums">' + nums + wr + "</div></div>" + reo + "</div>";
+  }
+  // 誤答の動画・クイズ（kind wrongVideo / quizRetry）。同じ日・同じ教科の紙テストカードがあれば、その左に点線でつなぐ
+  function studyWrongPack(list) {
+    return {
+      kind: "wrongPack", subjectKey: list[0].subjectKey, subjectLabel: list[0].subjectLabel, items: list,
+      done: list.every(function (it) { return !!it.done; })
+    };
+  }
+  function studyWrongCardHtml(pack, joined) {
+    var lines = pack.items.map(function (it) {
+      var isV = it.kind === "wrongVideo";
+      return '<div class="wl' + (it.done ? " done" : "") + '">' + STUDY_ICON[isV ? "video" : "quiz"] +
+        (isV ? "誤答動画" : "誤答クイズ") + "<b>" + (it.done ? "完了" : "未") + "</b></div>";
+    }).join("");
+    return '<article class="study-task k-wrong sub-' + esc(pack.subjectKey) + (pack.done ? " done" : "") +
+      (joined ? " joined" : "") + '"><div class="kind">誤答克服</div>' + lines + "</article>";
   }
   function studyTaskCard(it, withSubject, overdueDay) {
+    if (it && it.kind === "wrongPack") return studyWrongCardHtml(it, false);
+    var base = studyTaskCardBase(it, withSubject, overdueDay);
+    if (it && it._wrong && it._wrong.length) {
+      return '<div class="study-combo">' + studyWrongCardHtml(studyWrongPack(it._wrong), true) + base + "</div>";
+    }
+    return base;
+  }
+  function studyTaskCardBase(it, withSubject, overdueDay) {
     var kind = (it && it.kindLabel) || STUDY_KIND[(it && it.kind) || ""] || "";
     var unit = (it && it.unitLabel) || (it && it.unitId) || "";
     var title = (it && it.title) || "";
@@ -564,13 +600,12 @@
   function studySubjectMeters(s) {
     var hint = s.basicOnly ? '<span class="hint">基本・追補のみ</span>' : "";
     // 誤答動画・誤答クイズは計画に追加されたときだけメーターを出す
+    // 誤答は別のメーターにせず、動画・初回クイズのメーターの中に点線のバーと数で足す（2026-11-09）
     var retry = studyRetryShown(s);
     return '<section class="study-panel sub-' + esc(s.key) + '"><h2><span class="sj">' + esc(s.label) + "</span>" + hint + "</h2>" +
-      '<div class="study-meters' + (retry ? "" : " m3") + '">' +
-      studyMeterHtml("動画", s.videos) +
-      studyMeterHtml("初回クイズ", s.quizFirst, false, s.reopen) +
-      (retry ? studyMeterHtml("誤答動画", s.wrongVideos, !!(s.wrongVideos && s.wrongVideos.missing)) +
-        studyMeterHtml("誤答クイズ", s.quizRetry, !!(s.quizRetry && s.quizRetry.blocked)) : "") +
+      '<div class="study-meters m3">' +
+      studyMeterHtml("動画", s.videos, false, null, retry ? (s.wrongVideos || { total: 0, done: 0 }) : null) +
+      studyMeterHtml("初回クイズ", s.quizFirst, false, s.reopen, retry ? (s.quizRetry || { total: 0, done: 0 }) : null) +
       studyMeterHtml("紙テスト", s.paper) +
       "</div></section>";
   }
@@ -709,6 +744,14 @@
   }
   function studyCalItems(row) {
     var items = studyMergeVideoQuiz(studyDayItems(row).filter(function (it) { return it && !it.placeholder; }));
+    var wrongBy = {};
+    items = items.filter(function (it) {
+      if (it.kind === "wrongVideo" || it.kind === "quizRetry") {
+        (wrongBy[it.subjectKey] = wrongBy[it.subjectKey] || []).push(it);
+        return false;
+      }
+      return true;
+    });
     var bundles = {};
     var out = [];
     items.forEach(function (it) {
@@ -719,9 +762,23 @@
       }
       out.push(it);
     });
-    return out.map(function (it) {
-      return it._slot ? studyPaperBundle(bundles[it._slot], row.date) : it;
+    var res = out.map(function (it) {
+      if (!it._slot) return it;
+      var b = studyPaperBundle(bundles[it._slot], row.date);
+      if (wrongBy[it._slot]) { b._wrong = wrongBy[it._slot]; delete wrongBy[it._slot]; }
+      return b;
     });
+    // 紙テストカードが無い日の誤答は、点線のカードを単独で出す
+    Object.keys(wrongBy).forEach(function (k) { res.push(studyWrongPack(wrongBy[k])); });
+    return res;
+  }
+  // 誤答の点線カードを合わせた分も数えて列数を決める（つないだカードは2マス分）
+  function studyColsFor(items, big) {
+    var n = items.length;
+    var combos = items.filter(function (it) { return it && it._wrong; }).length;
+    n += combos;
+    var c = n > big ? 3 : (n > 1 ? 2 : 1);
+    return combos && c < 2 ? 2 : c;
   }
   function studyCalDayHtml(row) {
     var isToday = row.date === studyData.today;
@@ -754,7 +811,7 @@
     } else if (tag === "exam") {
       // 試験の教科は見出しに出す（勉強カードと同じ形の「試験予定」カードは出さない）。3日日程では翌日以降の予定も入る
       var rest = studyCalItems(row);
-      var ecols = rest.length > 4 ? 3 : (rest.length > 1 ? 2 : 1);
+      var ecols = studyColsFor(rest, 4);
       inner = (row.juku ? '<div class="juku-strip">塾の' + esc(row.juku) + "</div>" : "") +
         (rest.length
           ? '<div class="items' + (rest.length > 6 ? " dense" : "") + '" style="--icols:' + ecols + '">' +
@@ -763,7 +820,7 @@
     } else if (tag === "juku") {
       var jukuItems = studyCalItems(row);
       if (jukuItems.length) {
-        var jcols = jukuItems.length > 3 ? 3 : (jukuItems.length > 1 ? 2 : 1);
+        var jcols = studyColsFor(jukuItems, 3);
         inner = '<div class="split">' +
           '<div class="half juku"><div class="banner juku">' + esc(note || "塾に集中") + "</div></div>" +
           '<div class="half cards">' + '<div class="items' + (jukuItems.length > 6 ? " dense" : "") + '" style="--icols:' + jcols + '">' +
@@ -774,7 +831,7 @@
       }
     } else {
       var items = studyCalItems(row);
-      var cols = items.length > 4 ? 3 : (items.length > 1 ? 2 : 1);
+      var cols = studyColsFor(items, 4);
       var body = items.length
         ? items.map(function (it) { return studyTaskCard(it, true, overdue); }).join("")
         : '<div class="study-empty">なし</div>';

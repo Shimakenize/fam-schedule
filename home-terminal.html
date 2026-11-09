@@ -469,6 +469,36 @@
     html body .study-task.k-reopenGhost.k-reopenGhost {
       border: 2px dashed #ef4444; background: transparent;
     }
+    /* Status: 動画・クイズのメーターの中の誤答の部分（点線の細いバー＋誤答 d/t） */
+    .study-meter .wbar {
+      position: relative; width: 14px; flex-shrink: 0; border-radius: 5px; overflow: hidden;
+      background: transparent; border: 2px dotted rgba(255,255,255,0.55);
+    }
+    .study-meter .wbar.none { opacity: 0.4; }
+    .study-meter .wbar i {
+      position: absolute; left: 0; right: 0; bottom: 0; display: block;
+      background: linear-gradient(180deg, #fde68a, #f59e0b);
+    }
+    .study-meter .wr {
+      margin-top: 2px; font-size: 13px; font-weight: 700; color: #fcd34d; line-height: 1.1;
+      border-top: 2px dotted rgba(255,255,255,0.35); padding-top: 2px; white-space: nowrap;
+    }
+    .study-meter .wr .l { font-size: 11px; margin-right: 3px; color: #e5e7eb; }
+    .study-meter .wr b { font-size: 17px; }
+    .study-meter .wr.ok { color: #86efac; }
+    .study-meter .wr.none { opacity: 0.45; }
+    /* Todo: 誤答カード（点線）を紙テストカードの左に半一体化する。つないだ2枚で2マス分 */
+    .study-combo { grid-column: span 2; display: flex; min-width: 0; gap: 0; }
+    .study-combo .study-task { flex: 1 1 0; }
+    html body .study-task.k-wrong.k-wrong {
+      border-style: dotted; border-width: 2px; background: transparent; justify-content: center;
+    }
+    html body .study-task.k-wrong.k-wrong .kind { font-size: 13px; font-weight: 800; }
+    .study-task.k-wrong .wl { display: flex; align-items: center; gap: 4px; font-size: 14px; font-weight: 700; }
+    .study-task.k-wrong .wl b { margin-left: auto; font-size: 13px; }
+    .study-task.k-wrong .wl.done { text-decoration: line-through; opacity: 0.6; }
+    html body .study-combo .study-task.k-wrong.k-wrong { border-right-width: 0; border-radius: 8px 0 0 8px; }
+    html body .study-combo .study-task.k-paper { border-radius: 0 8px 8px 0; }
     .study-meter .reo {
       flex-shrink: 0; margin-top: 2px; padding: 2px 6px; border-radius: 6px; text-align: center;
       font-size: 13px; font-weight: 800; letter-spacing: 0.04em;
