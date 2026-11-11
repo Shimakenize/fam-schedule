@@ -2303,6 +2303,11 @@
   function postSrc(ev) {
     return [ev.post_event_coach, ev.post_event_user].filter(Boolean).join(" · ");
   }
+  // preSrc が pre_event_coach/pre_event_user/parent_time すべて空で event_time 自体に
+  // フォールバックしているかどうか（displayRange() の allMins() 総当たり誤爆防止用）。
+  function preSrcIsFallback(ev) {
+    return !([ev.pre_event_coach, ev.pre_event_user, ev.parent_time].filter(Boolean).join(" · "));
+  }
   // 保護者レーン判定用。親LIFFと同じ分割:
   // 左=コーチ+ユーザー前段（観戦出発以外）／右=parent_time + 観戦出発。
   // pre_event_user の「自宅出発」は選手側（送迎）なので左列。右列に出さない（2026-11-03修正）。
@@ -2372,7 +2377,12 @@
     var pre = preSrc(ev);
     var post = postSrc(ev);
     labeledTimes(pre).forEach(function (x) { if (x.m < start) start = x.m; });
-    allMins(pre).forEach(function (t) { if (t < start) start = t; });
+    // pre が専用フィールド欠落で event_time 自体にフォールバックしている場合、生HH:MM総当たり
+    // 抽出にそのレンジ自身の終了時刻を混入させない（日またぎレンジで終了時刻の時計表記が開始
+    // より小さい値になり、開始を大幅に繰り上げてしまうバグの対策。2026-11-12、日本代表戦 vs
+    // パラグアイ「22:10-00:10」でタイムラインの帯がほぼ終日に伸びる形で発覚。親アプリ
+    // REGALIA_schedule_management の docs/index.html・renderer/server.js の同一バグと同時修正）。
+    if (!preSrcIsFallback(ev)) allMins(pre).forEach(function (t) { if (t < start) start = t; });
     labeledTimes(post).forEach(function (x) { if (x.m > end) end = x.m; });
     allMins(post).forEach(function (t) { if (t > end) end = t; });
     return { start: start, end: end, core: core };
@@ -5888,7 +5898,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.183" });
+    appLog({ event: "kiosk_on", v: "0.3.184" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;
