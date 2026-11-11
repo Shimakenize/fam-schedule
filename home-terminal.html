@@ -452,6 +452,21 @@
     .study-deck.many .study-meter .fin .ck { width: 19px; height: 19px; }
     .study-deck.nine .study-meter .fin { font-size: 15px; padding: 2px 7px 2px 3px; }
     .study-deck.nine .study-meter .fin .ck { width: 17px; height: 17px; }
+    /* 教科全体が完了（中身のある枠が全部完了・誤答も終了）したときの外枠（2026-11-11） */
+    html .study-panel.all-full {
+      border: 3px solid #4ade80;
+      box-shadow: 0 0 22px rgba(74,222,128,0.75), inset 0 0 26px rgba(74,222,128,0.22);
+    }
+    .study-panel .sfin {
+      display: inline-flex; align-items: center; gap: 6px; padding: 2px 14px 2px 6px; border-radius: 999px;
+      background: #4ade80; color: #052e16; font-size: 22px; font-weight: 900; letter-spacing: 0.04em; line-height: 1.1;
+      box-shadow: 0 0 12px rgba(74,222,128,0.85); animation: finPulse 2.4s ease-in-out infinite;
+    }
+    .study-panel .sfin .ck { width: 26px; height: 26px; flex-shrink: 0; color: #f0fdf4; }
+    .study-deck.many .study-panel .sfin { font-size: 17px; padding: 1px 10px 1px 4px; }
+    .study-deck.many .study-panel .sfin .ck { width: 20px; height: 20px; }
+    .study-deck.nine .study-panel .sfin { font-size: 14px; padding: 0 8px 0 3px; }
+    .study-deck.nine .study-panel .sfin .ck { width: 16px; height: 16px; }
     .study-meter .mnone {
       margin: auto; font-size: 22px; font-weight: 700; color: var(--muted); letter-spacing: 0.08em;
     }
@@ -2620,6 +2635,6 @@
   <div id="toast" hidden></div>
   <aside id="ev-detail" hidden></aside>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script src="ht/bridge.js?v=0.3.182-bb2f5b22"></script>
+  <script src="ht/bridge.js?v=0.3.183-bb2f5b22"></script>
 </body>
 </html>

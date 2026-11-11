@@ -473,6 +473,24 @@
   }
   // 100% 完了の目印（TV の WebView で絵文字が出ないことがあるため、インラインSVGのチェックマーク）
   var STUDY_CHECK = '<svg class="ck" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="currentColor"/><path d="M6.6 12.4l3.7 3.8 7.2-8" fill="none" stroke="#052e16" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  // メーター1枠の「完了!」判定（2026-11-11）。本体が全部終わっていて、かつ枠の中の誤答（動画・クイズ）も
+  // 全部終わっているときだけ完了。誤答が未了・未作成・作成待ちなら完了にしない。
+  function studyMeterFull(pack, uncreated, reopen, wrong) {
+    var done = pack && pack.done != null ? Number(pack.done) : 0;
+    var left = pack && pack.left != null ? Number(pack.left) : 0;
+    var tot = pack && pack.total != null ? Number(pack.total) : 0;
+    if (isNaN(done)) done = 0;
+    if (isNaN(left)) left = 0;
+    if (isNaN(tot)) tot = 0;
+    if (uncreated || tot <= 0 || left || done < tot) return false;
+    if (reopen && Number(reopen.open) > 0) return false;
+    if (wrong) {
+      var wt = Number(wrong.total) || 0;
+      var wd = Number(wrong.done) || 0;
+      if (wt > wd || wrong.missing || wrong.blocked) return false;
+    }
+    return true;
+  }
   function studyMeterHtml(label, pack, uncreated, reopen, wrong) {
     var done = pack && pack.done != null ? Number(pack.done) : 0;
     var left = pack && pack.left != null ? Number(pack.left) : 0;
@@ -481,8 +499,8 @@
     var tot = pack && pack.total != null ? Number(pack.total) : 0;
     if (isNaN(tot)) tot = 0;
     var cls = uncreated ? "miss" : (!tot ? "mute" : (left ? "warn" : "ok"));
-    // 100% 終わったもの（全体が1以上で、残りが0）は「完了!」を大きく出して達成感を出す
-    var full = !uncreated && tot > 0 && !left && done >= tot;
+    // 100% 終わった枠（誤答も全部終わったとき）は「完了!」を大きく出して達成感を出す
+    var full = studyMeterFull(pack, uncreated, reopen, wrong);
     if (full) cls += " full";
     var pct = tot ? Math.min(100, Math.round((100 * done) / tot)) : 0;
     // 縦型の棒グラフ（下から完了の割合だけ伸びる）＋「完了 n」「全体 n」の数字。進んでいる感じが一目で分かるようにする
@@ -609,10 +627,29 @@
     // 誤答動画・誤答クイズは計画に追加されたときだけメーターを出す
     // 誤答は別のメーターにせず、動画・初回クイズのメーターの中に点線のバーと数で足す（2026-11-09）
     var retry = studyRetryShown(s);
-    return '<section class="study-panel sub-' + esc(s.key) + '"><h2><span class="sj">' + esc(s.label) + "</span>" + hint + "</h2>" +
+    var wv = retry ? (s.wrongVideos || { total: 0, done: 0 }) : null;
+    var wq = retry ? (s.quizRetry || { total: 0, done: 0 }) : null;
+    // 教科全体の「完了!」: 中身のある枠（なし・準備中を除く）が全部完了のとき。1つでも未了・誤答残りがあれば出さない
+    var packs = [
+      { p: s.videos, r: null, w: wv },
+      { p: s.quizFirst, r: s.reopen, w: wq },
+      { p: s.paper, r: null, w: null }
+    ];
+    var active = 0;
+    var fullN = 0;
+    packs.forEach(function (x) {
+      var t = x.p && x.p.total != null ? Number(x.p.total) : 0;
+      if (t > 0) {
+        active++;
+        if (studyMeterFull(x.p, false, x.r, x.w)) fullN++;
+      }
+    });
+    var subjFull = active > 0 && fullN === active;
+    var fin = subjFull ? '<span class="sfin">' + STUDY_CHECK + "<span>全部完了!</span></span>" : "";
+    return '<section class="study-panel sub-' + esc(s.key) + (subjFull ? " all-full" : "") + '"><h2><span class="sj">' + esc(s.label) + "</span>" + (subjFull ? fin : hint) + "</h2>" +
       '<div class="study-meters m3">' +
-      studyMeterHtml("動画", s.videos, false, null, retry ? (s.wrongVideos || { total: 0, done: 0 }) : null) +
-      studyMeterHtml("初回クイズ", s.quizFirst, false, s.reopen, retry ? (s.quizRetry || { total: 0, done: 0 }) : null) +
+      studyMeterHtml("動画", s.videos, false, null, wv) +
+      studyMeterHtml("初回クイズ", s.quizFirst, false, s.reopen, wq) +
       studyMeterHtml("紙テスト", s.paper) +
       "</div></section>";
   }
@@ -5851,7 +5888,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.182" });
+    appLog({ event: "kiosk_on", v: "0.3.183" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;
