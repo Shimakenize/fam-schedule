@@ -430,6 +430,28 @@
       color: #fbbf24; letter-spacing: -0.02em;
     }
     .study-meter.ok .pct { color: #86efac; }
+    /* 100% 完了したメーター（2026-11-11）: 緑の地・光る縁・満タンの棒・「完了!」の札で、終わった感を強く出す */
+    .study-meter.full {
+      background: linear-gradient(160deg, rgba(34,197,94,0.30), rgba(12,14,19,0.55) 70%);
+      border: 2px solid #4ade80;
+      box-shadow: 0 0 14px rgba(74,222,128,0.55), inset 0 0 18px rgba(74,222,128,0.18);
+    }
+    .study-meter.full .k { color: #bbf7d0; font-weight: 800; }
+    .study-meter.full .bar { border-color: #bbf7d0; box-shadow: 0 0 12px rgba(134,239,172,0.9); }
+    .study-meter.full .bar i { background: linear-gradient(180deg, #bbf7d0, #22c55e 60%, #16a34a); }
+    .study-meter .fin {
+      display: inline-flex; align-items: center; gap: 5px; align-self: flex-start;
+      margin-top: 2px; padding: 3px 10px 3px 5px; border-radius: 999px;
+      background: #4ade80; color: #052e16; font-size: 22px; font-weight: 900; line-height: 1; letter-spacing: 0.02em;
+      box-shadow: 0 0 10px rgba(74,222,128,0.75);
+      animation: finPulse 2.4s ease-in-out infinite;
+    }
+    .study-meter .fin .ck { width: 24px; height: 24px; flex-shrink: 0; color: #f0fdf4; }
+    @keyframes finPulse { 0%, 100% { box-shadow: 0 0 8px rgba(74,222,128,0.6); } 50% { box-shadow: 0 0 18px rgba(134,239,172,1); } }
+    .study-deck.many .study-meter .fin { font-size: 17px; padding: 2px 8px 2px 4px; }
+    .study-deck.many .study-meter .fin .ck { width: 19px; height: 19px; }
+    .study-deck.nine .study-meter .fin { font-size: 15px; padding: 2px 7px 2px 3px; }
+    .study-deck.nine .study-meter .fin .ck { width: 17px; height: 17px; }
     .study-meter .mnone {
       margin: auto; font-size: 22px; font-weight: 700; color: var(--muted); letter-spacing: 0.08em;
     }
@@ -2598,6 +2620,6 @@
   <div id="toast" hidden></div>
   <aside id="ev-detail" hidden></aside>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script src="ht/bridge.js?v=0.3.181-bb2f5b22"></script>
+  <script src="ht/bridge.js?v=0.3.182-bb2f5b22"></script>
 </body>
 </html>

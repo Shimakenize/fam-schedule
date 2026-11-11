@@ -471,6 +471,8 @@
     }
     return phoneRangeTitle() || ((studyDebug() ? "試験デバッグ　" : "") + "試験Status　" + left + "日（当日含む）　" + exam);
   }
+  // 100% 完了の目印（TV の WebView で絵文字が出ないことがあるため、インラインSVGのチェックマーク）
+  var STUDY_CHECK = '<svg class="ck" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="currentColor"/><path d="M6.6 12.4l3.7 3.8 7.2-8" fill="none" stroke="#052e16" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   function studyMeterHtml(label, pack, uncreated, reopen, wrong) {
     var done = pack && pack.done != null ? Number(pack.done) : 0;
     var left = pack && pack.left != null ? Number(pack.left) : 0;
@@ -479,6 +481,9 @@
     var tot = pack && pack.total != null ? Number(pack.total) : 0;
     if (isNaN(tot)) tot = 0;
     var cls = uncreated ? "miss" : (!tot ? "mute" : (left ? "warn" : "ok"));
+    // 100% 終わったもの（全体が1以上で、残りが0）は「完了!」を大きく出して達成感を出す
+    var full = !uncreated && tot > 0 && !left && done >= tot;
+    if (full) cls += " full";
     var pct = tot ? Math.min(100, Math.round((100 * done) / tot)) : 0;
     // 縦型の棒グラフ（下から完了の割合だけ伸びる）＋「完了 n」「全体 n」の数字。進んでいる感じが一目で分かるようにする
     var fillH = pct > 0 ? Math.max(pct, 4) : 0;
@@ -489,7 +494,9 @@
         ? '<div class="mnone">なし</div>'
         : '<div class="nd"><span class="l">完了</span><b>' + done + '</b></div>' +
           '<div class="na"><span class="l">全体</span><b>' + tot + '</b></div>' +
-          '<div class="pct">' + pct + "%</div>");
+          (full
+            ? '<div class="fin">' + STUDY_CHECK + "<span>完了!</span></div>"
+            : '<div class="pct">' + pct + "%</div>"));
     // 再オープン（当てずっぽうの疑いで戻された Quiz）。未了があれば赤い塗り、受け直し済みなら赤の縁取りで残す
     var reo = "";
     if (reopen && Number(reopen.count) > 0) {
@@ -5844,7 +5851,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.181" });
+    appLog({ event: "kiosk_on", v: "0.3.182" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;
