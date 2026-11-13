@@ -411,7 +411,7 @@
     if (isPhone()) {
       return phoneRangeTitle() || ((studyDebug() ? "試験デバッグ　" : "") + "試験　" + left + "日（当日含む）　" + exam);
     }
-    return (studyDebug() ? "試験デバッグ　" : "") + "試験Result　" + exam + (studyData.examOver ? "（終了）" : "　" + left + "日（当日含む）");
+    return (studyDebug() ? "試験デバッグ　" : "") + "試験Result　" + exam + (studyData.examOver ? "（終了）" : "");
   }
   // 100% 完了の目印（TV の WebView で絵文字が出ないことがあるため、インラインSVGのチェックマーク）
   var STUDY_CHECK = '<svg class="ck" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="currentColor"/><path d="M6.6 12.4l3.7 3.8 7.2-8" fill="none" stroke="#052e16" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
