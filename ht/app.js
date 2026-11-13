@@ -417,68 +417,6 @@
   var STUDY_CHECK = '<svg class="ck" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="currentColor"/><path d="M6.6 12.4l3.7 3.8 7.2-8" fill="none" stroke="#052e16" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   // メーター1枠の「完了!」判定（2026-11-11）。本体が全部終わっていて、かつ枠の中の誤答（動画・クイズ）も
   // 全部終わっているときだけ完了。誤答が未了・未作成・作成待ちなら完了にしない。
-  function studyMeterFull(pack, uncreated, reopen, wrong) {
-    var done = pack && pack.done != null ? Number(pack.done) : 0;
-    var left = pack && pack.left != null ? Number(pack.left) : 0;
-    var tot = pack && pack.total != null ? Number(pack.total) : 0;
-    if (isNaN(done)) done = 0;
-    if (isNaN(left)) left = 0;
-    if (isNaN(tot)) tot = 0;
-    if (uncreated || tot <= 0 || left || done < tot) return false;
-    if (reopen && Number(reopen.open) > 0) return false;
-    if (wrong) {
-      var wt = Number(wrong.total) || 0;
-      var wd = Number(wrong.done) || 0;
-      if (wt > wd || wrong.missing || wrong.blocked) return false;
-    }
-    return true;
-  }
-  function studyMeterHtml(label, pack, uncreated, reopen, wrong) {
-    var done = pack && pack.done != null ? Number(pack.done) : 0;
-    var left = pack && pack.left != null ? Number(pack.left) : 0;
-    if (isNaN(done)) done = 0;
-    if (isNaN(left)) left = 0;
-    var tot = pack && pack.total != null ? Number(pack.total) : 0;
-    if (isNaN(tot)) tot = 0;
-    var cls = uncreated ? "miss" : (!tot ? "mute" : (left ? "warn" : "ok"));
-    // 100% 終わった枠（誤答も全部終わったとき）は「完了!」を大きく出して達成感を出す
-    var full = studyMeterFull(pack, uncreated, reopen, wrong);
-    if (full) cls += " full";
-    var pct = tot ? Math.min(100, Math.round((100 * done) / tot)) : 0;
-    // 縦型の棒グラフ（下から完了の割合だけ伸びる）＋「完了 n」「全体 n」の数字。進んでいる感じが一目で分かるようにする
-    var fillH = pct > 0 ? Math.max(pct, 4) : 0;
-    var bar = '<div class="bar"><i style="height:' + fillH + '%"></i></div>';
-    var nums = uncreated
-      ? '<div class="mnone">-</div>'
-      : (!tot
-        ? '<div class="mnone">なし</div>'
-        : '<div class="nd"><span class="l">完了</span><b>' + done + '</b></div>' +
-          '<div class="na"><span class="l">全体</span><b>' + tot + '</b></div>' +
-          (full
-            ? '<div class="fin">' + STUDY_CHECK + "<span>完了!</span></div>"
-            : '<div class="pct">' + pct + "%</div>"));
-    // 再オープン（当てずっぽうの疑いで戻された Quiz）。未了があれば赤い塗り、受け直し済みなら赤の縁取りで残す
-    var reo = "";
-    if (reopen && Number(reopen.count) > 0) {
-      var ropen = Number(reopen.open) > 0;
-      reo = '<div class="reo ' + (ropen ? "open" : "cleared") + '">再オープン ' + Number(reopen.count) + "件" +
-        (ropen ? "（未了 " + Number(reopen.open) + "）" : "（受け直し済）") + "</div>";
-    }
-    // 誤答の部分（点線の細いバー＋「誤答 d/t」）。誤答の教材がまだ無い教科でも、誤答があるときは「誤答 -」を出す
-    var wr = "";
-    var wbar = "";
-    if (wrong) {
-      var wt = Number(wrong.total) || 0;
-      var wd = Number(wrong.done) || 0;
-      var wp = wt ? Math.min(100, Math.round((100 * wd) / wt)) : 0;
-      var wh = wp > 0 ? Math.max(wp, 6) : 0;
-      wbar = '<div class="wbar' + (wt ? "" : " none") + '"><i style="height:' + wh + '%"></i></div>';
-      wr = '<div class="wr' + (wt ? (wd >= wt ? " ok" : "") : " none") + '"><span class="l">誤答</span>' +
-        (wt ? "<b>" + wd + "</b>/" + wt : "<b>-</b>") + "</div>";
-    }
-    return '<div class="study-meter ' + cls + '"><div class="k">' + esc(label) + "</div>" +
-      '<div class="mbody">' + bar + wbar + '<div class="nums">' + nums + wr + "</div></div>" + reo + "</div>";
-  }
   // 誤答の動画・クイズ（kind wrongVideo / quizRetry）。同じ日・同じ教科の紙テストカードがあれば、その左に点線でつなぐ
   function studyWrongPack(list) {
     return {
@@ -536,49 +474,59 @@
     var b = studyData.examEnd;
     return fmtMd(a) + (b && b !== a ? "〜" + fmtMd(b) : "");
   }
-  function studyRetryShown(s) {
-    var wv = s.wrongVideos || {};
-    var qr = s.quizRetry || {};
-    return !!(wv.total || qr.total || wv.missing || qr.blocked);
+  // 試験Result の教科カード（2026-11-13）: 初回（動画・クイズ・紙テスト）の下に誤答（動画・クイズ）を同じ列で並べ、その下に点数。
+  // 教材が無い枠はグラフを出さず「教材無し」と書く。再オープンの表示は出さない。
+  function studyTileNums(pack) {
+    var tot = pack && pack.total != null ? Number(pack.total) : 0;
+    var done = pack && pack.done != null ? Number(pack.done) : 0;
+    return { tot: isNaN(tot) ? 0 : tot, done: isNaN(done) ? 0 : done };
+  }
+  function studyTile(label, pack) {
+    var n = studyTileNums(pack);
+    if (n.tot <= 0) {
+      var wait = pack && (pack.missing || pack.blocked) ? "作成待ち" : "教材無し";
+      return '<div class="rs-tile none"><div class="k">' + esc(label) + '</div><div class="mnone">' + wait + "</div></div>";
+    }
+    var full = n.done >= n.tot;
+    var pct = Math.min(100, Math.round((100 * n.done) / n.tot));
+    return '<div class="rs-tile ' + (full ? "ok" : "warn") + '"><div class="k">' + esc(label) + (full ? STUDY_CHECK : "") + "</div>" +
+      '<div class="v"><b>' + n.done + "</b><span>/" + n.tot + "</span><em>" + pct + "%</em></div>" +
+      '<div class="pb"><i style="width:' + pct + '%"></i></div></div>';
   }
   function studySubjectMeters(s) {
     var hint = s.basicOnly ? '<span class="hint">基本・追補のみ</span>' : "";
-    // 誤答動画・誤答クイズは計画に追加されたときだけメーターを出す
-    // 誤答は別のメーターにせず、動画・初回クイズのメーターの中に点線のバーと数で足す（2026-11-09）
-    var retry = studyRetryShown(s);
-    var wv = retry ? (s.wrongVideos || { total: 0, done: 0 }) : null;
-    var wq = retry ? (s.quizRetry || { total: 0, done: 0 }) : null;
-    // 教科全体の「完了!」: 中身のある枠（なし・準備中を除く）が全部完了のとき。1つでも未了・誤答残りがあれば出さない
-    var packs = [
-      { p: s.videos, r: null, w: wv },
-      { p: s.quizFirst, r: s.reopen, w: wq },
-      { p: s.paper, r: null, w: null }
-    ];
+    var wv = s.wrongVideos || { total: 0, done: 0 };
+    var wq = s.quizRetry || { total: 0, done: 0 };
+    // 教科全体の「全部完了!」: 教材のある枠（初回の動画・クイズ・紙テスト、誤答の動画・クイズ）が全部終わっているとき
+    var packs = [s.videos, s.quizFirst, s.paper, wv, wq];
     var active = 0;
     var fullN = 0;
-    packs.forEach(function (x) {
-      var t = x.p && x.p.total != null ? Number(x.p.total) : 0;
-      if (t > 0) {
+    packs.forEach(function (p) {
+      var n = studyTileNums(p);
+      if (n.tot > 0) {
         active++;
-        if (studyMeterFull(x.p, false, x.r, x.w)) fullN++;
+        if (n.done >= n.tot && !(p && (p.missing || p.blocked))) fullN++;
+      } else if (p && (p.missing || p.blocked)) {
+        active++;
       }
     });
     var subjFull = active > 0 && fullN === active;
     var fin = subjFull ? '<span class="sfin">' + STUDY_CHECK + "<span>全部完了!</span></span>" : "";
     return '<section class="study-panel sub-' + esc(s.key) + (subjFull ? " all-full" : "") + '"><h2><span class="sj">' + esc(s.label) + "</span>" + (subjFull ? fin : hint) + "</h2>" +
-      '<div class="study-meters m3">' +
-      studyMeterHtml("動画", s.videos, false, null, wv) +
-      studyMeterHtml("初回クイズ", s.quizFirst, false, s.reopen, wq) +
-      studyMeterHtml("紙テスト", s.paper) +
+      '<div class="rs-body">' +
+      '<div class="rs-row first"><span class="tag">初回</span><div class="cells">' +
+      studyTile("動画", s.videos) + studyTile("クイズ", s.quizFirst) + studyTile("紙テスト", s.paper) + "</div></div>" +
+      '<div class="rs-row wrong"><span class="tag">誤答</span><div class="cells">' +
+      studyTile("動画", wv) + studyTile("クイズ", wq) + '<div class="rs-tile empty"></div></div></div>' +
       "</div>" + studyScoresHtml(s.key) + "</section>";
   }
   // 計画に入れない教科の枠（英語=別枠／数学・美術=準備中）。試験日が分かるものは日付を添える
+  // 計画に入れない教科の枠（数学・美術など）。教材が無いのでグラフは出さず「教材無し」。点数は出す
   function studySubjectIdle(a) {
-    var msg = a.state === "separate" ? "進捗は別枠" : "進捗は計画外";
     var d = a.examDate ? "試験 " + fmtMd(a.examDate) : "試験日 未定";
     return '<section class="study-panel idle sub-' + esc(a.key) + '"><h2><span class="sj">' + esc(a.label) + "</span>" +
       '<span class="hint">' + esc(d) + "</span></h2>" +
-      '<div class="study-idle">' + esc(msg) + "</div>" + studyScoresHtml(a.key) + "</section>";
+      '<div class="rs-none">教材無し</div>' + studyScoresHtml(a.key) + "</section>";
   }
   // 並びは ESA の「やること」で本人・管理者が保存したもの（row.order）。TV は表示だけで入れ替えはしない
   function studyDayItems(row) {
@@ -668,23 +616,35 @@
       }
       tail += "</span>";
     }
+    // 値の無い目標・自己予測は、比べる相手も無いのでバーを出さない（実点数は目標があれば返却待ちの枠を残す）
+    var showBar = v !== null || (cls.charAt(0) === "a" && tg !== null);
     return '<div class="sc ' + cls + (v === null ? " none" : "") + hit + '"><span class="l">' + esc(label) + "</span>" +
-      '<div class="sb"><i style="width:' + w + '%"></i>' + mark + "</div>" +
+      (showBar ? '<div class="sb"><i style="width:' + w + '%"></i>' + mark + "</div>" : '<div class="sb nobar"></div>') +
       "<b>" + (v === null ? "—" : v) + "</b>" + tail + "</div>";
   }
   function studyScoresHtml(key) {
     var sc = studyScoreOf(key) || {};
     return '<div class="study-scores">' +
       studyScoreRow("t", "目標", sc.target, sc.max, null, "未設定") +
-      studyScoreRow("p", "予測", sc.predicted, sc.max, sc.target, "未設定") +
+      studyScoreRow("p", "自己予測", sc.predicted, sc.max, sc.target, "未設定") +
       studyScoreRow("a", "実点数", sc.actual, sc.max, sc.target, "未返却") +
       "</div>";
   }
   function studyResultBannerHtml() {
     var over = !!studyData.examOver;
     return '<div class="study-banner"><div class="n">Result</div><div class="lab"></div><div class="sub">試験 ' +
-      esc(studyExamSpan()) + (over ? "（終了）" : "") + "　目標点数・試験後予測点数・実点数　" +
+      esc(studyExamSpan()) + (over ? "（終了）" : "") + "　目標点数・自己予測点数・実点数　" +
       esc(studyData.subjectsLine || "") + "</div></div>";
+  }
+  // 段の左に出す「Day1 11/11（水）」。段の試験日は、その段の教科（試験日が決まっているもの）から決める
+  function studyDayLabel(row) {
+    var iso = "";
+    row.forEach(function (a) { if (!iso && a.examDate) iso = a.examDate; });
+    var first = studyData.examDate || iso;
+    var dow = ["日", "月", "火", "水", "木", "金", "土"];
+    if (!iso || !first) return '<div class="rs-day"><b>Day</b></div>';
+    var n = Math.round((parseLocalDate(iso) - parseLocalDate(first)) / 86400000) + 1;
+    return '<div class="rs-day"><b>Day' + n + "</b><span>" + esc(fmtMd(iso)) + "（" + dow[parseLocalDate(iso).getDay()] + "）</span></div>";
   }
   function renderStudyResult() {
     var el = $("study-board");
@@ -703,7 +663,8 @@
     var boardEl = $("study-board");
     if (boardEl) boardEl.classList.toggle("study-nine", all.length >= 9);
     var deck = '<div class="study-deck result many' + (all.length >= 9 ? " nine" : "") + '">';
-    all.forEach(function (a) {
+    all.forEach(function (a, i) {
+      if (i % 3 === 0) deck += studyDayLabel(all.slice(i, i + 3));
       var sj = studySubject(a.key);
       deck += sj ? studySubjectMeters(sj) : studySubjectIdle(a);
     });

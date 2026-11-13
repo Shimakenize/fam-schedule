@@ -343,7 +343,8 @@
     .study-panel.idle { opacity: 0.82; border-style: dashed; }
     /* 試験Result: 教科カードの下の 目標・予測・実点数（グラフ＋数値） */
     .study-scores { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; padding-top: 5px; border-top: 1px dashed rgba(255,255,255,0.22); }
-    .study-scores .sc { display: grid; grid-template-columns: 52px minmax(0, 1fr) 46px 78px; align-items: center; gap: 6px; font-size: 13px; }
+    .study-scores .sc { display: grid; grid-template-columns: 76px minmax(0, 1fr) 46px 78px; align-items: center; gap: 6px; font-size: 13px; }
+    .study-scores .sb.nobar { background: transparent; }
     .study-scores .sc .l { color: var(--muted); font-weight: 700; letter-spacing: 0.04em; font-size: 13px; }
     .study-scores .sb { position: relative; height: 15px; border-radius: 8px; background: rgba(255,255,255,0.13); overflow: hidden; }
     .study-scores .sb i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 8px; }
@@ -360,6 +361,33 @@
     .study-scores .sc.none b { color: var(--muted); font-size: 20px; }
     .study-deck.result .study-panel { justify-content: space-between; }
     .study-panel.idle .study-idle { font-size: 15px; }
+    /* 試験Result: 段の左の Day 表記と、教科カードの 初回／誤答 の枠 */
+    .study-deck.result.many { grid-template-columns: 74px repeat(3, minmax(0, 1fr)); }
+    .rs-day { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border-radius: 10px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.2); }
+    .rs-day b { font-size: 24px; letter-spacing: 0.04em; color: var(--gold); line-height: 1; }
+    .rs-day span { font-size: 13px; color: var(--muted); line-height: 1.2; text-align: center; }
+    .rs-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 4px; }
+    .rs-row { flex: 1 1 0; min-height: 0; display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 5px; }
+    .rs-row .tag { display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; font-size: 13px; font-weight: 800; letter-spacing: 0.3em; color: var(--gold); background: rgba(255,255,255,0.09); border-radius: 6px; }
+    .rs-row.wrong .tag { color: #fca5a5; border: 1px dotted rgba(252,165,165,0.6); background: transparent; }
+    .rs-row .cells { min-height: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+    .rs-tile { position: relative; min-width: 0; min-height: 0; overflow: hidden; border-radius: 9px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.16); padding: 3px 8px 5px; display: flex; flex-direction: column; justify-content: space-between; }
+    .rs-tile .k { display: flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 700; color: var(--muted); line-height: 1.2; }
+    .rs-tile .k .ck { width: 17px; height: 17px; color: #4ade80; flex: none; }
+    .rs-tile .v { display: flex; align-items: baseline; gap: 3px; line-height: 1; }
+    .rs-tile .v b { font-size: 30px; font-variant-numeric: tabular-nums; }
+    .rs-tile .v span { font-size: 16px; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .rs-tile .v em { margin-left: auto; font-style: normal; font-size: 14px; font-weight: 800; color: var(--muted); }
+    .rs-tile .pb { height: 7px; border-radius: 4px; background: rgba(255,255,255,0.15); overflow: hidden; }
+    .rs-tile .pb i { display: block; height: 100%; background: #60a5fa; border-radius: 4px; }
+    .rs-tile.ok { border-color: rgba(74,222,128,0.55); }
+    .rs-tile.ok .v b { color: #86efac; }
+    .rs-tile.ok .pb i { background: #4ade80; }
+    .rs-tile.warn .v b { color: #fbbf24; }
+    .rs-tile.none { justify-content: flex-start; background: rgba(255,255,255,0.03); border-style: dashed; }
+    .rs-tile .mnone { margin: auto; font-size: 15px; color: var(--muted); letter-spacing: 0.08em; }
+    .rs-tile.empty { visibility: hidden; }
+    .rs-none { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; font-size: 20px; letter-spacing: 0.15em; color: var(--muted); border: 1px dashed rgba(255,255,255,0.2); border-radius: 9px; }
     .study-idle {
       flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center;
       font-size: 28px; font-weight: 700; letter-spacing: 0.12em; color: var(--muted);
