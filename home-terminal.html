@@ -384,6 +384,8 @@
     .rs-tile.ok .v b { color: #86efac; }
     .rs-tile.ok .pb i { background: #4ade80; }
     .rs-tile.warn .v b { color: #fbbf24; }
+    /* 未完了の枠は赤い枠でハイライト（2026-11-13） */
+    .rs-tile.warn { border: 2px solid #ef4444; background: rgba(239,68,68,0.16); padding: 2px 7px 4px; box-shadow: 0 0 6px rgba(239,68,68,0.45); }
     .rs-tile.none { justify-content: flex-start; background: rgba(255,255,255,0.03); border-style: dashed; }
     .rs-tile .mnone { margin: auto; font-size: 15px; color: var(--muted); letter-spacing: 0.08em; }
     .rs-tile.empty { visibility: hidden; }
