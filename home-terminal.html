@@ -326,7 +326,7 @@
     .study-deck.many .study-meter .nums b { font-size: 30px; }
     .study-deck.many .study-meter .pct { font-size: 18px; }
     /* 試験科目9教科（3列×3段）。上の枠を高めにして、下の「今日のやること」は少し低くする */
-    #study-board.study-nine { grid-template-rows: auto minmax(0, 1.75fr) minmax(0, 1fr); }
+    #study-board.study-nine { grid-template-rows: auto minmax(0, 1fr); }
     .study-deck.nine { grid-template-rows: repeat(3, minmax(0, 1fr)); gap: 6px; }
     .study-deck.nine .study-panel { padding: 4px 8px 4px; gap: 2px; }
     .study-deck.nine .study-panel h2 { font-size: 16px; }
@@ -341,6 +341,25 @@
     .study-deck.nine .study-meter .pct { font-size: 15px; }
     .study-deck.nine .study-meter .mnone { font-size: 18px; }
     .study-panel.idle { opacity: 0.82; border-style: dashed; }
+    /* 試験Result: 教科カードの下の 目標・予測・実点数（グラフ＋数値） */
+    .study-scores { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; padding-top: 5px; border-top: 1px dashed rgba(255,255,255,0.22); }
+    .study-scores .sc { display: grid; grid-template-columns: 52px minmax(0, 1fr) 46px 78px; align-items: center; gap: 6px; font-size: 13px; }
+    .study-scores .sc .l { color: var(--muted); font-weight: 700; letter-spacing: 0.04em; font-size: 13px; }
+    .study-scores .sb { position: relative; height: 15px; border-radius: 8px; background: rgba(255,255,255,0.13); overflow: hidden; }
+    .study-scores .sb i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 8px; }
+    .study-scores .sb u { position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1px; background: #ffffff; text-decoration: none; box-shadow: 0 0 2px rgba(0,0,0,0.6); }
+    .study-scores .sc b { font-size: 24px; line-height: 1; text-align: right; font-variant-numeric: tabular-nums; }
+    .study-scores .sc .u { font-size: 12px; color: var(--muted); line-height: 1.1; white-space: nowrap; }
+    .study-scores .sc .u em { display: block; font-style: normal; font-size: 11px; font-weight: 700; }
+    .study-scores .sc.t i { background: #60a5fa; }
+    .study-scores .sc.p i { background: #fbbf24; }
+    .study-scores .sc.a i { background: #4ade80; }
+    .study-scores .sc.a.miss i { background: #fb923c; }
+    .study-scores .sc.a.hit b { color: #86efac; }
+    .study-scores .sc.a.miss b { color: #fdba74; }
+    .study-scores .sc.none b { color: var(--muted); font-size: 20px; }
+    .study-deck.result .study-panel { justify-content: space-between; }
+    .study-panel.idle .study-idle { font-size: 15px; }
     .study-idle {
       flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center;
       font-size: 28px; font-weight: 700; letter-spacing: 0.12em; color: var(--muted);
@@ -2385,7 +2404,6 @@
       grid-template-rows: minmax(0, 1fr);
     }
     html.phone:not(.phone-scale) #study-board.study-one { grid-template-rows: minmax(0, 1fr); }
-    html.phone:not(.phone-scale) #btn-study-todo { display: none !important; }
     html.phone:not(.phone-scale) .study-today-only {
       min-height: 0; height: 100%;
       display: flex; flex-direction: column; gap: 4px;
@@ -2580,8 +2598,7 @@
     <div class="hdr-view">
       <button type="button" id="btn-brief">今日のHL</button>
       <button type="button" id="btn-tomo" hidden>明日のHL</button>
-      <button type="button" id="btn-study" hidden>試験Status</button>
-      <button type="button" id="btn-study-todo" hidden>試験Todo</button>
+      <button type="button" id="btn-study" hidden>試験Result</button>
       <button type="button" id="btn-focus">予定(2日)</button>
       <button type="button" id="btn-wx">天気(3日)</button>
       <button type="button" id="btn-week-head">今週のHL</button>

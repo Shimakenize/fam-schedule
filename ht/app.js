@@ -87,8 +87,7 @@
     weekHead: { title: "今週のHL", sub: "THIS WEEK" },
     nextWeekHead: { title: "来週のHL", sub: "NEXT WEEK" },
     week: { title: "週TL", sub: "TIMELINE" },
-    study: { title: "試験Status", sub: "STUDY" },
-    studyTodo: { title: "試験Todo", sub: "STUDY" },
+    study: { title: "試験Result", sub: "RESULT" },
     standings: { title: "順位", sub: "順位" },
     takumi: { title: "Takumi", sub: "TAKUMI" }
   };
@@ -163,7 +162,7 @@
   }
   function isStudyPage(k) {
     var p = parentPage(k);
-    return p === "study" || p === "studyTodo";
+    return p === "study";
   }
   function isStandingsPage(k) {
     return parentPage(k) === "standings";
@@ -191,8 +190,8 @@
       keys.splice(at + 1, 0, "study");
       btns.splice(at + 1, 0, "btn-study");
     } else {
-      keys.splice(at + 1, 0, "study", "studyTodo");
-      btns.splice(at + 1, 0, "btn-study", "btn-study-todo");
+      keys.splice(at + 1, 0, "study");
+      btns.splice(at + 1, 0, "btn-study");
     }
     return { keys: keys, btns: btns };
   }
@@ -202,15 +201,8 @@
   }
   function rebuildPageLists() {
     if (studyDebug()) {
-      if (isPhone()) {
-        PAGE_KEYS = ["study"];
-        PAGE_BTNS = ["btn-study"];
-        hidePageBtn("btn-study-todo", true);
-      } else {
-        PAGE_KEYS = ["study", "studyTodo"];
-        PAGE_BTNS = ["btn-study", "btn-study-todo"];
-        hidePageBtn("btn-study-todo", false);
-      }
+      PAGE_KEYS = ["study"];
+      PAGE_BTNS = ["btn-study"];
       hidePageBtn("btn-brief", true);
       hidePageBtn("btn-tomo", true);
       hidePageBtn("btn-focus", true);
@@ -254,8 +246,6 @@
     if (nwb) nwb.hidden = !nextWeekHeadAvailable();
     var sb = $("btn-study");
     if (sb) sb.hidden = !studyPagesOn();
-    var stb = $("btn-study-todo");
-    if (stb) stb.hidden = isPhone() || !studyPagesOn();
     hidePageBtn("btn-standings", isPhone());
     hidePageBtn("btn-takumi", !takumiAvailable());
   }
@@ -286,7 +276,7 @@
   }
   function headlineParent(k) {
     var p = parentPage(k);
-    return p === "brief" || p === "tomo" || p === "weekHead" || p === "nextWeekHead" || p === "study" || p === "studyTodo" ||
+    return p === "brief" || p === "tomo" || p === "weekHead" || p === "nextWeekHead" || p === "study" ||
       p === "standings" || p === "takumi";
   }
   function phoneSlicesFor(parent) {
@@ -323,13 +313,6 @@
       return (studyData && studyData.subjects || []).filter(function (s) {
         return (s.videos && s.videos.total) || (s.quizFirst && s.quizFirst.total) || (s.paper && s.paper.total);
       }).map(function (s) { return "study|" + s.key; });
-    }
-    if (parent === "studyTodo") {
-      if (isPhone()) return [];
-      var outS = [];
-      if (studySliceHasItems("today")) outS.push("studyTodo|today");
-      if (studySliceHasItems("rest")) outS.push("studyTodo|rest");
-      return outS;
     }
     return [parent];
   }
@@ -374,11 +357,7 @@
     if (p === "study") {
       if (isPhone()) return { title: "今日のやること", sub: "STUDY" };
       var subj = studySubject(s);
-      if (subj) return { title: subj.label + "の試験Status", sub: "STUDY" };
-    }
-    if (p === "studyTodo") {
-      if (s === "today") return { title: "今日のやること", sub: "STUDY" };
-      if (s === "rest") return { title: "残りの勉強", sub: "STUDY" };
+      if (subj) return { title: subj.label + "の試験Result", sub: "RESULT" };
     }
     return KIOSK_META[p] || KIOSK_META.focus;
   }
@@ -417,21 +396,6 @@
     return "";
   }
   // その日のカードの合計（動画・Quiz・紙テストの枚数。紙は束ねる前の1枚ずつ数える。完了済みも含めた Total）
-  function studyDayTotals(row) {
-    var t = { video: 0, quiz: 0, paper: 0 };
-    studyDayItems(row).forEach(function (it) {
-      if (!it || it.placeholder) return;
-      var k = studyIconKey(it.kind);
-      if (k) t[k] += 1;
-    });
-    return t;
-  }
-  function studyTotalsHtml(t) {
-    return '<div class="tot" title="この日の合計">' +
-      '<span class="tv">' + STUDY_ICON.video + "動画 " + t.video + "</span>" +
-      '<span class="tq">' + STUDY_ICON.quiz + "Quiz " + t.quiz + "</span>" +
-      '<span class="tp">' + STUDY_ICON.paper + "紙テスト " + t.paper + "</span></div>";
-  }
   function studySubject(key) {
     var list = (studyData && studyData.subjects) || [];
     var i;
@@ -440,36 +404,14 @@
     }
     return null;
   }
-  function studyDayCounts(row) {
-    var n = 0;
-    var subjects = (row && row.subjects) || {};
-    Object.keys(subjects).forEach(function (k) {
-      var items = (subjects[k] && subjects[k].items) || [];
-      n += items.length;
-    });
-    return n;
-  }
-  function studySliceHasItems(slice) {
-    if (!studyActive()) return false;
-    var today = studyData.today;
-    var plan = studyData.plan || [];
-    if (slice === "today") {
-      var t = plan.filter(function (p) { return p.date === today; })[0];
-      return studyDayCounts(t) > 0;
-    }
-    if (slice === "rest") {
-      return plan.some(function (p) { return p.date !== today && studyDayCounts(p) > 0; });
-    }
-    return false;
-  }
   function studyRangeLine() {
     if (!studyData) return studyDebug() ? "試験デバッグ　読み込み中" : "試験";
     var left = studyData.daysLeft;
     var exam = studyExamSpan();
-    if (pageKey === "studyTodo") {
-      return phoneRangeTitle() || ((studyDebug() ? "試験デバッグ　" : "") + "試験Todo　" + left + "日（当日含む）　" + exam);
+    if (isPhone()) {
+      return phoneRangeTitle() || ((studyDebug() ? "試験デバッグ　" : "") + "試験　" + left + "日（当日含む）　" + exam);
     }
-    return phoneRangeTitle() || ((studyDebug() ? "試験デバッグ　" : "") + "試験Status　" + left + "日（当日含む）　" + exam);
+    return (studyDebug() ? "試験デバッグ　" : "") + "試験Result　" + exam + (studyData.examOver ? "（終了）" : "　" + left + "日（当日含む）");
   }
   // 100% 完了の目印（TV の WebView で絵文字が出ないことがあるため、インラインSVGのチェックマーク）
   var STUDY_CHECK = '<svg class="ck" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="currentColor"/><path d="M6.6 12.4l3.7 3.8 7.2-8" fill="none" stroke="#052e16" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -589,29 +531,6 @@
       '<div class="kind">' + (k === "videoQuiz" ? STUDY_ICON.video + STUDY_ICON.quiz : (studyIconKey(k) ? STUDY_ICON[studyIconKey(k)] : "")) + kindHtml +
       '</div><div class="unit">' + esc(unit) + '</div><div class="ttl">' + esc(title) + "</div></article>";
   }
-  function studyTasksHtml(items) {
-    if (!items || !items.length) return '<div class="study-empty">今日の残りはありません</div>';
-    return '<div class="study-tasks">' + items.map(function (it) { return studyTaskCard(it, false); }).join("") + "</div>";
-  }
-  function studyTodayItems(key) {
-    var pack = ((studyData && studyData.todayPlan) || {})[key] || {};
-    return pack.items || [];
-  }
-  function studyBannerHtml() {
-    var left = studyData.daysLeft;
-    var examDay = !!studyData.examDate && studyData.today >= studyData.examDate &&
-      studyData.today <= (studyData.examEnd || studyData.examDate);
-    var n = examDay ? "当日" : String(left);
-    var lab = examDay ? "" : "日";
-    var ro = studyData.reopen || {};
-    var reoHtml = Number(ro.count) > 0
-      ? '<div class="reo-total ' + (Number(ro.open) > 0 ? "open" : "cleared") + '">再オープン ' + Number(ro.count) + "件" +
-        (Number(ro.open) > 0 ? "（未了 " + Number(ro.open) + "件）" : "（すべて受け直し済）") + "</div>"
-      : "";
-    return '<div class="study-banner"><div class="n">' + esc(n) + '</div><div class="lab">' + lab +
-      '</div><div class="sub">試験 ' + esc(studyExamSpan()) + " まで（当日含む）　" +
-      esc(studyData.subjectsLine || "理科・社会") + "</div>" + reoHtml + "</div>";
-  }
   function studyExamSpan() {
     var a = studyData.examDate;
     var b = studyData.examEnd;
@@ -651,21 +570,15 @@
       studyMeterHtml("動画", s.videos, false, null, wv) +
       studyMeterHtml("初回クイズ", s.quizFirst, false, s.reopen, wq) +
       studyMeterHtml("紙テスト", s.paper) +
-      "</div></section>";
+      "</div>" + studyScoresHtml(s.key) + "</section>";
   }
   // 計画に入れない教科の枠（英語=別枠／数学・美術=準備中）。試験日が分かるものは日付を添える
   function studySubjectIdle(a) {
-    var msg = a.state === "separate" ? "別枠で学習" : "準備中";
+    var msg = a.state === "separate" ? "進捗は別枠" : "進捗は計画外";
     var d = a.examDate ? "試験 " + fmtMd(a.examDate) : "試験日 未定";
     return '<section class="study-panel idle sub-' + esc(a.key) + '"><h2><span class="sj">' + esc(a.label) + "</span>" +
       '<span class="hint">' + esc(d) + "</span></h2>" +
-      '<div class="study-idle">' + esc(msg) + "</div></section>";
-  }
-  function studySubjectToday(s, heading) {
-    var items = studyTodayItems(s.key);
-    var hint = items.length ? '<span class="hint">' + items.length + "件</span>" : '<span class="hint">なし</span>';
-    return '<section class="study-panel"><h2>' + esc(heading || ("今日の" + s.label)) + hint + "</h2>" +
-      studyTasksHtml(items) + "</section>";
+      '<div class="study-idle">' + esc(msg) + "</div>" + studyScoresHtml(a.key) + "</section>";
   }
   // 並びは ESA の「やること」で本人・管理者が保存したもの（row.order）。TV は表示だけで入れ替えはしない
   function studyDayItems(row) {
@@ -686,210 +599,10 @@
       return { it: it, r: r === undefined ? order.length + i : r };
     }).sort(function (a, b) { return a.r - b.r; }).map(function (x) { return x.it; });
   }
-  function studyJukuNames(iso) {
-    var src = cacheWeek || lastData || {};
-    var evs = activeEvents(src.events);
-    var names = [];
-    evs.forEach(function (e) {
-      var dt = String(e.date || e.event_date || "").slice(0, 10);
-      if (dt !== iso) return;
-      if (canonicalKind(e.kind || e.event_kind) !== "塾") return;
-      var lab = jukuSubjectLabel(e);
-      if (lab && names.indexOf(lab) < 0) names.push(lab);
-    });
-    return names;
-  }
-  function studyOpenItems(row) {
-    return studyDayItems(row).filter(function (it) {
-      return it && !it.placeholder && !it.done;
-    });
-  }
-  function studyCalDayFinished(row) {
-    if (studyOpenItems(row).length) return false;
-    var items = studyDayItems(row).filter(function (it) { return it && !it.placeholder; });
-    if (items.length) return items.every(function (it) { return !!it.done; });
-    return !!(studyData && row.date < studyData.today);
-  }
-  function studyCalDayOverdue(row) {
-    return !!(studyData && row.date < studyData.today && studyOpenItems(row).length);
-  }
-  function studySubjectDeadline(key) {
-    var s = ((studyData && studyData.subjects) || []).filter(function (x) { return x.key === key; })[0];
-    return s && s.examDate ? addDaysIso(s.examDate, -1) : "";
-  }
-  function studyUnitsLine(labels) {
-    var order = [];
-    var by = {};
-    labels.forEach(function (lab) {
-      var m = /^(.*\S)\s+(\S+)$/.exec(lab || "");
-      var pre = m ? m[1] : (lab || "");
-      var rest = m ? m[2] : "";
-      if (!by[pre]) { by[pre] = []; order.push(pre); }
-      if (rest && by[pre].indexOf(rest) < 0) by[pre].push(rest);
-    });
-    var num = function (x) { var m = /(\d+)/.exec(x); return m ? Number(m[1]) : 0; };
-    return order.map(function (pre) {
-      var rest = by[pre].slice().sort(function (a, b) { return num(a) - num(b); });
-      return pre + (rest.length ? " " + rest.join("・") : "");
-    }).join(" / ");
-  }
   // 紙テストは、その日・その科目の分を1枚へ束ねる（案B: 試験の前々日と前日に分かれて置かれる。前日の束だけ「前日まとめ」）
-  function studyPaperBundle(list, date) {
-    var titles = {};
-    var order = [];
-    list.forEach(function (it) {
-      var t = String(it.title || "").replace(/\s+/g, "") || "紙";
-      if (!titles[t]) { titles[t] = 0; order.push(t); }
-      titles[t] += 1;
-    });
-    return {
-      subjectKey: list[0].subjectKey,
-      subjectLabel: list[0].subjectLabel,
-      kind: "paper",
-      kindLabel: "紙テスト " + list.length + "枚" + (studySubjectDeadline(list[0].subjectKey) === date ? "（前日まとめ）" : ""),
-      unitLabel: studyUnitsLine(list.map(function (it) { return it.unitLabel || it.unitId || ""; })),
-      title: order.map(function (t) { return t + (titles[t] > 1 ? "×" + titles[t] : ""); }).join("・"),
-      done: list.every(function (it) { return !!it.done; }),
-      _bundle: list.length
-    };
-  }
   // 役割（基本・応用・追補）。動画のタイトル・ID と Quiz のファイル名から判定する
-  function studyRoleOf(it) {
-    var s = String((it && it.title) || "") + " " + String((it && (it.testFile || it.videoId)) || "");
-    if (/応用|advanced/i.test(s)) return "応用";
-    if (/追補|gapfill/i.test(s)) return "追補";
-    return "基本";
-  }
   // 同じ日の同じ教科・Unit・役割の「動画」と「初回Quiz」は、1枚のカードにまとめる（動画の位置に置く）
-  function studyMergeVideoQuiz(items) {
-    var used = [];
-    var out = [];
-    items.forEach(function (it, i) {
-      if (used[i]) return;
-      if (it.kind === "video") {
-        for (var j = 0; j < items.length; j++) {
-          var q = items[j];
-          if (used[j] || j === i || q.kind !== "quizFirst") continue;
-          if (q.subjectKey !== it.subjectKey || (q.unitId || "") !== (it.unitId || "") || studyRoleOf(q) !== studyRoleOf(it)) continue;
-          used[j] = true;
-          out.push({
-            subjectKey: it.subjectKey, subjectLabel: it.subjectLabel, projectId: it.projectId,
-            unitId: it.unitId, unitLabel: it.unitLabel,
-            kind: "videoQuiz", kindLabel: "動画 + 初回Quiz",
-            title: it.title, done: !!(it.done && q.done), _pair: 2,
-            reopen: q.reopen, listenPct: it.listenPct
-          });
-          return;
-        }
-      }
-      out.push(it);
-    });
-    return out;
-  }
-  function studyCalItems(row) {
-    var items = studyMergeVideoQuiz(studyDayItems(row).filter(function (it) { return it && !it.placeholder; }));
-    var wrongBy = {};
-    items = items.filter(function (it) {
-      if (it.kind === "wrongVideo" || it.kind === "quizRetry") {
-        (wrongBy[it.subjectKey] = wrongBy[it.subjectKey] || []).push(it);
-        return false;
-      }
-      return true;
-    });
-    var bundles = {};
-    var out = [];
-    items.forEach(function (it) {
-      if (it.kind === "paper") {
-        if (!bundles[it.subjectKey]) { bundles[it.subjectKey] = []; out.push({ _slot: it.subjectKey }); }
-        bundles[it.subjectKey].push(it);
-        return;
-      }
-      out.push(it);
-    });
-    var res = out.map(function (it) {
-      if (!it._slot) return it;
-      var b = studyPaperBundle(bundles[it._slot], row.date);
-      if (wrongBy[it._slot]) { b._wrong = wrongBy[it._slot]; delete wrongBy[it._slot]; }
-      return b;
-    });
-    // 紙テストカードが無い日の誤答は、点線のカードを単独で出す
-    Object.keys(wrongBy).forEach(function (k) { res.push(studyWrongPack(wrongBy[k])); });
-    return res;
-  }
   // 誤答の点線カードを合わせた分も数えて列数を決める（つないだカードは2マス分）
-  function studyColsFor(items, big) {
-    var n = items.length;
-    var combos = items.filter(function (it) { return it && it._wrong; }).length;
-    n += combos;
-    var c = n > big ? 3 : (n > 1 ? 2 : 1);
-    return combos && c < 2 ? 2 : c;
-  }
-  function studyCalDayHtml(row) {
-    var isToday = row.date === studyData.today;
-    var isExam = (row.tag === "exam") || row.date === studyData.examDate || row.date === studyData.examEnd;
-    var tag = row.tag || (isExam ? "exam" : "");
-    var note = row.note || "";
-    if (tag === "juku" && !row.juku) {
-      var live = studyJukuNames(row.date);
-      if (live.length) note = "塾の" + live.join("・") + "に集中";
-    }
-    var d = parseLocalDate(row.date);
-    var lab = fmtMd(row.date) + (d ? "（" + WD[d.getDay()] + "）" : "");
-    if (isToday) lab = "今日 " + lab;
-    else if (row.date < studyData.today) lab = (row.date === addDaysIso(studyData.today, -1) ? "昨日 " : "過ぎた日 ") + lab;
-    var examSubs = (row.examCards || []).map(function (c) { return c.subjectLabel || ""; }).filter(Boolean);
-    var examLab = isExam ? "試験" + (examSubs.length ? "　" + examSubs.join("・") : "") : "";
-    var overdue = studyCalDayOverdue(row);
-    var cls = "study-cal-day" + (isToday ? " today" : "") + (tag ? " " + tag : "") + (isExam ? " exam" : "") +
-      (!isToday && row.date < studyData.today ? " past" : "") +
-      (studyCalDayFinished(row) ? " finished" : "") +
-      (overdue ? " overdue" : "");
-    var inner = "";
-    if (tag === "buffer") {
-      inner = '<div class="banner">予備日</div>';
-    } else if (tag === "juku-buffer") {
-      inner = '<div class="split">' +
-        '<div class="half juku"><div class="banner juku">' + esc(note || "塾に集中") + "</div></div>" +
-        '<div class="half buffer"><div class="banner">予備日</div></div>' +
-        "</div>";
-    } else if (tag === "exam") {
-      // 試験の教科は見出しに出す（勉強カードと同じ形の「試験予定」カードは出さない）。3日日程では翌日以降の予定も入る
-      var rest = studyCalItems(row);
-      var ecols = studyColsFor(rest, 4);
-      inner = (row.juku ? '<div class="juku-strip">塾の' + esc(row.juku) + "</div>" : "") +
-        (rest.length
-          ? '<div class="items' + (rest.length > 6 ? " dense" : "") + '" style="--icols:' + ecols + '">' +
-            rest.map(function (it) { return studyTaskCard(it, true, overdue); }).join("") + "</div>"
-          : '<div class="banner exam-day">' + esc(examSubs.join("・")) + "<br>の試験</div>");
-    } else if (tag === "juku") {
-      var jukuItems = studyCalItems(row);
-      if (jukuItems.length) {
-        var jcols = studyColsFor(jukuItems, 3);
-        inner = '<div class="split">' +
-          '<div class="half juku"><div class="banner juku">' + esc(note || "塾に集中") + "</div></div>" +
-          '<div class="half cards">' + '<div class="items' + (jukuItems.length > 6 ? " dense" : "") + '" style="--icols:' + jcols + '">' +
-          jukuItems.map(function (it) { return studyTaskCard(it, true, overdue); }).join("") +
-          "</div></div></div>";
-      } else {
-        inner = '<div class="banner juku">' + esc(note || "塾に集中") + "</div>";
-      }
-    } else {
-      var items = studyCalItems(row);
-      var cols = studyColsFor(items, 4);
-      var body = items.length
-        ? items.map(function (it) { return studyTaskCard(it, true, overdue); }).join("")
-        : '<div class="study-empty">なし</div>';
-      inner = '<div class="items' + (items.length > 6 ? " dense" : "") + '" style="--icols:' + cols + '">' + body + "</div>";
-    }
-    return '<section class="' + cls + '">' + (tag === "buffer" || tag === "juku-buffer" ? "" : studyTotalsHtml(studyDayTotals(row))) +
-      '<div class="h">' + esc(lab) +
-      (examLab ? '<span class="exam-subs">' + esc(examLab) + "</span>" : "") + "</div>" + inner + "</section>";
-  }
-  function studyCalRowHtml(days) {
-    if (!days.length) return "";
-    return '<div class="study-cal-row" style="--cols:' + days.length + '">' +
-      days.map(studyCalDayHtml).join("") + "</div>";
-  }
   function setStudyBoardMode(oneRow) {
     var board = $("study-board");
     if (board) {
@@ -926,7 +639,54 @@
         : '<div class="study-empty">今日の残りはありません</div>') +
       "</div>";
   }
-  function renderStudyStatus() {
+  // 試験Result（2026-11-13）: 9教科のカード。進捗（動画・初回クイズ・紙テスト）の下に、目標点数・試験後予測点数・実点数をグラフと数値で出す
+  function studyScoreOf(key) {
+    var all = (studyData && studyData.scores) || {};
+    return all[key] || null;
+  }
+  function studyScoreNum(v) {
+    return v != null && v !== "" && !isNaN(Number(v)) ? Number(v) : null;
+  }
+  function studyScoreRow(cls, label, val, max, target, noneNote) {
+    var v = studyScoreNum(val);
+    var m = studyScoreNum(max) > 0 ? studyScoreNum(max) : 100;
+    var tg = studyScoreNum(target);
+    var w = v === null ? 0 : Math.max(0, Math.min(100, (v / m) * 100));
+    // 予測・実点数のバーには、目標の位置に白い目印を立てる（届いたか一目で分かる）
+    var mark = tg !== null && cls.charAt(0) !== "t"
+      ? '<u style="left:' + Math.max(0, Math.min(100, (tg / m) * 100)) + '%"></u>' : "";
+    var hit = "";
+    var tail;
+    if (v === null) {
+      tail = '<span class="u">' + esc(noneNote || "") + "</span>";
+    } else {
+      tail = '<span class="u">点';
+      if (cls.charAt(0) === "a" && tg !== null) {
+        var d = v - tg;
+        hit = d >= 0 ? " hit" : " miss";
+        tail += '<em>' + (d >= 0 ? "目標+" : "目標") + d + "</em>";
+      }
+      tail += "</span>";
+    }
+    return '<div class="sc ' + cls + (v === null ? " none" : "") + hit + '"><span class="l">' + esc(label) + "</span>" +
+      '<div class="sb"><i style="width:' + w + '%"></i>' + mark + "</div>" +
+      "<b>" + (v === null ? "—" : v) + "</b>" + tail + "</div>";
+  }
+  function studyScoresHtml(key) {
+    var sc = studyScoreOf(key) || {};
+    return '<div class="study-scores">' +
+      studyScoreRow("t", "目標", sc.target, sc.max, null, "未設定") +
+      studyScoreRow("p", "予測", sc.predicted, sc.max, sc.target, "未設定") +
+      studyScoreRow("a", "実点数", sc.actual, sc.max, sc.target, "未返却") +
+      "</div>";
+  }
+  function studyResultBannerHtml() {
+    var over = !!studyData.examOver;
+    return '<div class="study-banner"><div class="n">Result</div><div class="lab"></div><div class="sub">試験 ' +
+      esc(studyExamSpan()) + (over ? "（終了）" : "") + "　目標点数・試験後予測点数・実点数　" +
+      esc(studyData.subjectsLine || "") + "</div></div>";
+  }
+  function renderStudyResult() {
     var el = $("study-board");
     if (!el) return;
     setStudyBoardMode(false);
@@ -938,181 +698,22 @@
       el.innerHTML = '<div class="study-note">試験期間外です</div>';
       return;
     }
-    var subjects = studyData.subjects || [];
-    // 試験科目は9教科を常に並べる（計画のない教科は「準備中」「別枠」の枠にする）
+    // 試験科目は9教科を常に並べる（計画のない教科は進捗の代わりに「準備中」「別枠」を小さく出し、点数は出す）
     var all = studyData.allSubjects || [];
-    var nine = all.length >= 9;
     var boardEl = $("study-board");
-    if (boardEl) boardEl.classList.toggle("study-nine", nine);
-    var meters = '<div class="study-deck' + (subjects.length > 2 ? " many" : "") + (nine ? " nine" : "") + '">';
-    var today = '<div class="study-deck">';
-    if (nine) {
-      all.forEach(function (a) {
-        var sj = studySubject(a.key);
-        meters += sj ? studySubjectMeters(sj) : studySubjectIdle(a);
-      });
-    }
-    subjects.forEach(function (s) {
-      if (!nine) meters += studySubjectMeters(s);
-      if (subjects.length <= 2) today += studySubjectToday(s, "今日の" + s.label);
+    if (boardEl) boardEl.classList.toggle("study-nine", all.length >= 9);
+    var deck = '<div class="study-deck result many' + (all.length >= 9 ? " nine" : "") + '">';
+    all.forEach(function (a) {
+      var sj = studySubject(a.key);
+      deck += sj ? studySubjectMeters(sj) : studySubjectIdle(a);
     });
-    if (subjects.length > 2) today = '<div class="study-deck one">' + studyTodayAllPanel();
-    meters += "</div>";
-    today += "</div>";
-    el.innerHTML = studyBannerHtml() + meters + today;
-    studyFitSoon(el);
-  }
-  function studyTodayAllPanel() {
-    var row = (studyData.plan || []).filter(function (p) { return p.date === studyData.today; })[0];
-    var items = row ? studyCalItems(row) : [];
-    var examSubs = row ? (row.examCards || []).map(function (c) { return c.subjectLabel || ""; }).filter(Boolean) : [];
-    var open = items.filter(function (it) { return !it.done; }).length;
-    var hint = '<span class="hint">' + (items.length ? "残り " + open + " / " + items.length + "件" : "なし") + "</span>";
-    var tcols = items.length > 12 ? 8 : (items.length > 4 ? 6 : 4);
-    return '<section class="study-panel"><h2>今日のやること' +
-      (examSubs.length ? '<span class="exam-subs">試験　' + esc(examSubs.join("・")) + "</span>" : "") + hint + "</h2>" +
-      (items.length
-        ? '<div class="study-tasks" style="--tcols:' + tcols + '">' +
-          items.map(function (it) { return studyTaskCard(it, true); }).join("") + "</div>"
-        : '<div class="study-empty">今日の残りはありません</div>') +
-      "</section>";
-  }
-  function renderStudyTodo() {
-    var el = $("study-board");
-    if (!el) return;
-    setStudyBoardMode(false);
-    if (!studyData) {
-      el.innerHTML = '<div class="study-note">' + (studyLoadErr ? "試験データを取得できません" : "読み込み中…") + "</div>";
-      return;
-    }
-    if (!studyActive()) {
-      el.innerHTML = '<div class="study-note">試験期間外です</div>';
-      return;
-    }
-    var html = studyBannerHtml();
-    setStudyBoardMode(true);
-    var plan = studyData.plan || [];
-    // 上下段は週で分ける（下段は最初の月曜から）。月曜が無ければ半分で分ける
-    var topN = Math.ceil(plan.length / 2) || 1;
-    for (var wi = 1; wi < plan.length; wi++) {
-      var wd = parseLocalDate(plan[wi].date);
-      if (wd && wd.getDay() === 1) { topN = wi; break; }
-    }
-    var row1 = plan.slice(0, topN);
-    var row2 = plan.slice(topN);
-    html += '<div class="study-cal' + (row2.length ? "" : " one") + '">' +
-      studyCalRowHtml(row1) + studyCalRowHtml(row2) + "</div>";
-    el.innerHTML = html;
-    studyFitSoon(el);
+    el.innerHTML = studyResultBannerHtml() + deck + "</div>";
   }
 
-  // 1回目の計測は、1行ごとのカード高さが落ち着く前に走って1〜2px足りないことがある。落ち着いてからもう一度計測する
-  // 左の「今日のタイムライン」帯がデータ取得後に現れると試験ボードの幅が縮むので、幅が変わったときも計測し直す（ResizeObserver）
-  var studyFitObserver = null;
-  var studyFitTimer = null;
-  var studyFitFontsHooked = false;
-  var studyFitWatch = null;
-  // 描画のあとに幅や高さが変わっても（帯の出現・フォント・画面サイズ）、はみ出しが出たら計測し直す安全網
-  function studyFitWatchStart() {
-    if (studyFitWatch) return;
-    studyFitWatch = setInterval(function () {
-      var root = $("study-board");
-      if (!root || root.hidden || !root.isConnected) return;
-      var cards = root.querySelectorAll(".study-task");
-      for (var i = 0; i < cards.length; i++) {
-        if (cards[i].scrollHeight > cards[i].clientHeight + 1 || cards[i].scrollWidth > cards[i].clientWidth + 1) {
-          fitStudyCards(root);
-          return;
-        }
-      }
-    }, 600);
-  }
-  function studyFitSoon(root) {
-    fitStudyCards(root);
-    studyFitWatchStart();
-    setTimeout(function () { if (root && root.isConnected) fitStudyCards(root); }, 80);
-    setTimeout(function () { if (root && root.isConnected) fitStudyCards(root); }, 600);
-    // Web フォントが後から読み込まれると文字幅が変わってはみ出すので、読み込み完了後にも計測する
-    if (typeof document !== "undefined" && document.fonts) {
-      if (document.fonts.ready && document.fonts.ready.then) {
-        document.fonts.ready.then(function () { if (root && root.isConnected) fitStudyCards(root); });
-      }
-      if (!studyFitFontsHooked && document.fonts.addEventListener) {
-        studyFitFontsHooked = true;
-        document.fonts.addEventListener("loadingdone", function () {
-          var r = $("study-board");
-          if (r && r.isConnected) fitStudyCards(r);
-        });
-      }
-    }
-    if (typeof ResizeObserver === "function") {
-      if (studyFitObserver) studyFitObserver.disconnect();
-      studyFitObserver = new ResizeObserver(function () {
-        clearTimeout(studyFitTimer);
-        studyFitTimer = setTimeout(function () { if (root && root.isConnected) fitStudyCards(root); }, 60);
-      });
-      studyFitObserver.observe(root);
-    }
-  }
-  // カレンダーの各日と Status の「今日のやること」は、カードの大きさに合わせて文字を大きくし、はみ出すカードだけ縮める
-  function fitStudyCards(root) {
-    var heads = root.querySelectorAll(".study-cal-day .h");
-    for (var x = 0; x < heads.length; x++) {
-      var hfs = 20;
-      heads[x].style.fontSize = "";
-      if (heads[x].querySelector(".exam-subs")) heads[x].querySelector(".exam-subs").style.fontSize = "";
-      var sub = heads[x].querySelector(".exam-subs");
-      while (hfs > 11 && (heads[x].scrollWidth > heads[x].clientWidth + 1 || (sub && sub.scrollWidth > sub.clientWidth + 1))) {
-        hfs -= 1;
-        heads[x].style.fontSize = hfs + "px";
-        if (sub) sub.style.fontSize = hfs + "px";
-      }
-    }
-    var boxes = root.querySelectorAll(".study-cal-day .items, .study-deck.one .study-tasks");
-    for (var b = 0; b < boxes.length; b++) {
-      var box = boxes[b];
-      var cards = box.querySelectorAll(".study-task");
-      if (!cards.length) continue;
-      // 枠をいちばん大きく使える列数（カードは横長気味が読みやすい）
-      var W = box.clientWidth, H = box.clientHeight, best = 1, bestScore = -1;
-      for (var c = 1; c <= cards.length; c++) {
-        var r = Math.ceil(cards.length / c);
-        var score = Math.min(W / c, (H / r) * 1.6);
-        if (score > bestScore) { bestScore = score; best = c; }
-      }
-      box.style.gridTemplateColumns = "repeat(" + best + ", minmax(0, 1fr))";
-      box.style.gridTemplateRows = "repeat(" + Math.ceil(cards.length / best) + ", minmax(0, 1fr))";
-      var w = cards[0].clientWidth, h = cards[0].clientHeight;
-      if (!w || !h) continue;
-      var fs = Math.max(11, Math.min(44, Math.floor(Math.min(h * 0.3, w * 0.16))));
-      box.style.setProperty("--fs", fs + "px");
-      for (var i = 0; i < cards.length; i++) {
-        var cfs = fs;
-        cards[i].style.removeProperty("--fs");
-        while (cfs > 10 && studyCardsOverflow([cards[i]])) {
-          cfs -= 1;
-          cards[i].style.setProperty("--fs", cfs + "px");
-        }
-      }
-    }
-  }
-
-  function studyCardsOverflow(cards) {
-    for (var i = 0; i < cards.length; i++) {
-      var c = cards[i];
-      if (c.scrollHeight > c.clientHeight + 1 || c.scrollWidth > c.clientWidth + 1) return true;
-      var kids = c.children;
-      for (var k = 0; k < kids.length; k++) {
-        if (kids[k].scrollWidth > kids[k].clientWidth + 1) return true;
-      }
-    }
-    return false;
-  }
   function renderStudy() {
     $("range-line").textContent = studyRangeLine();
     if (isPhone()) renderPhoneStudyToday();
-    else if (pageKey === "studyTodo") renderStudyTodo();
-    else renderStudyStatus();
+    else renderStudyResult();
   }
   window.DashStudyDone = function (id, err, payload) {
     var cb = studyPending[id];
@@ -1216,6 +817,7 @@
   }
   function studySpeakText() {
     if (!studyActive()) return "";
+    if (!isPhone()) return ""; // TV・PC の試験Result は読み上げない（読み上げは iPhone の「今日のやること」のみ）
     var items = studyTodaySpeakItems();
     if (!items.length) return "";
     var groups = [];
@@ -3572,8 +3174,6 @@
     if (nwb && nwb.hidden) nwb.className = "";
     var sb = $("btn-study");
     if (sb && sb.hidden) sb.className = "";
-    var stb = $("btn-study-todo");
-    if (stb && stb.hidden) stb.className = "";
     syncTransitAlert();
   }
 
@@ -4025,7 +3625,6 @@
     if (parent === "transit") parent = "brief";
     if (parent === "tomo" && !afterSixPm()) parent = "brief";
     if (parent === "nextWeekHead" && !nextWeekHeadAvailable()) parent = "weekHead";
-    if (isPhone() && parent === "studyTodo") parent = "study";
     if (isStudyPage(parent) && !studyPagesOn()) parent = isPhone() ? "brief" : "focus";
     if (isPhone() && (parent === "focus" || parent === "week")) parent = "brief";
     if (PAGE_KEYS.indexOf(parent) < 0) parent = isPhone() ? "brief" : "focus";
@@ -6155,7 +5754,7 @@
   function maybeSpeakPage(key) {
     var parent = parentPage(key);
     var next = "";
-    if (parent === "study" || parent === "studyTodo") next = studySpeakText();
+    if (parent === "study") next = studySpeakText();
     else if (parent === "standings") next = standingsSpeakText();
     if (next && lastSpeakText === next && speakIsPlaying()) return;
     stopPageSpeak();
@@ -6186,7 +5785,7 @@
     else if (parent === "brief") text = briefSpeakText(false);
     else if (parent === "tomo") text = briefSpeakText(true);
     else if (isWeekHeadPage(parent)) text = weekHeadSpeakText(parent);
-    else if (parent === "study" || parent === "studyTodo") text = studySpeakText();
+    else if (parent === "study") text = studySpeakText();
     else if (parent === "standings") text = standingsSpeakText();
     else if (parent === "takumi") text = takumiSpeakText();
     if (forKiosk && headlineParent(parent)) {
@@ -6233,7 +5832,7 @@
   function shouldSpeakHeadlineKiosk(page) {
     page = parentPage(page);
     if (page === "tomo" && !afterSixPm()) return false;
-    if (inMorningKioskSpeak() && (page === "brief" || isWeekHeadPage(page) || page === "study" || page === "studyTodo" || page === "takumi")) return true;
+    if (inMorningKioskSpeak() && (page === "brief" || isWeekHeadPage(page) || page === "study" || page === "takumi")) return true;
     var last = readHeadlineSpokenAt(page);
     if (!last) return true;
     return (Date.now() - last) >= BRIEF_SPEAK_MS;
@@ -6602,7 +6201,7 @@
       if (isNextWeekHead(parent) && slice !== "miscMarinos" && slice !== "juku") return "来週。" + bodyW;
       return bodyW;
     }
-    if (parent === "study" || (parent === "studyTodo" && (slice === "today" || !slice))) return studySpeakText();
+    if (parent === "study") return studySpeakText();
     return "";
   }
   window.DashSpeakStart = function (id) {
@@ -6926,7 +6525,7 @@
         pg = "weekHead";
         storedParent = "weekHead";
       }
-      if (isPhone() && storedParent === "studyTodo") {
+      if (storedParent === "studyTodo") {
         pg = "study";
         storedParent = "study";
       }
@@ -6976,7 +6575,6 @@
     $("btn-brief").addEventListener("click", function () { goPage("brief"); });
     if ($("btn-tomo")) $("btn-tomo").addEventListener("click", function () { goPage("tomo"); });
     if ($("btn-study")) $("btn-study").addEventListener("click", function () { goPage("study"); });
-    if ($("btn-study-todo")) $("btn-study-todo").addEventListener("click", function () { goPage("studyTodo"); });
     $("btn-focus").addEventListener("click", function () { goPage("focus"); });
     $("btn-wx").addEventListener("click", function () { goPage("wx"); });
     $("btn-week-head").addEventListener("click", function () { goPage("weekHead"); });
