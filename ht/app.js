@@ -95,7 +95,6 @@
   var studyLoadErr = "";
   var studyCbSeq = 0;
   var studyPending = {};
-  var STANDINGS_CODES = ["U-15", "U-13L"];
   var standingsData = null;
   var standingsLoadErr = "";
   var standingsCbSeq = 0;
@@ -1189,9 +1188,10 @@
   // U15L2部の隣にREGALIA非所属の参考グループ（extraGroup、GAS側でハードコード）を
   // 表示する（ユーザー指示、2026-09-17）。REGALIA不在のためsimulation/残り対戦相手は無く、
   // standingsColHtmlに渡す形だけ合わせて表・凡例のみ描画する。
-  function standingsExtraColHtml(parentCat, extra, storeKey) {
-    if (!extra) return '<div class="stg-col"></div>';
-    return standingsColHtml({
+  // 描画と読み上げで同じオブジェクトを使う（standingsCheckNew の署名がズレると誤ハイライトになる）。
+  function standingsExtraViewCat(parentCat, extra) {
+    if (!extra) return null;
+    return {
       ok: true,
       label: (parentCat && parentCat.label) || "",
       group_name: extra.group_name,
@@ -1204,7 +1204,11 @@
       matrix: extra.matrix || null,
       doubleRoundRobin: parentCat ? parentCat.doubleRoundRobin : undefined,
       matches: (parentCat && parentCat.extraMatches) || []
-    }, storeKey);
+    };
+  }
+  function standingsExtraColHtml(parentCat, extra, storeKey) {
+    if (!extra) return '<div class="stg-col"></div>';
+    return standingsColHtml(standingsExtraViewCat(parentCat, extra), storeKey);
   }
   // 左列: U15L2部REGALIA所属グループ（上）／その参考グループ（下）。
   // 右列: U13L2部REGALIA所属グループ（上）／その参考グループ（下）。
@@ -1514,26 +1518,92 @@
     return "<img" + c + ' src="icons/' + stgIconKey(url) + '.png" data-o="' + esc(url) +
       '" onerror="this.onerror=null;this.src=this.dataset.o" alt="">';
   }
-  // 読み上げはREGALIAの順位のみ（他チームの成績は読まない、ユーザー確認済み）。
-  // U15L/U13Lの「L」はリーグと読む（ユーザー確認済み）。残り試合数も読む。
+  // 読み上げは U13L のハイライト試合結果のみ（2026-11-16、ユーザー指示）。
+  // ハイライトは画面と同じ判定を流用: 週末点滅（standingsWeekendCells / .stg-mx-wk）と
+  // New の琥珀色（standingsCheckNew / .stg-mx-changed）。U15L・順位・残り試合・ゾーン・
+  // ハイライトされていない試合は読まない。ハイライトが無ければ無音。
+  // 「U13L」の L はリーグと読む（表示は変えない）。
   function standingsSpeakLabel(label) {
     return String(label || "").replace(/U(\d+)L/, "U$1リーグ");
   }
-  function standingsSpeakOne(cat) {
+  function standingsSpeakClub(name) {
+    var s = String(name || "").trim();
+    if (/REGALIA|レガリア/i.test(s)) return "レガリア";
+    return s;
+  }
+  function standingsScoreSpeech(v) {
+    var s = "";
+    if (Array.isArray(v)) s = v.filter(function (x) { return x; })[0] || "";
+    else s = v || "";
+    var m = /^([WLD])(\d+)-(\d+)$/.exec(s);
+    if (!m) return "";
+    return m[2] + "対" + m[3];
+  }
+  function standingsHighlightKeySet(cat, storeKey) {
+    var set = {};
+    var wk = standingsWeekendCells(cat);
+    Object.keys(wk).forEach(function (k) { set[k] = true; });
+    var info = storeKey ? standingsCheckNew(storeKey, cat) : { changedCells: [] };
+    (info.changedCells || []).forEach(function (k) {
+      var p = String(k).split(":");
+      if (p.length >= 2) set[p[0] + ":" + p[1]] = true;
+    });
+    return set;
+  }
+  function standingsSpeakHighlighted(cat, storeKey) {
     if (!cat || !cat.ok) return "";
-    var t = standingsRegaliaTeam(cat);
-    if (!t) return "";
-    var bits = [standingsSpeakLabel(cat.label) + "、" + (cat.group_name || "") + "のREGALIAの順位は" + t.rank + "位、" +
-      (cat.teams || []).length + "チーム中です。残り" + t.remaining + "試合です。"];
-    var zone = (cat.zones || {})[String(t.rank)];
-    if (zone) bits.push(zone.label + "です。");
-    else if (cat.note) bits.push(cat.note + "。");
-    return bits.join("");
+    var teams = cat.teams || [];
+    var matrix = cat.matrix || [];
+    var set = standingsHighlightKeySet(cat, storeKey);
+    if (!Object.keys(set).length) return "";
+    function norm(s) { return String(s || "").replace(/\s+/g, ""); }
+    var idxOf = {};
+    teams.forEach(function (t, i) { idxOf[norm(t.club)] = i; });
+    var spoken = {};
+    var lines = [];
+    function pairKey(i, j) {
+      return i < j ? i + ":" + j : j + ":" + i;
+    }
+    function pushMatch(i, j) {
+      if (i === undefined || j === undefined || i === j || isNaN(i) || isNaN(j)) return;
+      var pk = pairKey(i, j);
+      if (spoken[pk]) return;
+      var row = matrix[i];
+      var cell = row && row.cells && row.cells[j];
+      var home = teams[i];
+      var away = teams[j];
+      var empty = cell === null || cell === undefined || cell === "" ||
+        (Array.isArray(cell) && !cell.some(Boolean));
+      if (empty && matrix[j] && matrix[j].cells) {
+        cell = matrix[j].cells[i];
+        home = teams[j];
+        away = teams[i];
+      }
+      var score = standingsScoreSpeech(cell);
+      if (!score) return;
+      spoken[pk] = true;
+      lines.push(standingsSpeakClub(home && home.club) + "対" + standingsSpeakClub(away && away.club) + "、" + score + "です。");
+    }
+    (cat.matches || []).forEach(function (m) {
+      var i = idxOf[norm(m.home)];
+      var j = idxOf[norm(m.away)];
+      if (set[i + ":" + j] || set[j + ":" + i]) pushMatch(i, j);
+    });
+    Object.keys(set).forEach(function (k) {
+      var p = String(k).split(":");
+      pushMatch(Number(p[0]), Number(p[1]));
+    });
+    if (!lines.length) return "";
+    return standingsSpeakLabel(cat.label) + "、" + (cat.group_name || "") + "の試合結果です。" + lines.join("");
   }
   function standingsSpeakText() {
-    return STANDINGS_CODES.map(function (code) {
-      return standingsSpeakOne(standingsCatByCode(code));
-    }).filter(Boolean).join("");
+    var u13 = standingsCatByCode("U-13L");
+    if (!u13) return "";
+    var parts = [standingsSpeakHighlighted(u13, "U-13L")];
+    if (u13.extraGroup) {
+      parts.push(standingsSpeakHighlighted(standingsExtraViewCat(u13, u13.extraGroup), "U-13L:extra"));
+    }
+    return parts.filter(Boolean).join("");
   }
   function dayKey(v) { return String(v || "").slice(0, 10); }
   function $(id) { return document.getElementById(id); }
@@ -5458,7 +5528,7 @@
     prefetchWeek();
     clearKioskTimer();
     onKioskPageReady(kioskKey);
-    appLog({ event: "kiosk_on", v: "0.3.184" });
+    appLog({ event: "kiosk_on", v: "0.3.188" });
   }
   window.DashPhoneStart = function () {
     phoneWantSpeak = true;
