@@ -59,7 +59,9 @@
   var PAGE_MS = 15 * 1000;
   var SPEAK_HOLD_MS = 5 * 1000;
   var SPEAK_FAILSAFE_MS = 90 * 1000;
-  var SPEAK_CHUNK_MAX = 48;
+  // 48 だと「GROUP Bの試合結果です。」だけが単独チャンクになり、次チャンクの
+  // QUEUE_FLUSH / cancel で「B」「バオム」の途中切れが起きる（2026-11-16）。
+  var SPEAK_CHUNK_MAX = 120;
   var hushSpeak = false;
   var quietSpeakLatch = null;
   var clockDay = "";
@@ -1526,9 +1528,25 @@
   function standingsSpeakLabel(label) {
     return String(label || "").replace(/U(\d+)L/, "U$1リーグ");
   }
+  // TTS が英字1文字 "B" で区切ったり英語読みで途切れないよう、グループは日本語で読む。
+  function standingsSpeakGroup(name) {
+    var s = String(name || "").trim();
+    var m = /^GROUP\s*([A-Z])$/i.exec(s);
+    if (m) {
+      var letter = m[1].toUpperCase();
+      var yomi = { A: "エー", B: "ビー", C: "シー", D: "ディー", E: "イー" };
+      return "グループ" + (yomi[letter] || letter);
+    }
+    return s.replace(/GROUP/ig, "グループ");
+  }
   function standingsSpeakClub(name) {
     var s = String(name || "").trim();
     if (/REGALIA|レガリア/i.test(s)) return "レガリア";
+    // 長い正式名は短い読みに（途中切れしにくく、聞き取りやすい）。
+    if (/バオム/.test(s)) return "バオム";
+    if (/BANFF/i.test(s)) return "バンフ横浜";
+    if (/FUTURO/i.test(s)) return "フトゥロ";
+    s = s.replace(/\bF\.?\s*C\.?\b/gi, "エフシー");
     return s;
   }
   function standingsScoreSpeech(v) {
@@ -1594,7 +1612,8 @@
       pushMatch(Number(p[0]), Number(p[1]));
     });
     if (!lines.length) return "";
-    return standingsSpeakLabel(cat.label) + "、" + (cat.group_name || "") + "の試合結果です。" + lines.join("");
+    return standingsSpeakLabel(cat.label) + "、" + standingsSpeakGroup(cat.group_name) +
+      "の試合結果です。" + lines.join("");
   }
   function standingsSpeakText() {
     var u13 = standingsCatByCode("U-13L");
@@ -1603,6 +1622,7 @@
     if (u13.extraGroup) {
       parts.push(standingsSpeakHighlighted(standingsExtraViewCat(u13, u13.extraGroup), "U-13L:extra"));
     }
+    // グループ間は句点で区切り、チャンク分割がイントロだけを切り出さないようにする。
     return parts.filter(Boolean).join("");
   }
   function dayKey(v) { return String(v || "").slice(0, 10); }
@@ -5709,17 +5729,28 @@
       }
       var slice = t.slice(i, i + max);
       var cut = -1;
+      // 句点優先。読点分割は「グループビーの試合結果です。」だけが孤立する原因なので、
+      // 後半 55% 以降に句点が無いときだけ読点を使う。
       var marks = "。！？\n";
       var m;
       for (m = 0; m < marks.length; m++) {
         var p = slice.lastIndexOf(marks.charAt(m));
         if (p > cut) cut = p;
       }
-      if (cut < Math.floor(max * 0.4)) {
+      if (cut < Math.floor(max * 0.55)) {
         var p2 = slice.lastIndexOf("、");
-        if (p2 > cut) cut = p2;
+        if (p2 >= Math.floor(max * 0.45) && p2 > cut) cut = p2;
       }
-      if (cut < 8) cut = max - 1;
+      if (cut < 8) {
+        // 強制切断でもチーム名の途中（例: バオム）を避け、直近の区切りへ戻す。
+        var soft = Math.max(
+          slice.lastIndexOf("対"),
+          slice.lastIndexOf("、"),
+          slice.lastIndexOf("。"),
+          slice.lastIndexOf(" ")
+        );
+        cut = soft >= 8 ? soft : max - 1;
+      }
       var piece = t.slice(i, i + cut + 1).replace(/^\s+|\s+$/g, "");
       if (piece) parts.push(piece);
       i += cut + 1;
@@ -5727,10 +5758,14 @@
     }
     return parts;
   }
+  // Android TTS / Chrome は長めの発話や英字混在で onDone が早過ぎることがある。
+  // 早過ぎる完了を受理して次チャンクを QUEUE_FLUSH すると「B」「バオム」で切れる。
+  // 日本語 TTS はおおよそ 120〜160ms/字。下限を厚くして実読み上げ完了前の進行を防ぐ。
   function speakMinElapsedMs(chunk) {
     var n = String(chunk || "").length;
-    if (n <= 8) return 0;
-    return Math.min(6000, 250 + n * 60);
+    if (n <= 0) return 0;
+    if (n <= 4) return 600;
+    return Math.min(20000, 800 + n * 140);
   }
   function finishSpeakPage() {
     speakChunks = [];
