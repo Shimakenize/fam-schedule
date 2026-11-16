@@ -59,9 +59,16 @@
   var PAGE_MS = 15 * 1000;
   var SPEAK_HOLD_MS = 5 * 1000;
   var SPEAK_FAILSAFE_MS = 90 * 1000;
-  // 48 だと「GROUP Bの試合結果です。」だけが単独チャンクになり、次チャンクの
-  // QUEUE_FLUSH / cancel で「B」「バオム」の途中切れが起きる（2026-11-16）。
+  // WHY (v0.3.189 RCA): 上限48だと「…GROUP Bの試合結果です。」が単独チャンクになり、
+  // 早過ぎる onDone→次チャンクの QUEUE_FLUSH/cancel で「B」「バオム」が途中切れする。
+  // 120ならグループイントロ＋1試合文が同居し、句点分割だけで足りる。下げないこと。
+  // 回帰: scripts/test_standings_speak.js / .github/workflows/test-standings-speak.yml
   var SPEAK_CHUNK_MAX = 120;
+  // WHY: 旧 60ms/字では minElapsed が実読み上げより短く、早過ぎる onDone を受理してしまう。
+  // 日本語 TTS はおおよそ 120〜160ms/字。140ms/字＋下駄800ms。短くしないこと。
+  var SPEAK_MS_PER_CHAR = 140;
+  var SPEAK_MIN_BASE_MS = 800;
+  var SPEAK_MIN_SHORT_MS = 600; // 4字以下でも無音スキップに見せない下限
   var hushSpeak = false;
   var quietSpeakLatch = null;
   var clockDay = "";
@@ -1528,7 +1535,8 @@
   function standingsSpeakLabel(label) {
     return String(label || "").replace(/U(\d+)L/, "U$1リーグ");
   }
-  // TTS が英字1文字 "B" で区切ったり英語読みで途切れないよう、グループは日本語で読む。
+  // WHY: 英字のまま "GROUP B" を渡すと TTS が "B" で区切って途切れ／英語読みになる（v0.3.189）。
+  // 表示は GROUP B のまま、読み上げだけ「グループビー」。A〜E も同様。戻さないこと。
   function standingsSpeakGroup(name) {
     var s = String(name || "").trim();
     var m = /^GROUP\s*([A-Z])$/i.exec(s);
@@ -5758,14 +5766,14 @@
     }
     return parts;
   }
-  // Android TTS / Chrome は長めの発話や英字混在で onDone が早過ぎることがある。
-  // 早過ぎる完了を受理して次チャンクを QUEUE_FLUSH すると「B」「バオム」で切れる。
-  // 日本語 TTS はおおよそ 120〜160ms/字。下限を厚くして実読み上げ完了前の進行を防ぐ。
+  // WHY: Android TTS / Chrome は英字混在や長め発話で onDone が早過ぎる。
+  // 早過ぎる完了を受理して次チャンクへ進むと QUEUE_FLUSH/cancel で途中切れする（v0.3.189）。
+  // DashSpeakDone は elapsed < speakMinElapsedMs なら無視する。定数を短く戻さないこと。
   function speakMinElapsedMs(chunk) {
     var n = String(chunk || "").length;
     if (n <= 0) return 0;
-    if (n <= 4) return 600;
-    return Math.min(20000, 800 + n * 140);
+    if (n <= 4) return SPEAK_MIN_SHORT_MS;
+    return Math.min(20000, SPEAK_MIN_BASE_MS + n * SPEAK_MS_PER_CHAR);
   }
   function finishSpeakPage() {
     speakChunks = [];
