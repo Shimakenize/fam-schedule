@@ -603,32 +603,25 @@
   function studyScoreNum(v) {
     return v != null && v !== "" && !isNaN(Number(v)) ? Number(v) : null;
   }
+  // 点数の欄（2026-11-16）: 左に3本の棒（目標・自己予測・実点数）。目標・自己予測の数字は棒の右端に小さく、
+  // 実点数は棒グラフの右に大きく1つ出す（目標との差を添える。未返却は「—」）。
   function studyScoreRow(cls, label, val, max, target, noneNote) {
     var v = studyScoreNum(val);
     var m = studyScoreNum(max) > 0 ? studyScoreNum(max) : 100;
     var tg = studyScoreNum(target);
     var w = v === null ? 0 : Math.max(0, Math.min(100, (v / m) * 100));
-    // 予測・実点数のバーには、目標の位置に白い目印を立てる（届いたか一目で分かる）
+    // 自己予測・実点数のバーには、目標の位置に白い目印を立てる（届いたか一目で分かる）
     var mark = tg !== null && cls.charAt(0) !== "t"
       ? '<u style="left:' + Math.max(0, Math.min(100, (tg / m) * 100)) + '%"></u>' : "";
     var hit = "";
-    var tail;
-    if (v === null) {
-      tail = '<span class="u">' + esc(noneNote || "") + "</span>";
-    } else {
-      tail = '<span class="u">点';
-      if (cls.charAt(0) === "a" && tg !== null) {
-        var d = v - tg;
-        hit = d >= 0 ? " hit" : " miss";
-        tail += '<em>' + (d >= 0 ? "目標+" : "目標") + d + "</em>";
-      }
-      tail += "</span>";
-    }
+    if (cls.charAt(0) === "a" && v !== null && tg !== null) hit = v - tg >= 0 ? " hit" : " miss";
     // 値の無い目標・自己予測は、比べる相手も無いのでバーを出さない（実点数は目標があれば返却待ちの枠を残す）
     var showBar = v !== null || (cls.charAt(0) === "a" && tg !== null);
+    // 目標・自己予測だけ、棒の右端に小さく数字（実点数の数字は右の大きな表示に出す）
+    var small = cls.charAt(0) === "a" ? "" : (v === null ? esc(noneNote || "") : "<b>" + v + "</b>点");
     return '<div class="sc ' + cls + (v === null ? " none" : "") + hit + '"><span class="l">' + esc(label) + "</span>" +
       (showBar ? '<div class="sb"><i style="width:' + w + '%"></i>' + mark + "</div>" : '<div class="sb nobar"></div>') +
-      "<b>" + (v === null ? "—" : v) + "</b>" + tail + "</div>";
+      '<span class="n">' + small + "</span></div>";
   }
   function studyScoresHtml(key) {
     var sc = studyScoreOf(key) || {};

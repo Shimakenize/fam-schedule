@@ -342,23 +342,28 @@
     .study-deck.nine .study-meter .mnone { font-size: 18px; }
     .study-panel.idle { opacity: 0.82; border-style: dashed; }
     /* 試験Result: 教科カードの下の 目標・予測・実点数（グラフ＋数値） */
-    .study-scores { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; padding-top: 5px; border-top: 1px dashed rgba(255,255,255,0.22); }
-    .study-scores .sc { display: grid; grid-template-columns: 76px minmax(0, 1fr) 46px 78px; align-items: center; gap: 6px; font-size: 13px; }
+    .study-scores { display: grid; grid-template-columns: minmax(0, 1fr) 118px; gap: 10px; align-items: stretch; margin-top: 4px; padding-top: 5px; border-top: 1px dashed rgba(255,255,255,0.22); }
+    .study-scores .sbars { display: flex; flex-direction: column; justify-content: space-between; gap: 3px; min-width: 0; }
+    .study-scores .sc { display: grid; grid-template-columns: 76px minmax(0, 1fr) 54px; align-items: center; gap: 6px; font-size: 13px; }
     .study-scores .sb.nobar { background: transparent; }
     .study-scores .sc .l { color: var(--muted); font-weight: 700; letter-spacing: 0.04em; font-size: 13px; }
     .study-scores .sb { position: relative; height: 15px; border-radius: 8px; background: rgba(255,255,255,0.13); overflow: hidden; }
     .study-scores .sb i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 8px; }
     .study-scores .sb u { position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1px; background: #ffffff; text-decoration: none; box-shadow: 0 0 2px rgba(0,0,0,0.6); }
-    .study-scores .sc b { font-size: 24px; line-height: 1; text-align: right; font-variant-numeric: tabular-nums; }
-    .study-scores .sc .u { font-size: 12px; color: var(--muted); line-height: 1.1; white-space: nowrap; }
-    .study-scores .sc .u em { display: block; font-style: normal; font-size: 11px; font-weight: 700; }
+    .study-scores .sc .n { font-size: 11px; color: var(--muted); white-space: nowrap; line-height: 1; }
+    .study-scores .sc .n b { font-size: 16px; color: inherit; font-weight: 800; margin-right: 1px; font-variant-numeric: tabular-nums; }
     .study-scores .sc.t i { background: #60a5fa; }
     .study-scores .sc.p i { background: #fbbf24; }
     .study-scores .sc.a i { background: #4ade80; }
     .study-scores .sc.a.miss i { background: #fb923c; }
-    .study-scores .sc.a.hit b { color: #86efac; }
-    .study-scores .sc.a.miss b { color: #fdba74; }
-    .study-scores .sc.none b { color: var(--muted); font-size: 20px; }
+    /* 実点数: 棒グラフの右に大きく */
+    .study-scores .sbig { display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 10px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); padding: 2px 6px; min-width: 0; }
+    .study-scores .sbig b { font-size: 52px; line-height: 1; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .study-scores .sbig span { font-size: 13px; color: var(--muted); line-height: 1.2; text-align: center; }
+    .study-scores .sbig span em { display: block; font-style: normal; font-size: 13px; font-weight: 800; }
+    .study-scores .sbig.hit b, .study-scores .sbig.hit em { color: #86efac; }
+    .study-scores .sbig.miss b, .study-scores .sbig.miss em { color: #fdba74; }
+    .study-scores .sbig.none b { font-size: 34px; color: var(--muted); }
     .study-deck.result .study-panel { justify-content: space-between; }
     .study-panel.idle .study-idle { font-size: 15px; }
     /* 試験Result: 段の左の Day 表記と、教科カードの 初回／誤答 の枠 */
