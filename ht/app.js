@@ -625,11 +625,21 @@
   }
   function studyScoresHtml(key) {
     var sc = studyScoreOf(key) || {};
-    return '<div class="study-scores">' +
+    var a = studyScoreNum(sc.actual);
+    var tg = studyScoreNum(sc.target);
+    var big;
+    if (a === null) {
+      big = '<div class="sbig none"><b>—</b><span>未返却</span></div>';
+    } else {
+      var d = tg === null ? null : a - tg;
+      big = '<div class="sbig ' + (d === null ? "" : (d >= 0 ? "hit" : "miss")) + '"><b>' + a + "</b><span>点" +
+        (d === null ? "" : "<em>目標" + (d >= 0 ? "+" : "") + d + "</em>") + "</span></div>";
+    }
+    return '<div class="study-scores"><div class="sbars">' +
       studyScoreRow("t", "目標", sc.target, sc.max, null, "未設定") +
       studyScoreRow("p", "自己予測", sc.predicted, sc.max, sc.target, "未設定") +
       studyScoreRow("a", "実点数", sc.actual, sc.max, sc.target, "未返却") +
-      "</div>";
+      "</div>" + big + "</div>";
   }
   function studyResultBannerHtml() {
     var over = !!studyData.examOver;
